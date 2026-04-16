@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const repo = require("./auth.repository");
-const { UnauthorizedError, ValidationError } = require("../shared/errors");
+const { UnauthorizedError, ValidationError, NotFoundError } = require("../shared/errors");
 
 const SALT_ROUNDS = 10;
 
@@ -44,4 +44,28 @@ async function me(userId) {
   return user;
 }
 
-module.exports = { login, register, me };
+async function getAllUsers() {
+  return repo.findAllUsers();
+}
+
+async function deleteUser(targetId, requestingUserId) {
+  if (targetId === requestingUserId)
+    throw new ValidationError("You cannot delete your own account");
+  const user = await repo.findUserById(targetId);
+  if (!user) throw new NotFoundError("User");
+  return repo.deleteUser(targetId);
+}
+
+const VALID_ROLES = ["admin", "staff", "kitchen"];
+
+async function updateUserRole(targetId, role, requestingUserId) {
+  if (targetId === requestingUserId)
+    throw new ValidationError("You cannot change your own role");
+  if (!VALID_ROLES.includes(role))
+    throw new ValidationError(`role must be one of: ${VALID_ROLES.join(", ")}`);
+  const user = await repo.findUserById(targetId);
+  if (!user) throw new NotFoundError("User");
+  return repo.updateUserRole(targetId, role);
+}
+
+module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole };

@@ -38,4 +38,34 @@ router.get("/me", authenticate, async (req, res, next) => {
   }
 });
 
+// Admin-only: list all users
+router.get("/users", authenticate, authorize("admin"), async (req, res, next) => {
+  try {
+    const users = await service.getAllUsers();
+    res.json(users);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Admin-only: delete a user
+router.delete("/users/:id", authenticate, authorize("admin"), async (req, res, next) => {
+  try {
+    await service.deleteUser(req.params.id, req.user.userId);
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Admin-only: change a user's role
+router.patch("/users/:id/role", authenticate, authorize("admin"), async (req, res, next) => {
+  try {
+    const user = await service.updateUserRole(req.params.id, req.body.role, req.user.userId);
+    res.json(user);
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
