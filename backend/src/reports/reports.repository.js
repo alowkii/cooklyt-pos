@@ -2,7 +2,7 @@ const db = require("../shared/db");
 
 // Reports is READ-ONLY — never writes to any table
 
-const getDailySummary = (date) =>
+const getDailySummary = (date, tz = "UTC") =>
   db
     .query(
       `
@@ -11,14 +11,14 @@ const getDailySummary = (date) =>
       COALESCE(SUM(p.amount), 0) AS total_revenue
     FROM orders o
     JOIN payments p ON p.order_id = o.id
-    WHERE DATE(o.created_at) = $1
+    WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
   `,
-      [date],
+      [date, tz],
     )
     .then((r) => r.rows[0]);
 
-const getRevenueByCategory = (date) =>
+const getRevenueByCategory = (date, tz = "UTC") =>
   db
     .query(
       `
@@ -30,16 +30,16 @@ const getRevenueByCategory = (date) =>
     JOIN menu_items mi ON mi.id = oi.menu_item_id
     JOIN orders o      ON o.id = oi.order_id
     JOIN payments p    ON p.order_id = o.id
-    WHERE DATE(o.created_at) = $1
+    WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
     GROUP BY mi.category
     ORDER BY revenue DESC
   `,
-      [date],
+      [date, tz],
     )
     .then((r) => r.rows);
 
-const getTopItems = (date, limit = 10) =>
+const getTopItems = (date, tz = "UTC", limit = 10) =>
   db
     .query(
       `
@@ -52,32 +52,32 @@ const getTopItems = (date, limit = 10) =>
     JOIN menu_items mi ON mi.id = oi.menu_item_id
     JOIN orders o      ON o.id = oi.order_id
     JOIN payments p    ON p.order_id = o.id
-    WHERE DATE(o.created_at) = $1
+    WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
     GROUP BY mi.id, mi.name, mi.category
     ORDER BY total_sold DESC
-    LIMIT $2
+    LIMIT $3
   `,
-      [date, limit],
+      [date, tz, limit],
     )
     .then((r) => r.rows);
 
-const getHourlySales = (date) =>
+const getHourlySales = (date, tz = "UTC") =>
   db
     .query(
       `
     SELECT
-      EXTRACT(HOUR FROM o.created_at) AS hour,
-      COUNT(DISTINCT o.id)            AS orders,
-      COALESCE(SUM(p.amount), 0)      AS revenue
+      EXTRACT(HOUR FROM o.created_at AT TIME ZONE $2)::int AS hour,
+      COUNT(DISTINCT o.id)                                  AS orders,
+      COALESCE(SUM(p.amount), 0)                            AS revenue
     FROM orders o
     JOIN payments p ON p.order_id = o.id
-    WHERE DATE(o.created_at) = $1
+    WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
     GROUP BY hour
     ORDER BY hour
   `,
-      [date],
+      [date, tz],
     )
     .then((r) => r.rows);
 

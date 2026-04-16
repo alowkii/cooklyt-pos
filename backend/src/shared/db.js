@@ -16,7 +16,10 @@ const pool = new Pool({
 // Set each connection's session timezone to UTC so PostgreSQL formats
 // timestamp values in UTC before handing them to the type parser above.
 pool.on("connect", (client) => {
-  client.query("SET timezone = 'UTC'");
+  // Use a callback form so pg's pool waits for this before releasing the client.
+  client.query("SET timezone = 'UTC'", (err) => {
+    if (err) console.error("Failed to set session timezone", err);
+  });
 });
 
 pool.on("error", (err) => {
