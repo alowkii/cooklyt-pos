@@ -9,9 +9,10 @@ router.get(
   authorize("admin"),
   async (req, res, next) => {
     try {
-      // ?date=2024-01-15  (defaults to today)
+      // ?date=2024-01-15&tz=Asia/Kolkata  (both optional)
       const date = req.query.date || new Date().toISOString().split("T")[0];
-      const report = await service.getDailySummary(date);
+      const tz   = req.query.tz   || "UTC";
+      const report = await service.getDailySummary(date, tz);
       res.json(report);
     } catch (e) {
       next(e);
