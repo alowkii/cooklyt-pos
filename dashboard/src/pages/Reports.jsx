@@ -7,6 +7,7 @@ import {
 import { DollarSign, ShoppingBag, TrendingUp } from 'lucide-react';
 import { useDailyReport } from '../hooks/useReports';
 import { useCurrency } from '../context/CurrencyContext';
+import { useTimezone } from '../context/TimezoneContext';
 
 function SummaryCard({ Icon, label, value, colorClass }) {
   return (
@@ -23,7 +24,8 @@ function SummaryCard({ Icon, label, value, colorClass }) {
 }
 
 export default function Reports() {
-  const today = new Date().toISOString().split('T')[0];
+  const { timezone, todayLocal } = useTimezone();
+  const today = todayLocal();
   const [date, setDate] = useState(today);
 
   const { data, isLoading, isError } = useDailyReport(date);
@@ -131,9 +133,10 @@ export default function Reports() {
 
             {/* ── Hourly Revenue ───────────────────── */}
             <div className="rounded-xl bg-white p-5 shadow-sm">
-              <h3 className="mb-4 text-sm font-semibold text-slate-700">
-                Hourly Revenue
-              </h3>
+              <div className="mb-4 flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">Hourly Revenue</h3>
+                <span className="text-xs text-slate-400">{timezone.label} · {timezone.offset}</span>
+              </div>
               {data.hourly?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart
