@@ -1,0 +1,266 @@
+import { useState, useEffect, useMemo } from 'react';
+import { X, Plus, Minus, ShoppingBag, ChevronRight } from 'lucide-react';
+import { useMenuItems } from '../hooks/useMenu';
+import { useTables } from '../hooks/useTables';
+import { useCreateOrder } from '../hooks/useOrders';
+import { useCurrency } from '../context/CurrencyContext';
+
+const TABLE_CLS = {
+  available: 'border-emerald-300 bg-emerald-50  text-emerald-800',
+  occupied:  'border-red-300    bg-red-50     text-red-800',
+  reserved:  'border-amber-300  bg-amber-50   text-amber-800',
+  cleaning:  'border-blue-300   bg-blue-50    text-blue-800',
+};
+
+export default function NewOrderModal({ onClose }) {
+  const { data: menuItems = [] } = useMenuItems();
+  const { data: tables = [] }    = useTables();
+  const createOrder              = useCreateOrder();
+  const { format }               = useCurrency();
+
+  const [tableId,   setTableId]   = useState(null);
+  const [quantities, setQty]      = useState({});   // { menuItemId: number }
+  const [notes,      setNotes]    = useState({});   // { menuItemId: string }
+  const [error,      setError]    = useState('');
+
+  // Close on Escape
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
+  // Only show available + occupied tables
+  const eligibleTables = useMemo(
+    () => [...tables]
+      .filter((t) => t.status === 'available' || t.status === 'occupied')
+      .sort((a, b) => a.number - b.number),
+    [tables],
+  );
+
+  // Menu grouped by category, only available items
+  const grouped = useMemo(() => {
+    const available = menuItems.filter((m) => m.available);
+    return available.reduce((acc, item) => {
+      const cat = item.category || 'Other';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(item);
+      return acc;
+    }, {});
+  }, [menuItems]);
+
+  // Cart: items with qty > 0
+  const cartItems = useMemo(
+    () => menuItems.filter((m) => (quantities[m.id] ?? 0) > 0),
+    [menuItems, quantities],
+  );
+
+  const total = useMemo(
+    () => cartItems.reduce((sum, m) => sum + m.price * (quantities[m.id] ?? 0), 0),
+    [cartItems, quantities],
+  );
+
+  function changeQty(menuItemId, delta) {
+    setQty((prev) => {
+      const next = Math.max(0, (prev[menuItemId] ?? 0) + delta);
+      if (next === 0) {
+        const { [menuItemId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [menuItemId]: next };
+    });
+  }
+
+  async function handleSubmit() {
+    setError('');
+    if (!tableId) { setError('Please select a table.'); return; }
+    if (cartItems.length === 0) { setError('Add at least one item.'); return; }
+
+    const items = cartItems.map((m) => ({
+      menuItemId: m.id,
+      quantity:   quantities[m.id],
+      notes:      notes[m.id] || undefined,
+    }));
+
+    try {
+      await createOrder.mutateAsync({ tableId, items });
+      onClose();
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Failed to place order');
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl"
+           style={{ maxHeight: '90vh' }}>
+
+        {/* ── Header ── */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="text-base font-semibold text-slate-800">New Order</h2>
+          <button onClick={onClose}
+            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* ── Table selector ── */}
+        <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Select Table
+          </p>
+          {eligibleTables.length === 0 ? (
+            <p className="text-sm text-slate-400">No available or occupied tables</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {eligibleTables.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTableId(t.id)}
+                  className={`rounded-lg border-2 px-3 py-1.5 text-sm font-semibold transition-all
+                    ${TABLE_CLS[t.status] ?? 'border-slate-200 bg-slate-50 text-slate-600'}
+                    ${tableId === t.id ? 'ring-2 ring-indigo-400 ring-offset-1' : 'hover:opacity-80'}
+                  `}
+                >
+                  {t.number}
+                  <span className="ml-1 text-[10px] font-normal opacity-60 capitalize">
+                    {t.status}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Body: menu + cart ── */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+
+          {/* Menu */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {Object.keys(grouped).length === 0 ? (
+              <p className="text-sm text-slate-400">No menu items available</p>
+            ) : (
+              Object.entries(grouped).map(([category, items]) => (
+                <div key={category} className="mb-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    {category}
+                  </p>
+                  <div className="space-y-1">
+                    {items.map((item) => {
+                      const qty = quantities[item.id] ?? 0;
+                      return (
+                        <div key={item.id}
+                          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {format(item.price)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {qty > 0 && (
+                              <button
+                                onClick={() => changeQty(item.id, -1)}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                              >
+                                <Minus size={12} />
+                              </button>
+                            )}
+                            {qty > 0 && (
+                              <span className="w-5 text-center text-sm font-semibold text-slate-800">
+                                {qty}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => changeQty(item.id, 1)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Cart */}
+          <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-100 bg-slate-50 px-4 py-4">
+            <div className="mb-3 flex items-center gap-2">
+              <ShoppingBag size={14} className="text-slate-400" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Order ({cartItems.length})
+              </p>
+            </div>
+
+            {cartItems.length === 0 ? (
+              <p className="text-xs text-slate-400">No items yet</p>
+            ) : (
+              <ul className="space-y-3">
+                {cartItems.map((item) => (
+                  <li key={item.id} className="text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-slate-700">
+                        <span className="font-medium">{quantities[item.id]}×</span>{' '}
+                        {item.name}
+                      </span>
+                      <span className="shrink-0 text-slate-500">
+                        {format(item.price * quantities[item.id])}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Notes…"
+                      value={notes[item.id] ?? ''}
+                      onChange={(e) =>
+                        setNotes((n) => ({ ...n, [item.id]: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {cartItems.length > 0 && (
+              <div className="mt-4 border-t border-slate-200 pt-3">
+                <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
+                  <span>Total</span>
+                  <span>{format(total)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="shrink-0 border-t border-slate-100 px-6 py-4">
+          {error && (
+            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={createOrder.isPending || !tableId || cartItems.length === 0}
+              className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <ChevronRight size={15} />
+              {createOrder.isPending ? 'Placing…' : 'Place Order'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
