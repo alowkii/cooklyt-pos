@@ -114,11 +114,10 @@ export default function Reports() {
                     />
                     <YAxis
                       width={64}
-                      tickCount={4}
                       tick={{ fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
-                      domain={[0, (dataMax) => Math.ceil(dataMax * 1.15)]}
+                      domain={[0, (dataMax) => Math.ceil(dataMax * 1.2)]}
                       tickFormatter={formatTick}
                     />
                     <Tooltip formatter={tooltipFormatter} />
@@ -151,11 +150,10 @@ export default function Reports() {
                     />
                     <YAxis
                       width={64}
-                      tickCount={4}
                       tick={{ fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
-                      domain={[0, (dataMax) => Math.ceil(dataMax * 1.15)]}
+                      domain={[0, (dataMax) => Math.ceil(dataMax * 1.2)]}
                       tickFormatter={formatTick}
                     />
                     <Tooltip
