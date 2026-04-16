@@ -20,4 +20,10 @@ async function markOrderReady(orderId) {
   return updated;
 }
 
-module.exports = { getKitchenQueue, markOrderPreparing, markOrderReady };
+async function markOrderServed(orderId) {
+  const updated = await ordersInterface.updateOrderStatus(orderId, "served");
+  ws.broadcast("ORDER_SERVED", { orderId });
+  return updated;
+}
+
+module.exports = { getKitchenQueue, markOrderPreparing, markOrderReady, markOrderServed };

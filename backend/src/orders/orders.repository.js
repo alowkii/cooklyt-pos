@@ -43,7 +43,7 @@ const create = async ({ tableId, createdBy, items }) => {
     const {
       rows: [order],
     } = await client.query(
-      "INSERT INTO orders (table_id, created_by) VALUES ($1, $2) RETURNING *",
+      "INSERT INTO orders (table_id, created_by, status) VALUES ($1, $2, 'received') RETURNING *",
       [tableId, createdBy],
     );
 

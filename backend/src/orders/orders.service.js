@@ -48,7 +48,7 @@ async function addItems(orderId, items) {
 }
 
 async function updateStatus(orderId, status) {
-  const VALID = ["open", "preparing", "ready", "paid", "cancelled"];
+  const VALID = ["received", "preparing", "ready", "served", "paid", "cancelled"];
   if (!VALID.includes(status))
     throw new ValidationError(`Invalid status: ${status}`);
   await getById(orderId);

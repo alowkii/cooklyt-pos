@@ -37,4 +37,14 @@ router.patch("/:orderId/ready", authenticate, async (req, res, next) => {
   }
 });
 
+// Mark an order as served to the table
+router.patch("/:orderId/served", authenticate, async (req, res, next) => {
+  try {
+    const order = await service.markOrderServed(req.params.orderId);
+    res.json(order);
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

@@ -20,7 +20,7 @@ router.get("/table/:tableId", authenticate, async (req, res, next) => {
   }
 });
 
-router.post("/", authenticate, async (req, res, next) => {
+router.post("/", authenticate, authorize("admin", "staff"), async (req, res, next) => {
   try {
     const { tableId, items } = req.body;
     const order = await service.createOrder({
