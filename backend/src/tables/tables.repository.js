@@ -13,10 +13,10 @@ const getByStatus = (status) =>
 
 const create = ({ number, seats }) =>
   db
-    .query("INSERT INTO tables (number, seats) VALUES ($1, $2) RETURNING *", [
-      number,
-      seats,
-    ])
+    .query(
+      "INSERT INTO tables (number, seats, status) VALUES ($1, $2, 'available') RETURNING *",
+      [number, seats],
+    )
     .then((r) => r.rows[0]);
 
 const updateStatus = (id, status) =>
