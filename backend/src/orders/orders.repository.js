@@ -35,7 +35,7 @@ const getItemsByOrderId = (orderId) =>
     )
     .then((r) => r.rows);
 
-const create = async ({ tableId, createdBy, items }) => {
+const create = async ({ tableId, createdBy, items, channel = 'dining', customerRef = null }) => {
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
@@ -43,8 +43,9 @@ const create = async ({ tableId, createdBy, items }) => {
     const {
       rows: [order],
     } = await client.query(
-      "INSERT INTO orders (table_id, created_by, status) VALUES ($1, $2, 'received') RETURNING *",
-      [tableId, createdBy],
+      `INSERT INTO orders (table_id, created_by, status, channel, customer_ref)
+       VALUES ($1, $2, 'received', $3, $4) RETURNING *`,
+      [tableId || null, createdBy, channel, customerRef],
     );
 
     for (const item of items) {

@@ -1,34 +1,40 @@
 import { useState } from 'react';
-import { Clock, ChefHat, ChevronDown, ChevronUp, XCircle, Plus, DollarSign } from 'lucide-react';
+import {
+  Clock, ChefHat, ChevronDown, ChevronUp, XCircle,
+  Plus, DollarSign, Utensils, ShoppingBag, Truck,
+} from 'lucide-react';
 import { useActiveOrders, useUpdateOrderStatus } from '../hooks/useOrders';
 import { useTables } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
 import NewOrderModal from '../components/NewOrderModal';
 import PaymentModal from '../components/PaymentModal';
 
-// Status display config
 const STATUS_META = {
-  received:  { label: 'Received',  cls: 'bg-slate-100  text-slate-600'  },
-  preparing: { label: 'Preparing', cls: 'bg-amber-100  text-amber-700'  },
-  ready:     { label: 'Ready',     cls: 'bg-blue-100   text-blue-700'   },
+  received:  { label: 'Received',  cls: 'bg-slate-100   text-slate-600'   },
+  preparing: { label: 'Preparing', cls: 'bg-amber-100   text-amber-700'   },
+  ready:     { label: 'Ready',     cls: 'bg-blue-100    text-blue-700'    },
   served:    { label: 'Served',    cls: 'bg-emerald-100 text-emerald-700' },
 };
 
-// Next-step actions per current status
-// canCancel is evaluated separately based on role
 const NEXT_ACTIONS = {
-  received:  [{ status: 'preparing', label: 'Start Preparing', cls: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',    Icon: ChefHat  }],
-  preparing: [{ status: 'ready',     label: 'Mark Ready',      cls: 'border-blue-200  bg-blue-50  text-blue-700  hover:bg-blue-100',     Icon: ChefHat  }],
+  received:  [{ status: 'preparing', label: 'Start Preparing', cls: 'border-amber-200   bg-amber-50   text-amber-700   hover:bg-amber-100',   Icon: ChefHat }],
+  preparing: [{ status: 'ready',     label: 'Mark Ready',      cls: 'border-blue-200    bg-blue-50    text-blue-700    hover:bg-blue-100',    Icon: ChefHat }],
   ready:     [{ status: 'served',    label: 'Mark Served',     cls: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100', Icon: ChefHat }],
   served:    [],
 };
 
-function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ${m % 60}m ago`;
+const CHANNEL_META = {
+  dining:   { label: 'Dine In',  cls: 'bg-indigo-100 text-indigo-700', Icon: Utensils,    badgeCls: 'bg-indigo-100 text-indigo-600' },
+  takeaway: { label: 'Takeaway', cls: 'bg-amber-100  text-amber-700',  Icon: ShoppingBag, badgeCls: 'bg-amber-100  text-amber-600'  },
+  delivery: { label: 'Delivery', cls: 'bg-blue-100   text-blue-700',   Icon: Truck,       badgeCls: 'bg-blue-100   text-blue-600'   },
+};
+
+function elapsed(dateStr) {
+  const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60_000);
+  if (m < 1)  return { label: 'just now', cls: 'text-slate-400' };
+  if (m < 10) return { label: `${m}m`,    cls: 'text-slate-400' };
+  if (m < 20) return { label: `${m}m`,    cls: 'text-amber-500 font-semibold' };
+  return       { label: `${m}m`,          cls: 'text-red-500   font-semibold' };
 }
 
 export default function Orders() {
@@ -37,12 +43,12 @@ export default function Orders() {
   const updateStatus                     = useUpdateOrderStatus();
   const { isAdmin, user }                = useAuth();
 
-  const canCancel   = isAdmin || user?.role === 'staff';
-  const canOrder    = isAdmin || user?.role === 'staff';
+  const canCancel = isAdmin || user?.role === 'staff';
+  const canOrder  = isAdmin || user?.role === 'staff';
 
-  const [expanded,      setExpanded]      = useState(null);
-  const [showNewOrder,  setShowNewOrder]  = useState(false);
-  const [payingOrder,   setPayingOrder]   = useState(null);
+  const [expanded,     setExpanded]     = useState(null);
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [payingOrder,  setPayingOrder]  = useState(null);
 
   const tableMap = Object.fromEntries(tables.map((t) => [t.id, t]));
 
@@ -52,6 +58,7 @@ export default function Orders() {
 
   return (
     <div className="space-y-4">
+      {/* ── Toolbar ── */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">
           {orders.length === 0
@@ -59,9 +66,7 @@ export default function Orders() {
             : `${orders.length} active order${orders.length !== 1 ? 's' : ''}`}
         </p>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-slate-400">
-            auto-refreshes every 30 s
-          </p>
+          <p className="text-xs text-slate-400">auto-refreshes every 30 s</p>
           {canOrder && (
             <button
               onClick={() => setShowNewOrder(true)}
@@ -83,40 +88,72 @@ export default function Orders() {
         </div>
       )}
 
+      {/* ── KOT tickets ── */}
       <div className="space-y-3">
         {orders.map((order) => {
           const table   = tableMap[order.table_id];
           const isOpen  = expanded === order.id;
-          const meta    = STATUS_META[order.status] ?? STATUS_META.received;
+          const status  = STATUS_META[order.status] ?? STATUS_META.received;
           const actions = NEXT_ACTIONS[order.status] ?? [];
+          const channel = CHANNEL_META[order.channel] ?? CHANNEL_META.dining;
+          const ChannelIcon = channel.Icon;
+          const time    = elapsed(order.created_at);
+          const token   = order.id.slice(-6).toUpperCase();
+
+          // Identify display name: table number for dining, customer_ref or channel label otherwise
+          const orderTitle = order.channel === 'dining'
+            ? `Table ${table?.number ?? '?'}`
+            : order.customer_ref || channel.label;
+
+          // Group items by category for KOT display
+          const byCategory = order.items.reduce((acc, item) => {
+            const cat = item.category || 'Other';
+            if (!acc[cat]) acc[cat] = [];
+            acc[cat].push(item);
+            return acc;
+          }, {});
 
           return (
-            <div key={order.id} className="rounded-xl bg-white shadow-sm">
-              {/* ── Header ── */}
+            <div key={order.id} className="overflow-hidden rounded-xl bg-white shadow-sm">
+
+              {/* ── KOT header ── */}
               <button
                 onClick={() => setExpanded(isOpen ? null : order.id)}
-                className="flex w-full items-center gap-4 p-4 text-left"
+                className="flex w-full items-center gap-3 p-4 text-left"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg font-bold text-slate-700">
-                  {table?.number ?? '?'}
+                {/* Channel icon badge */}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold ${channel.badgeCls}`}>
+                  {order.channel === 'dining'
+                    ? <span className="text-base font-bold">{table?.number ?? '?'}</span>
+                    : <ChannelIcon size={18} />
+                  }
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-800">
-                      Table {table?.number ?? '?'}
-                      <span className="ml-2 text-xs font-normal text-slate-400">
-                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="font-semibold text-slate-800">{orderTitle}</p>
+                    {/* Channel badge (hidden for dining since it's obvious from table number) */}
+                    {order.channel !== 'dining' && (
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${channel.cls}`}>
+                        {channel.label}
                       </span>
-                    </p>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.cls}`}>
-                      {meta.label}
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.cls}`}>
+                      {status.label}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    <Clock size={11} className="mr-1 inline-block" />
-                    {timeAgo(order.created_at)}
-                  </p>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs">
+                    <span className={`flex items-center gap-1 ${time.cls}`}>
+                      <Clock size={11} />
+                      {time.label}
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-slate-400">
+                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span className="font-mono text-[10px] text-slate-300">#{token}</span>
+                  </div>
                 </div>
 
                 {isOpen
@@ -125,31 +162,45 @@ export default function Orders() {
                 }
               </button>
 
-              {/* ── Expanded detail ── */}
+              {/* ── KOT detail ── */}
               {isOpen && (
                 <div className="border-t border-slate-100 px-4 pb-4 pt-3">
-                  <ul className="mb-4 space-y-1.5">
-                    {order.items.map((item, i) => (
-                      <li key={i} className="flex items-start justify-between text-sm">
-                        <span className="text-slate-700">
-                          <span className="mr-1.5 font-medium">{item.quantity}×</span>
-                          {item.item_name}
-                        </span>
-                        {item.notes && (
-                          <span className="ml-2 shrink-0 text-xs text-slate-400 italic">
-                            {item.notes}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
 
+                  {/* Items grouped by category */}
+                  <div className="mb-4 space-y-3">
+                    {Object.entries(byCategory).map(([cat, catItems]) => (
+                      <div key={cat}>
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                          {cat}
+                        </p>
+                        <ul className="space-y-1">
+                          {catItems.map((item, i) => (
+                            <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
+                              <span className="text-slate-800">
+                                <span className="mr-1.5 font-bold text-slate-900">
+                                  {item.quantity}×
+                                </span>
+                                {item.item_name}
+                              </span>
+                              {item.notes && (
+                                <span className="shrink-0 text-xs italic text-slate-400">
+                                  {item.notes}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action buttons */}
                   {(actions.length > 0 || canCancel || (order.status === 'served' && canOrder)) && (
-                    <div className="flex gap-2">
-                      {actions.map(({ status, label, cls, Icon }) => (
+                    <div className="flex gap-2 border-t border-slate-100 pt-3">
+                      {actions.map(({ status: s, label, cls, Icon }) => (
                         <button
-                          key={status}
-                          onClick={() => updateStatus.mutate({ id: order.id, status })}
+                          key={s}
+                          onClick={() => updateStatus.mutate({ id: order.id, status: s })}
                           disabled={updateStatus.isPending}
                           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${cls}`}
                         >
@@ -187,7 +238,11 @@ export default function Orders() {
       {payingOrder && (
         <PaymentModal
           order={payingOrder}
-          tableNumber={tableMap[payingOrder.table_id]?.number ?? '?'}
+          tableNumber={
+            payingOrder.channel === 'dining'
+              ? tableMap[payingOrder.table_id]?.number ?? '?'
+              : payingOrder.customer_ref || CHANNEL_META[payingOrder.channel]?.label
+          }
           onClose={() => setPayingOrder(null)}
         />
       )}

@@ -22,11 +22,13 @@ router.get("/table/:tableId", authenticate, async (req, res, next) => {
 
 router.post("/", authenticate, authorize("admin", "staff"), async (req, res, next) => {
   try {
-    const { tableId, items } = req.body;
+    const { tableId, items, channel, customerRef } = req.body;
     const order = await service.createOrder({
       tableId,
       createdBy: req.user.userId,
       items,
+      channel:     channel     || 'dining',
+      customerRef: customerRef || null,
     });
     res.status(201).json(order);
   } catch (e) {

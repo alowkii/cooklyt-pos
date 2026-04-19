@@ -1,9 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Minus, ShoppingBag, ChevronRight } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, ChevronRight, Utensils, Truck } from 'lucide-react';
 import { useMenuItems } from '../hooks/useMenu';
 import { useTables } from '../hooks/useTables';
 import { useCreateOrder } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
+
+const CHANNELS = [
+  { id: 'dining',   label: 'Dine In',  Icon: Utensils    },
+  { id: 'takeaway', label: 'Takeaway', Icon: ShoppingBag },
+  { id: 'delivery', label: 'Delivery', Icon: Truck       },
+];
 
 const TABLE_CLS = {
   available: 'border-emerald-300 bg-emerald-50  text-emerald-800',
@@ -18,19 +24,26 @@ export default function NewOrderModal({ onClose }) {
   const createOrder              = useCreateOrder();
   const { format }               = useCurrency();
 
-  const [tableId,   setTableId]   = useState(null);
-  const [quantities, setQty]      = useState({});   // { menuItemId: number }
-  const [notes,      setNotes]    = useState({});   // { menuItemId: string }
-  const [error,      setError]    = useState('');
+  const [channel,    setChannel]   = useState('dining');
+  const [tableId,    setTableId]   = useState(null);
+  const [customerRef, setCRef]     = useState('');
+  const [quantities, setQty]       = useState({});
+  const [notes,      setNotes]     = useState({});
+  const [error,      setError]     = useState('');
 
-  // Close on Escape
+  // Reset table / customerRef when channel changes
+  useEffect(() => {
+    setTableId(null);
+    setCRef('');
+    setError('');
+  }, [channel]);
+
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
 
-  // Only show available + occupied tables
   const eligibleTables = useMemo(
     () => [...tables]
       .filter((t) => t.status === 'available' || t.status === 'occupied')
@@ -38,18 +51,17 @@ export default function NewOrderModal({ onClose }) {
     [tables],
   );
 
-  // Menu grouped by category, only available items
   const grouped = useMemo(() => {
-    const available = menuItems.filter((m) => m.available);
-    return available.reduce((acc, item) => {
-      const cat = item.category || 'Other';
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(item);
-      return acc;
-    }, {});
+    return menuItems
+      .filter((m) => m.available)
+      .reduce((acc, item) => {
+        const cat = item.category || 'Other';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(item);
+        return acc;
+      }, {});
   }, [menuItems]);
 
-  // Cart: items with qty > 0
   const cartItems = useMemo(
     () => menuItems.filter((m) => (quantities[m.id] ?? 0) > 0),
     [menuItems, quantities],
@@ -73,7 +85,7 @@ export default function NewOrderModal({ onClose }) {
 
   async function handleSubmit() {
     setError('');
-    if (!tableId) { setError('Please select a table.'); return; }
+    if (channel === 'dining' && !tableId) { setError('Please select a table.'); return; }
     if (cartItems.length === 0) { setError('Add at least one item.'); return; }
 
     const items = cartItems.map((m) => ({
@@ -83,7 +95,12 @@ export default function NewOrderModal({ onClose }) {
     }));
 
     try {
-      await createOrder.mutateAsync({ tableId, items });
+      await createOrder.mutateAsync({
+        tableId:     channel === 'dining' ? tableId : null,
+        items,
+        channel,
+        customerRef: customerRef.trim() || null,
+      });
       onClose();
     } catch (e) {
       setError(e.response?.data?.error || e.message || 'Failed to place order');
@@ -107,33 +124,74 @@ export default function NewOrderModal({ onClose }) {
           </button>
         </div>
 
-        {/* ── Table selector ── */}
+        {/* ── Channel selector ── */}
         <div className="shrink-0 border-b border-slate-100 px-6 py-3">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-            Select Table
+            Order Type
           </p>
-          {eligibleTables.length === 0 ? (
-            <p className="text-sm text-slate-400">No available or occupied tables</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {eligibleTables.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTableId(t.id)}
-                  className={`rounded-lg border-2 px-3 py-1.5 text-sm font-semibold transition-all
-                    ${TABLE_CLS[t.status] ?? 'border-slate-200 bg-slate-50 text-slate-600'}
-                    ${tableId === t.id ? 'ring-2 ring-indigo-400 ring-offset-1' : 'hover:opacity-80'}
-                  `}
-                >
-                  {t.number}
-                  <span className="ml-1 text-[10px] font-normal opacity-60 capitalize">
-                    {t.status}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex gap-2">
+            {CHANNELS.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                onClick={() => setChannel(id)}
+                className={`flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-all
+                  ${channel === id
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* ── Table selector (dining only) ── */}
+        {channel === 'dining' && (
+          <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+              Select Table
+            </p>
+            {eligibleTables.length === 0 ? (
+              <p className="text-sm text-slate-400">No available or occupied tables</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {eligibleTables.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTableId(t.id)}
+                    className={`rounded-lg border-2 px-3 py-1.5 text-sm font-semibold transition-all
+                      ${TABLE_CLS[t.status] ?? 'border-slate-200 bg-slate-50 text-slate-600'}
+                      ${tableId === t.id ? 'ring-2 ring-indigo-400 ring-offset-1' : 'hover:opacity-80'}
+                    `}
+                  >
+                    {t.number}
+                    <span className="ml-1 text-[10px] font-normal opacity-60 capitalize">
+                      {t.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Customer reference (takeaway / delivery) ── */}
+        {channel !== 'dining' && (
+          <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+              Customer / Reference <span className="font-normal normal-case text-slate-300">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={customerRef}
+              onChange={(e) => setCRef(e.target.value)}
+              placeholder={channel === 'delivery' ? 'e.g. Rahul – 9th floor' : 'e.g. Token #12'}
+              className="input w-80"
+            />
+          </div>
+        )}
 
         {/* ── Body: menu + cart ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -155,12 +213,8 @@ export default function NewOrderModal({ onClose }) {
                         <div key={item.id}
                           className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {format(item.price)}
-                            </p>
+                            <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+                            <p className="text-xs text-slate-400">{format(item.price)}</p>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {qty > 0 && (
@@ -247,12 +301,10 @@ export default function NewOrderModal({ onClose }) {
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
           )}
           <div className="flex items-center justify-between gap-3">
-            <button onClick={onClose} className="btn-secondary">
-              Cancel
-            </button>
+            <button onClick={onClose} className="btn-secondary">Cancel</button>
             <button
               onClick={handleSubmit}
-              disabled={createOrder.isPending || !tableId || cartItems.length === 0}
+              disabled={createOrder.isPending || cartItems.length === 0}
               className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
             >
               <ChevronRight size={15} />

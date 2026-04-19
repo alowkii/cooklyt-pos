@@ -14,9 +14,16 @@ async function getActiveByTable(tableId) {
   return repo.getActiveByTable(tableId);
 }
 
-async function createOrder({ tableId, createdBy, items }) {
-  if (!tableId || !items || items.length === 0) {
-    throw new ValidationError("tableId and at least one item are required");
+async function createOrder({ tableId, createdBy, items, channel = 'dining', customerRef = null }) {
+  const VALID_CHANNELS = ['dining', 'takeaway', 'delivery'];
+  if (!VALID_CHANNELS.includes(channel)) {
+    throw new ValidationError(`Invalid channel: ${channel}`);
+  }
+  if (channel === 'dining' && !tableId) {
+    throw new ValidationError("tableId is required for dining orders");
+  }
+  if (!items || items.length === 0) {
+    throw new ValidationError("At least one item is required");
   }
 
   // Validate all menu items exist and are available
@@ -30,10 +37,12 @@ async function createOrder({ tableId, createdBy, items }) {
     }
   }
 
-  const order = await repo.create({ tableId, createdBy, items });
+  const order = await repo.create({ tableId, createdBy, items, channel, customerRef });
 
-  // Mark table as occupied
-  await tablesInterface.setTableStatus(tableId, "occupied");
+  // Only mark table occupied for dine-in
+  if (tableId) {
+    await tablesInterface.setTableStatus(tableId, "occupied");
+  }
 
   ws.broadcast("NEW_ORDER", { orderId: order.id, tableId: order.table_id });
 

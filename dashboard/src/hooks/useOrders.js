@@ -29,12 +29,14 @@ export function useActiveOrders() {
     items.reduce((acc, item) => {
       if (!acc[item.order_id]) {
         acc[item.order_id] = {
-          id:          item.order_id,
-          table_id:    item.table_id,
+          id:           item.order_id,
+          table_id:     item.table_id,
           table_number: item.table_number,
-          status:      item.order_status,
-          created_at:  item.order_created_at,
-          items:       [],
+          channel:      item.channel      || 'dining',
+          customer_ref: item.customer_ref || null,
+          status:       item.order_status,
+          created_at:   item.order_created_at,
+          items:        [],
         };
       }
       acc[item.order_id].items.push(item);
@@ -47,8 +49,8 @@ export function useActiveOrders() {
 
 export function useCreateOrder() {
   return useMutation({
-    mutationFn: async ({ tableId, items }) => {
-      const { data } = await api.post('/orders', { tableId, items });
+    mutationFn: async ({ tableId, items, channel, customerRef }) => {
+      const { data } = await api.post('/orders', { tableId, items, channel, customerRef });
       return data;
     },
     onSuccess: () => {
