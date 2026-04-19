@@ -22,7 +22,8 @@ app.use("/api/tables", require("./tables/tables.router"));
 app.use("/api/orders", require("./orders/orders.router"));
 app.use("/api/payments", require("./payments/payments.router"));
 app.use("/api/kitchen", require("./kitchen/kitchen.router"));
-app.use("/api/reports", require("./reports/reports.router"));
+app.use("/api/reports",  require("./reports/reports.router"));
+app.use("/api/settings", require("./settings/settings.router"));
 
 // 404
 app.use((req, res) => {

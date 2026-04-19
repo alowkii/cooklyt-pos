@@ -1,5 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useSync } from './hooks/useSync';
+import { useSettings } from './hooks/useSettings';
+import { useTimezone } from './context/TimezoneContext';
+import { useCurrency } from './context/CurrencyContext';
 import Layout   from './components/Layout';
 import Login    from './pages/Login';
 import Overview from './pages/Overview';
@@ -26,6 +30,20 @@ function SyncWatcher() {
   return null;
 }
 
+function SettingsSync() {
+  const { data: settings } = useSettings();
+  const { iana, setTimezone } = useTimezone();
+  const { code, setCurrency } = useCurrency();
+
+  useEffect(() => {
+    if (!settings) return;
+    if (settings.timezone && settings.timezone !== iana) setTimezone(settings.timezone);
+    if (settings.currency && settings.currency !== code) setCurrency(settings.currency);
+  }, [settings]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -37,6 +55,7 @@ export default function App() {
           path="/"
           element={
             <RequireAuth>
+              <SettingsSync />
               <Layout />
             </RequireAuth>
           }
