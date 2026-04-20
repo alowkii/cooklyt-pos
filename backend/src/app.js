@@ -16,6 +16,7 @@ app.get('/health', (req, res) =>
 );
 
 // Routers
+app.use('/admin',           require('./admin/admin.router'));
 app.use('/api/auth',        require('./auth/auth.router'));
 app.use('/api/restaurants', require('./restaurants/restaurants.router'));
 app.use('/api/menu',        require('./menu/menu.router'));
