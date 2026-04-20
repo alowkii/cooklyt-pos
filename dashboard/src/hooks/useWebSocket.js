@@ -16,6 +16,10 @@ export function useWebSocket() {
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'AUTH', token: localStorage.getItem('pos_token') }));
+      };
+
       ws.onmessage = ({ data }) => {
         try {
           const { event } = JSON.parse(data);

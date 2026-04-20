@@ -6,6 +6,7 @@ import { useTimezone } from './context/TimezoneContext';
 import { useCurrency } from './context/CurrencyContext';
 import Layout   from './components/Layout';
 import Login    from './pages/Login';
+import Signup   from './pages/Signup';
 import Overview from './pages/Overview';
 import Menu     from './pages/Menu';
 import Tables   from './pages/Tables';
@@ -49,7 +50,8 @@ export default function App() {
     <BrowserRouter>
       <SyncWatcher />
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"  element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
         <Route
           path="/"

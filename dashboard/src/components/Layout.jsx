@@ -29,7 +29,7 @@ export default function Layout() {
 
   const navigate      = useNavigate();
   const location      = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, restaurant, isAdmin } = useAuth();
 
   const nav = ALL_NAV.filter((n) => !n.adminOnly || isAdmin);
 
@@ -40,6 +40,7 @@ export default function Layout() {
   function logout() {
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_user');
+    localStorage.removeItem('pos_restaurant');
     navigate('/login');
   }
 
@@ -48,7 +49,12 @@ export default function Layout() {
       {/* ── Sidebar ─────────────────────────────────────── */}
       <aside className="flex w-56 shrink-0 flex-col bg-slate-800 text-white">
         <div className="flex h-16 items-center px-5 border-b border-slate-700">
-          <span className="text-lg font-bold tracking-tight">Krilok POS</span>
+          <div>
+            <p className="text-sm font-bold tracking-tight leading-tight">Krilok POS</p>
+            {restaurant?.name && (
+              <p className="text-xs text-slate-400 truncate max-w-[160px]">{restaurant.name}</p>
+            )}
+          </div>
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3 py-3">
