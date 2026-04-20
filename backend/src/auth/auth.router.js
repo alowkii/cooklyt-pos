@@ -2,18 +2,6 @@ const router = require('express').Router();
 const service = require('./auth.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 
-// Temporary public signup — creates a restaurant + admin account in one step.
-// Replace with sales-assisted onboarding flow before production.
-router.post('/signup', async (req, res, next) => {
-  try {
-    const { restaurantName, email, password } = req.body;
-    const result = await service.signup(restaurantName, email, password);
-    res.status(201).json(result);
-  } catch (e) {
-    next(e);
-  }
-});
-
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -60,6 +48,17 @@ router.delete('/users/:id', authenticate, authorize('admin'), async (req, res, n
   try {
     await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
     res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Change own password (any authenticated user)
+router.post('/change-password', authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const result = await service.changePassword(req.user.userId, currentPassword, newPassword);
+    res.json(result);
   } catch (e) {
     next(e);
   }

@@ -47,6 +47,15 @@ async function deleteUser(id, restaurantId) {
   return rows[0];
 }
 
+async function updatePassword(id, hashedPassword) {
+  const { rows } = await db.query(
+    `UPDATE users SET password = $1, force_password_change = false
+     WHERE id = $2 RETURNING id`,
+    [hashedPassword, id],
+  );
+  return rows[0];
+}
+
 async function updateUserRole(id, role, restaurantId) {
   const { rows } = await db.query(
     `UPDATE users SET role = $1
@@ -98,6 +107,7 @@ module.exports = {
   createUser,
   findAllUsers,
   deleteUser,
+  updatePassword,
   updateUserRole,
   createRestaurantWithAdmin,
 };

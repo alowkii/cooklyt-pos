@@ -16,14 +16,25 @@ async function login(email, password) {
   if (!valid) throw new UnauthorizedError('Invalid credentials');
 
   const token = jwt.sign(
-    { userId: user.id, role: user.role, restaurantId: user.restaurant_id },
+    {
+      userId: user.id,
+      role: user.role,
+      restaurantId: user.restaurant_id,
+      forcePasswordChange: user.force_password_change,
+    },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
 
   return {
     token,
-    user: { id: user.id, email: user.email, role: user.role, restaurantId: user.restaurant_id },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      restaurantId: user.restaurant_id,
+      forcePasswordChange: user.force_password_change,
+    },
     restaurant: { id: user.restaurant_id, name: user.restaurant_name },
   };
 }
@@ -98,4 +109,31 @@ async function signup(restaurantName, email, password) {
   };
 }
 
-module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, signup };
+async function changePassword(userId, currentPassword, newPassword) {
+  if (!currentPassword || !newPassword)
+    throw new ValidationError('currentPassword and newPassword are required');
+  if (newPassword.length < 6)
+    throw new ValidationError('New password must be at least 6 characters');
+
+  const user = await repo.findUserById(userId);
+  if (!user) throw new UnauthorizedError('User not found');
+
+  // fetch the hashed password (findUserById omits it intentionally)
+  const { rows } = await require('../shared/db').query(
+    'SELECT password FROM users WHERE id = $1', [userId],
+  );
+  const valid = await bcrypt.compare(currentPassword, rows[0].password);
+  if (!valid) throw new UnauthorizedError('Current password is incorrect');
+
+  const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await repo.updatePassword(userId, hashed);
+
+  const token = jwt.sign(
+    { userId: user.id, role: user.role, restaurantId: user.restaurant_id, forcePasswordChange: false },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' },
+  );
+  return { token };
+}
+
+module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, changePassword, signup };

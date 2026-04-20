@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
 export default function Login() {
@@ -17,6 +17,10 @@ export default function Login() {
       localStorage.setItem('pos_token',      data.token);
       localStorage.setItem('pos_user',       JSON.stringify(data.user));
       localStorage.setItem('pos_restaurant', JSON.stringify(data.restaurant));
+      if (data.user.forcePasswordChange) {
+        navigate('/change-password');
+        return;
+      }
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Check your connection.');
@@ -78,12 +82,6 @@ export default function Login() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <p className="mt-6 text-center text-xs text-slate-400">
-          New restaurant?{' '}
-          <Link to="/signup" className="text-indigo-600 hover:underline">
-            Create an account
-          </Link>
-        </p>
       </div>
     </div>
   );

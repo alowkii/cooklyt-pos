@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const db = require('../db');
 const { UnauthorizedError, ForbiddenError } = require('../errors');
 
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
 
@@ -9,9 +10,19 @@ function authenticate(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.restaurantId) {
+      const { rowCount } = await db.query(
+        'SELECT 1 FROM restaurants WHERE id = $1',
+        [decoded.restaurantId],
+      );
+      if (rowCount === 0) return next(new UnauthorizedError('Restaurant no longer exists'));
+    }
+
     req.user = decoded; // { userId, role, restaurantId }
     next();
   } catch (err) {
+    if (err instanceof UnauthorizedError) return next(err);
     next(new UnauthorizedError('Invalid or expired token'));
   }
 }

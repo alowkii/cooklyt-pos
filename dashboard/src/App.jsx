@@ -5,8 +5,8 @@ import { useSettings } from './hooks/useSettings';
 import { useTimezone } from './context/TimezoneContext';
 import { useCurrency } from './context/CurrencyContext';
 import Layout   from './components/Layout';
-import Login    from './pages/Login';
-import Signup   from './pages/Signup';
+import Login          from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
 import Overview from './pages/Overview';
 import Menu     from './pages/Menu';
 import Tables   from './pages/Tables';
@@ -23,6 +23,22 @@ function RequireAdmin({ children }) {
   const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
   if (!localStorage.getItem('pos_token')) return <Navigate to="/login" replace />;
   if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
+}
+
+function getTokenClaims() {
+  const token = localStorage.getItem('pos_token');
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
+
+function RequirePasswordSet({ children }) {
+  const claims = getTokenClaims();
+  if (claims?.forcePasswordChange) return <Navigate to="/change-password" replace />;
   return children;
 }
 
@@ -50,15 +66,17 @@ export default function App() {
     <BrowserRouter>
       <SyncWatcher />
       <Routes>
-        <Route path="/login"  element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/change-password" element={<ChangePassword />} />
 
         <Route
           path="/"
           element={
             <RequireAuth>
-              <SettingsSync />
-              <Layout />
+              <RequirePasswordSet>
+                <SettingsSync />
+                <Layout />
+              </RequirePasswordSet>
             </RequireAuth>
           }
         >
