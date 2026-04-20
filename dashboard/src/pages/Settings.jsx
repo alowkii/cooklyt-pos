@@ -116,9 +116,9 @@ export default function Settings() {
       </div>
 
       <p className="text-[11px] text-slate-300">
-        Rates are approximate and hardcoded. To update them, edit{' '}
+        Rates are approximate. To update them, edit{' '}
         <code className="rounded bg-slate-100 px-1 py-0.5 text-slate-400">
-          src/data/currencies.json
+          shared/settings-options.json
         </code>.
       </p>
 

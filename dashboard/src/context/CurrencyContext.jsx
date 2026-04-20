@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import CURRENCIES from '../data/currencies.json';
+import settingsOptions from '@shared/settings-options.json';
+
+const CURRENCIES = Object.fromEntries(settingsOptions.currencies.map((c) => [c.code, c]));
 
 const CurrencyContext = createContext(null);
 

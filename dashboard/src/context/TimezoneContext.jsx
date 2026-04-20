@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import TIMEZONES from '../data/timezones.json';
+import settingsOptions from '@shared/settings-options.json';
+
+const TIMEZONES = settingsOptions.timezones;
 
 const TimezoneContext = createContext(null);
 
