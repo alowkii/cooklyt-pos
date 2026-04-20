@@ -1,7 +1,6 @@
-const db = require("../shared/db");
+const db = require('../shared/db');
 
-// Kitchen gets a denormalized view of all active orders needing attention
-const getPendingItems = () =>
+const getPendingItems = (restaurantId) =>
   db
     .query(
       `
@@ -23,8 +22,10 @@ const getPendingItems = () =>
     JOIN menu_items mi   ON mi.id = oi.menu_item_id
     LEFT JOIN tables t   ON t.id = o.table_id
     WHERE o.status IN ('received', 'preparing', 'ready', 'served')
+      AND o.restaurant_id = $1
     ORDER BY o.created_at ASC
   `,
+      [restaurantId],
     )
     .then((r) => r.rows);
 

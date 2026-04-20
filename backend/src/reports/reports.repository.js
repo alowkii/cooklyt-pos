@@ -1,68 +1,71 @@
-const db = require("../shared/db");
+const db = require('../shared/db');
 
 // Reports is READ-ONLY — never writes to any table
 
-const getDailySummary = (date, tz = "UTC") =>
+const getDailySummary = (date, tz = 'UTC', restaurantId) =>
   db
     .query(
       `
     SELECT
-      COUNT(DISTINCT o.id)  AS total_orders,
+      COUNT(DISTINCT o.id)       AS total_orders,
       COALESCE(SUM(p.amount), 0) AS total_revenue
     FROM orders o
     JOIN payments p ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
+      AND o.restaurant_id = $3
   `,
-      [date, tz],
+      [date, tz, restaurantId],
     )
     .then((r) => r.rows[0]);
 
-const getRevenueByCategory = (date, tz = "UTC") =>
+const getRevenueByCategory = (date, tz = 'UTC', restaurantId) =>
   db
     .query(
       `
     SELECT
       mi.category,
-      COUNT(oi.id)          AS items_sold,
-      SUM(mi.price * oi.quantity) AS revenue
+      COUNT(oi.id)                    AS items_sold,
+      SUM(mi.price * oi.quantity)     AS revenue
     FROM order_items oi
     JOIN menu_items mi ON mi.id = oi.menu_item_id
     JOIN orders o      ON o.id = oi.order_id
     JOIN payments p    ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
+      AND o.restaurant_id = $3
     GROUP BY mi.category
     ORDER BY revenue DESC
   `,
-      [date, tz],
+      [date, tz, restaurantId],
     )
     .then((r) => r.rows);
 
-const getTopItems = (date, tz = "UTC", limit = 10) =>
+const getTopItems = (date, tz = 'UTC', limit = 10, restaurantId) =>
   db
     .query(
       `
     SELECT
       mi.name,
       mi.category,
-      SUM(oi.quantity) AS total_sold,
-      SUM(mi.price * oi.quantity) AS revenue
+      SUM(oi.quantity)                AS total_sold,
+      SUM(mi.price * oi.quantity)     AS revenue
     FROM order_items oi
     JOIN menu_items mi ON mi.id = oi.menu_item_id
     JOIN orders o      ON o.id = oi.order_id
     JOIN payments p    ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
+      AND o.restaurant_id = $4
     GROUP BY mi.id, mi.name, mi.category
     ORDER BY total_sold DESC
     LIMIT $3
   `,
-      [date, tz, limit],
+      [date, tz, limit, restaurantId],
     )
     .then((r) => r.rows);
 
-const getHourlySales = (date, tz = "UTC") =>
+const getHourlySales = (date, tz = 'UTC', restaurantId) =>
   db
     .query(
       `
@@ -74,10 +77,11 @@ const getHourlySales = (date, tz = "UTC") =>
     JOIN payments p ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
+      AND o.restaurant_id = $3
     GROUP BY hour
     ORDER BY hour
   `,
-      [date, tz],
+      [date, tz, restaurantId],
     )
     .then((r) => r.rows);
 

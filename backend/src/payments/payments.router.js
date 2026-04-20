@@ -1,20 +1,18 @@
-const router = require("express").Router();
-const service = require("./payments.service");
-const { authenticate } = require("../shared/middleware/auth");
+const router = require('express').Router();
+const service = require('./payments.service');
+const { authenticate } = require('../shared/middleware/auth');
 
-router.post("/:orderId", authenticate, async (req, res, next) => {
+router.post('/:orderId', authenticate, async (req, res, next) => {
   try {
-    const result = await service.processPayment(req.params.orderId, req.body);
-    res.json(result);
+    res.json(await service.processPayment(req.params.orderId, req.body, req.user.restaurantId));
   } catch (e) {
     next(e);
   }
 });
 
-router.get("/:orderId", authenticate, async (req, res, next) => {
+router.get('/:orderId', authenticate, async (req, res, next) => {
   try {
-    const payments = await service.getPaymentsForOrder(req.params.orderId);
-    res.json(payments);
+    res.json(await service.getPaymentsForOrder(req.params.orderId, req.user.restaurantId));
   } catch (e) {
     next(e);
   }

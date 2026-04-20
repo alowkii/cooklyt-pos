@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    res.json(await service.getAll());
+    res.json(await service.getAll(req.user.restaurantId));
   } catch (e) {
     next(e);
   }
@@ -15,7 +15,7 @@ router.get('/', authenticate, async (req, res, next) => {
 router.patch('/', authenticate, authorize('admin'), async (req, res, next) => {
   try {
     const { key, value } = req.body;
-    res.json(await service.update(key, value));
+    res.json(await service.update(key, value, req.user.restaurantId));
   } catch (e) {
     next(e);
   }

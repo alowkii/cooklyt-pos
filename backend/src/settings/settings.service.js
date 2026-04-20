@@ -15,19 +15,19 @@ function validateCurrency(code) {
   }
 }
 
-async function getAll() {
-  return repo.getAll();
+async function getAll(restaurantId) {
+  return repo.getAll(restaurantId);
 }
 
-async function update(key, value) {
+async function update(key, value, restaurantId) {
   if (!ALLOWED_KEYS.has(key)) {
     throw new ValidationError(`Unknown setting: ${key}`);
   }
   if (key === 'timezone') validateTz(value);
   if (key === 'currency') validateCurrency(value);
 
-  await repo.set(key, value);
-  return repo.getAll();
+  await repo.set(restaurantId, key, value);
+  return repo.getAll(restaurantId);
 }
 
 module.exports = { getAll, update };
