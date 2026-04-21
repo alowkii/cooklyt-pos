@@ -21,14 +21,18 @@ const { timezones: TIMEZONES, currencies: CURRENCIES } = settingsOptions;
 
 function SettingsCard({ restaurantId, settings }) {
   const updateSetting = useUpdateSetting(restaurantId);
-  const [tz, setTz]     = useState(settings.timezone || 'UTC');
-  const [cur, setCur]   = useState(settings.currency || 'USD');
+  const [tz,  setTz]  = useState(settings.timezone        || 'UTC');
+  const [cur, setCur] = useState(settings.currency        || 'USD');
+  const [tax, setTax] = useState(settings.tax_rate        || '0');
+  const [svc, setSvc] = useState(settings.service_charge  || '0');
   const [saved, setSaved] = useState(false);
 
   async function handleSave() {
     await Promise.all([
-      updateSetting.mutateAsync({ key: 'timezone', value: tz }),
-      updateSetting.mutateAsync({ key: 'currency', value: cur }),
+      updateSetting.mutateAsync({ key: 'timezone',       value: tz }),
+      updateSetting.mutateAsync({ key: 'currency',       value: cur }),
+      updateSetting.mutateAsync({ key: 'tax_rate',       value: tax }),
+      updateSetting.mutateAsync({ key: 'service_charge', value: svc }),
     ]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -52,6 +56,30 @@ function SettingsCard({ restaurantId, settings }) {
             <option key={code} value={code}>{code} — {name}</option>
           ))}
         </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Tax rate (%)</label>
+          <input
+            type="number"
+            min="0" max="100" step="0.01"
+            className="input"
+            value={tax}
+            onChange={(e) => setTax(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Service charge (%)</label>
+          <input
+            type="number"
+            min="0" max="100" step="0.01"
+            className="input"
+            value={svc}
+            onChange={(e) => setSvc(e.target.value)}
+            placeholder="0"
+          />
+        </div>
       </div>
       <button
         onClick={handleSave}

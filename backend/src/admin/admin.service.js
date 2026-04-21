@@ -117,8 +117,13 @@ async function updateSetting(restaurantId, key, value) {
     throw new ValidationError(`Invalid timezone: ${value}`);
   if (key === 'currency' && !VALID_CURRENCIES.has(value))
     throw new ValidationError(`Invalid currency: ${value}`);
-  if (key !== 'timezone' && key !== 'currency')
-    throw new ValidationError(`Unknown setting: ${key}`);
+  if (key === 'tax_rate' || key === 'service_charge') {
+    const n = parseFloat(value);
+    if (isNaN(n) || n < 0 || n > 100)
+      throw new ValidationError(`${key} must be a number between 0 and 100`);
+  }
+  const VALID_KEYS = new Set(['timezone', 'currency', 'tax_rate', 'service_charge']);
+  if (!VALID_KEYS.has(key)) throw new ValidationError(`Unknown setting: ${key}`);
   await repo.setSetting(restaurantId, key, value);
   return repo.getSettings(restaurantId);
 }
