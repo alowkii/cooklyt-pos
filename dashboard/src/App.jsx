@@ -14,6 +14,7 @@ import Orders   from './pages/Orders';
 import Reports  from './pages/Reports';
 import Users    from './pages/Users';
 import Settings from './pages/Settings';
+import OrderHistory from './pages/OrderHistory';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
@@ -105,6 +106,14 @@ export default function App() {
             element={
               <RequireAdmin>
                 <Settings />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="history"
+            element={
+              <RequireAdmin>
+                <OrderHistory />
               </RequireAdmin>
             }
           />
