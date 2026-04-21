@@ -1,7 +1,7 @@
 const repo = require('./settings.repository');
 const { ValidationError } = require('../shared/errors');
 
-const ALLOWED_KEYS = new Set(['timezone', 'currency']);
+const ALLOWED_KEYS = new Set(['timezone', 'currency', 'tax_rate', 'service_charge']);
 
 function validateTz(tz) {
   if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
@@ -15,6 +15,13 @@ function validateCurrency(code) {
   }
 }
 
+function validateRate(value, name) {
+  const n = parseFloat(value);
+  if (isNaN(n) || n < 0 || n > 100) {
+    throw new ValidationError(`${name} must be a number between 0 and 100`);
+  }
+}
+
 async function getAll(restaurantId) {
   return repo.getAll(restaurantId);
 }
@@ -25,6 +32,8 @@ async function update(key, value, restaurantId) {
   }
   if (key === 'timezone') validateTz(value);
   if (key === 'currency') validateCurrency(value);
+  if (key === 'tax_rate') validateRate(value, 'tax_rate');
+  if (key === 'service_charge') validateRate(value, 'service_charge');
 
   await repo.set(restaurantId, key, value);
   return repo.getAll(restaurantId);
