@@ -2,6 +2,17 @@ const router = require('express').Router();
 const service = require('./orders.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 
+// Must be declared before /:id so "history" is not consumed as an id param
+router.get('/history', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { from, to, status, channel } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from and to dates are required' });
+    res.json(await service.getHistory(req.user.restaurantId, { from, to, status, channel }));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     res.json(await service.getById(req.params.id, req.user.restaurantId));
@@ -46,6 +57,15 @@ router.post('/:id/items', authenticate, async (req, res, next) => {
 router.patch('/:id/status', authenticate, async (req, res, next) => {
   try {
     res.json(await service.updateStatus(req.params.id, req.body.status, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.patch('/:id/discount', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
+  try {
+    const { discountType, discountValue } = req.body;
+    res.json(await service.applyDiscount(req.params.id, discountType ?? null, discountValue ?? 0, req.user.restaurantId));
   } catch (e) {
     next(e);
   }

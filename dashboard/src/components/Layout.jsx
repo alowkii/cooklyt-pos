@@ -7,6 +7,7 @@ import {
   BarChart2,
   Users,
   Settings,
+  ScrollText,
   LogOut,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
@@ -19,9 +20,10 @@ const ALL_NAV = [
   { to: '/menu',    label: 'Menu',     Icon: UtensilsCrossed,             adminOnly: false },
   { to: '/tables',  label: 'Tables',   Icon: Grid3X3,                     adminOnly: false },
   { to: '/orders',  label: 'Orders',   Icon: ClipboardList,               adminOnly: false },
-  { to: '/reports',  label: 'Reports',  Icon: BarChart2, adminOnly: true },
-  { to: '/users',    label: 'Users',    Icon: Users,     adminOnly: true },
-  { to: '/settings', label: 'Settings', Icon: Settings,  adminOnly: true },
+  { to: '/reports',  label: 'Reports',  Icon: BarChart2,   adminOnly: true },
+  { to: '/history',  label: 'History',  Icon: ScrollText,  adminOnly: true },
+  { to: '/users',    label: 'Users',    Icon: Users,       adminOnly: true },
+  { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
 ];
 
 export default function Layout() {

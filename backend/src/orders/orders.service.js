@@ -1,6 +1,7 @@
 const repo = require('./orders.repository');
 const tablesInterface = require('../tables/tables.interface');
 const menuInterface = require('../menu/menu.interface');
+const settingsRepo = require('../settings/settings.repository');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
@@ -72,6 +73,28 @@ async function markOrderPaid(orderId, restaurantId) {
   return updateStatus(orderId, 'paid', restaurantId);
 }
 
+async function getItems(orderId, restaurantId) {
+  await getById(orderId, restaurantId);
+  return repo.getItemsByOrderId(orderId);
+}
+
+async function applyDiscount(orderId, discountType, discountValue, restaurantId) {
+  const VALID_TYPES = ['percent', 'flat'];
+  if (discountType !== null && !VALID_TYPES.includes(discountType))
+    throw new ValidationError('discount_type must be percent, flat, or null');
+  const value = parseFloat(discountValue ?? 0);
+  if (isNaN(value) || value < 0)
+    throw new ValidationError('discount_value must be a non-negative number');
+  if (discountType === 'percent' && value > 100)
+    throw new ValidationError('Percent discount cannot exceed 100');
+
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot modify a paid or cancelled order');
+
+  return repo.setDiscount(orderId, discountType, value);
+}
+
 module.exports = {
   getById,
   getActiveByTable,
@@ -80,4 +103,26 @@ module.exports = {
   updateStatus,
   calculateTotal,
   markOrderPaid,
+  getItems,
+  applyDiscount,
+  getHistory,
 };
+
+async function getHistory(restaurantId, { from, to, status, channel }) {
+  const settings = await settingsRepo.getAll(restaurantId);
+  const timezone = settings.timezone || 'UTC';
+  const orders = await repo.getHistory(restaurantId, { from, to, status, channel, timezone });
+
+  const stats = orders.reduce(
+    (acc, o) => {
+      acc.total += 1;
+      if (o.status === 'paid') { acc.paid += 1; acc.revenue += parseFloat(o.total_charged || 0); }
+      if (o.status === 'cancelled') acc.cancelled += 1;
+      return acc;
+    },
+    { total: 0, paid: 0, cancelled: 0, revenue: 0 },
+  );
+  stats.revenue = parseFloat(stats.revenue.toFixed(2));
+
+  return { orders, stats };
+}

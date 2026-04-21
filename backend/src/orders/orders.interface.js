@@ -7,4 +7,5 @@ module.exports = {
   markOrderPaid:           (orderId, restaurantId) => service.markOrderPaid(orderId, restaurantId),
   getOrderById:            (orderId, restaurantId) => service.getById(orderId, restaurantId),
   updateOrderStatus:       (orderId, status, restaurantId) => service.updateStatus(orderId, status, restaurantId),
+  getOrderItems:           (orderId, restaurantId) => service.getItems(orderId, restaurantId),
 };

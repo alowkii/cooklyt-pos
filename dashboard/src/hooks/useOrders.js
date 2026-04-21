@@ -60,6 +60,21 @@ export function useCreateOrder() {
   });
 }
 
+export function useOrderHistory({ from, to, status, channel }) {
+  return useQuery({
+    queryKey: ['order-history', from, to, status, channel],
+    queryFn: async () => {
+      const params = new URLSearchParams({ from, to });
+      if (status)  params.set('status',  status);
+      if (channel) params.set('channel', channel);
+      const { data } = await api.get(`/orders/history?${params}`);
+      return data;
+    },
+    enabled: !!from && !!to,
+    staleTime: 60_000,
+  });
+}
+
 export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {
