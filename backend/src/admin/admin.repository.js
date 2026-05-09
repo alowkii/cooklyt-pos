@@ -10,11 +10,16 @@ const countSuperAdmins = () =>
   db.query('SELECT COUNT(*) FROM super_admins')
     .then((r) => parseInt(r.rows[0].count, 10));
 
-const createSuperAdmin = (email, password) =>
+// Atomic first-admin creation: only inserts if no super_admin exists. Eliminates
+// the TOCTOU window between countSuperAdmins() and the insert.
+const createFirstSuperAdmin = (email, password) =>
   db.query(
-    'INSERT INTO super_admins (email, password) VALUES ($1, $2) RETURNING id, email, created_at',
+    `INSERT INTO super_admins (email, password)
+     SELECT $1, $2
+     WHERE NOT EXISTS (SELECT 1 FROM super_admins)
+     RETURNING id, email, created_at`,
     [email, password],
-  ).then((r) => r.rows[0]);
+  ).then((r) => r.rows[0] || null);
 
 // ── Restaurants (cross-tenant) ───────────────────────────────────────────────
 
@@ -83,10 +88,31 @@ const setSetting = (restaurantId, key, value) =>
     [restaurantId, key, value],
   );
 
+const getAuditLogs = ({ restaurantId, from, to, resourceType, limit }) =>
+  db.query(
+    `SELECT
+       l.id, l.restaurant_id, l.actor_type, l.actor_id,
+       l.action, l.resource_type, l.resource_id,
+       l.description, l.meta, l.created_at,
+       COALESCE(u.email, sa.email) AS actor_email,
+       r.name                      AS restaurant_name
+     FROM audit_logs l
+     LEFT JOIN users        u  ON u.id  = l.actor_id AND l.actor_type = 'user'
+     LEFT JOIN super_admins sa ON sa.id = l.actor_id AND l.actor_type = 'super_admin'
+     LEFT JOIN restaurants  r  ON r.id  = l.restaurant_id
+     WHERE ($1::uuid IS NULL OR l.restaurant_id = $1)
+       AND ($2::date IS NULL OR l.created_at::date >= $2::date)
+       AND ($3::date IS NULL OR l.created_at::date <= $3::date)
+       AND ($4::text IS NULL OR l.resource_type = $4)
+     ORDER BY l.created_at DESC
+     LIMIT $5`,
+    [restaurantId || null, from || null, to || null, resourceType || null, limit || 500],
+  ).then((r) => r.rows);
+
 module.exports = {
   findSuperAdminByEmail,
   countSuperAdmins,
-  createSuperAdmin,
+  createFirstSuperAdmin,
   getAllRestaurants,
   getRestaurantById,
   createRestaurant,
@@ -97,4 +123,5 @@ module.exports = {
   deleteUser,
   getSettings,
   setSetting,
+  getAuditLogs,
 };

@@ -1,5 +1,5 @@
-import { Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Shield } from 'lucide-react';
+import { Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { LogOut, Shield, Building2, ScrollText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Layout() {
@@ -23,17 +23,31 @@ export default function Layout() {
           </div>
         </div>
 
-        <div className="flex-1 px-3 py-3">
+        <nav className="flex-1 px-3 py-3 space-y-0.5">
           <p className="px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
             Management
           </p>
-          <button
-            onClick={() => navigate('/')}
-            className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            Restaurants
-          </button>
-        </div>
+          {[
+            { to: '/',           label: 'Restaurants', Icon: Building2,  end: true },
+            { to: '/audit-logs', label: 'Audit Logs',  Icon: ScrollText, end: false },
+          ].map(({ to, label, Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-violet-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <Icon size={16} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
 
         <div className="border-t border-slate-700 px-4 py-4 space-y-1">
           <p className="px-3 text-xs text-slate-500 truncate">{admin.email}</p>

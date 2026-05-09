@@ -4,6 +4,7 @@ import Login           from './pages/Login';
 import Setup           from './pages/Setup';
 import Restaurants     from './pages/Restaurants';
 import RestaurantDetail from './pages/RestaurantDetail';
+import AuditLogs        from './pages/AuditLogs';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('admin_token') ? children : <Navigate to="/login" replace />;
@@ -26,6 +27,7 @@ export default function App() {
         >
           <Route index element={<Restaurants />} />
           <Route path="restaurants/:id" element={<RestaurantDetail />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

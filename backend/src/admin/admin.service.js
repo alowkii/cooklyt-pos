@@ -4,8 +4,14 @@ const repo = require('./admin.repository');
 const { ValidationError, NotFoundError, UnauthorizedError } = require('../shared/errors');
 const settingsOptions = require('../../../shared/settings-options.json');
 
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
 const VALID_ROLES = ['admin', 'staff', 'kitchen'];
+
+function assertStrongPassword(password) {
+  if (typeof password !== 'string' || password.length < 8) {
+    throw new ValidationError('Password must be at least 8 characters');
+  }
+}
 const VALID_TIMEZONES = new Set(settingsOptions.timezones.map((t) => t.iana));
 const VALID_CURRENCIES = new Set(settingsOptions.currencies.map((c) => c.code));
 
@@ -30,17 +36,17 @@ async function login(email, password) {
   return { token, admin: { id: admin.id, email: admin.email } };
 }
 
-// Only works when no super admin exists yet — first-run setup
+// Only works when no super admin exists yet — first-run setup.
+// Uses a conditional INSERT to avoid the TOCTOU race between count and insert.
 async function setup(email, password) {
   if (!email || !password)
     throw new ValidationError('Email and password are required');
-
-  const count = await repo.countSuperAdmins();
-  if (count > 0)
-    throw new ValidationError('Setup already complete — use /admin/auth/login');
+  assertStrongPassword(password);
 
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  const admin = await repo.createSuperAdmin(email, hashed);
+  const admin = await repo.createFirstSuperAdmin(email, hashed);
+  if (!admin)
+    throw new ValidationError('Setup already complete — use /admin/auth/login');
 
   const token = jwt.sign(
     { superAdminId: admin.id, role: 'super_admin' },
@@ -96,6 +102,7 @@ async function deleteRestaurant(id) {
 async function createUser({ email, password, role, restaurantId }) {
   if (!email || !password) throw new ValidationError('email and password are required');
   if (!VALID_ROLES.includes(role)) throw new ValidationError(`role must be one of: ${VALID_ROLES.join(', ')}`);
+  assertStrongPassword(password);
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
   return repo.createUserForRestaurant({ email, password: hashed, role, restaurantId });
 }
@@ -128,6 +135,10 @@ async function updateSetting(restaurantId, key, value) {
   return repo.getSettings(restaurantId);
 }
 
+async function getAuditLogs({ restaurantId, from, to, resourceType, limit }) {
+  return repo.getAuditLogs({ restaurantId, from, to, resourceType, limit });
+}
+
 module.exports = {
   login,
   setup,
@@ -140,4 +151,5 @@ module.exports = {
   deleteUser,
   getSettings,
   updateSetting,
+  getAuditLogs,
 };

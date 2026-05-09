@@ -1,20 +1,44 @@
 const router = require('express').Router();
 const service = require('./admin.service');
 const { authenticateSuperAdmin } = require('./admin.middleware');
+const { rateLimit } = require('../shared/middleware/rateLimit');
+const audit = require('../shared/audit');
+
+const sa = (req) => ({ actorType: 'super_admin', actorId: req.superAdmin.superAdminId });
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many login attempts, please try again later',
+});
+
+const setupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Too many setup attempts',
+});
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-// First-run setup — disabled once any super admin exists
-router.post('/auth/setup', async (req, res, next) => {
+router.post('/auth/setup', setupLimiter, async (req, res, next) => {
   try {
     res.status(201).json(await service.setup(req.body.email, req.body.password));
   } catch (e) { next(e); }
 });
 
-router.post('/auth/login', async (req, res, next) => {
+router.post('/auth/login', loginLimiter, async (req, res, next) => {
   try {
-    res.json(await service.login(req.body.email, req.body.password));
-  } catch (e) { next(e); }
+    const result = await service.login(req.body.email, req.body.password);
+    audit.log({ actorType: 'super_admin', actorId: result.admin.id, action: 'login', resourceType: 'super_admin', description: `Operator signed in (${result.admin.email})` });
+    res.json(result);
+  } catch (e) {
+    audit.log({
+      actorType: 'super_admin', actorId: null,
+      action: 'login_failed', resourceType: 'super_admin',
+      description: `Failed operator login for "${String(req.body?.email || '').slice(0, 200)}" from ${req.ip}`,
+    });
+    next(e);
+  }
 });
 
 // ── Restaurants ───────────────────────────────────────────────────────────────
@@ -27,7 +51,9 @@ router.get('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
 
 router.post('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    res.status(201).json(await service.createRestaurant(req.body.name));
+    const restaurant = await service.createRestaurant(req.body.name);
+    audit.log({ ...sa(req), action: 'create', resourceType: 'restaurant', resourceId: restaurant.id, description: `Created restaurant "${restaurant.name}"` });
+    res.status(201).json(restaurant);
   } catch (e) { next(e); }
 });
 
@@ -39,13 +65,16 @@ router.get('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) =>
 
 router.patch('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    res.json(await service.updateRestaurant(req.params.id, req.body.name));
+    const restaurant = await service.updateRestaurant(req.params.id, req.body.name);
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'restaurant', resourceId: req.params.id, description: `Renamed restaurant to "${restaurant.name}"` });
+    res.json(restaurant);
   } catch (e) { next(e); }
 });
 
 router.delete('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
   try {
     await service.deleteRestaurant(req.params.id);
+    audit.log({ ...sa(req), action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant ${req.params.id}` });
     res.status(204).send();
   } catch (e) { next(e); }
 });
@@ -55,15 +84,16 @@ router.delete('/restaurants/:id', authenticateSuperAdmin, async (req, res, next)
 router.post('/restaurants/:id/users', authenticateSuperAdmin, async (req, res, next) => {
   try {
     const { email, password, role } = req.body;
-    res.status(201).json(
-      await service.createUser({ email, password, role, restaurantId: req.params.id }),
-    );
+    const user = await service.createUser({ email, password, role, restaurantId: req.params.id });
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'create', resourceType: 'user', resourceId: user.id, description: `Created user "${email}" with role ${role}` });
+    res.status(201).json(user);
   } catch (e) { next(e); }
 });
 
 router.delete('/restaurants/:id/users/:userId', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    await service.deleteUser(req.params.userId, req.params.id);
+    const user = await service.deleteUser(req.params.userId, req.params.id);
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'user', resourceId: req.params.userId, description: `Deleted user "${user?.email || req.params.userId}"` });
     res.status(204).send();
   } catch (e) { next(e); }
 });
@@ -79,7 +109,18 @@ router.get('/restaurants/:id/settings', authenticateSuperAdmin, async (req, res,
 router.patch('/restaurants/:id/settings', authenticateSuperAdmin, async (req, res, next) => {
   try {
     const { key, value } = req.body;
-    res.json(await service.updateSetting(req.params.id, key, value));
+    const settings = await service.updateSetting(req.params.id, key, value);
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: key, description: `Set ${key} to "${value}"` });
+    res.json(settings);
+  } catch (e) { next(e); }
+});
+
+// ── Audit logs ────────────────────────────────────────────────────────────────
+
+router.get('/audit-logs', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const { restaurantId, from, to, resourceType, limit } = req.query;
+    res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? parseInt(limit, 10) : 500 }));
   } catch (e) { next(e); }
 });
 

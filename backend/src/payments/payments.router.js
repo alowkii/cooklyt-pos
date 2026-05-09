@@ -1,10 +1,17 @@
 const router = require('express').Router();
 const service = require('./payments.service');
 const { authenticate } = require('../shared/middleware/auth');
+const audit = require('../shared/audit');
 
 router.post('/:orderId', authenticate, async (req, res, next) => {
   try {
-    res.json(await service.processPayment(req.params.orderId, req.body, req.user.restaurantId));
+    const result = await service.processPayment(req.params.orderId, req.body, req.user.restaurantId);
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'payment', resourceType: 'payment', resourceId: req.params.orderId,
+      description: `Payment processed — ${req.body.method}, total ${result.charged}`,
+    });
+    res.json(result);
   } catch (e) {
     next(e);
   }

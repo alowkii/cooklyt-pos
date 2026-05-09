@@ -64,6 +64,23 @@ export function useDeleteUser(restaurantId) {
   });
 }
 
+// ── Audit logs ────────────────────────────────────────────────────────────────
+
+export function useAuditLogs({ restaurantId, from, to, resourceType }) {
+  return useQuery({
+    queryKey: ['audit-logs', restaurantId, from, to, resourceType],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (restaurantId) params.set('restaurantId', restaurantId);
+      if (from)         params.set('from', from);
+      if (to)           params.set('to', to);
+      if (resourceType) params.set('resourceType', resourceType);
+      return api.get(`/audit-logs?${params}`).then((r) => r.data);
+    },
+    staleTime: 30_000,
+  });
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export function useUpdateSetting(restaurantId) {
