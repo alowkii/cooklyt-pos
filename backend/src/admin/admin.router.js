@@ -41,6 +41,20 @@ router.post('/auth/login', loginLimiter, async (req, res, next) => {
   }
 });
 
+router.post('/auth/verify-password', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);
+    // Log the export action here so it's tied to a verified identity
+    audit.log({
+      ...sa(req),
+      action: 'export',
+      resourceType: 'audit_log',
+      description: `Exported audit logs${req.body.context ? ` (${req.body.context})` : ''}`,
+    });
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 // ── Restaurants ───────────────────────────────────────────────────────────────
 
 router.get('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
@@ -73,8 +87,8 @@ router.patch('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) 
 
 router.delete('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    await service.deleteRestaurant(req.params.id);
-    audit.log({ ...sa(req), action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant ${req.params.id}` });
+    const deleted = await service.deleteRestaurant(req.params.id);
+    audit.log({ ...sa(req), restaurantName: deleted.name, action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant "${deleted.name}"` });
     res.status(204).send();
   } catch (e) { next(e); }
 });

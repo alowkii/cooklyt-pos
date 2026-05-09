@@ -139,6 +139,14 @@ async function getAuditLogs({ restaurantId, from, to, resourceType, limit }) {
   return repo.getAuditLogs({ restaurantId, from, to, resourceType, limit });
 }
 
+async function verifyPassword(superAdminId, password) {
+  const admin = await repo.findSuperAdminById(superAdminId);
+  if (!admin) throw new UnauthorizedError('Invalid credentials');
+  const valid = await bcrypt.compare(password, admin.password);
+  if (!valid) throw new UnauthorizedError('Invalid credentials');
+  return { ok: true, email: admin.email };
+}
+
 module.exports = {
   login,
   setup,
@@ -152,4 +160,5 @@ module.exports = {
   getSettings,
   updateSetting,
   getAuditLogs,
+  verifyPassword,
 };

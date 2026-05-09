@@ -6,6 +6,10 @@ const findSuperAdminByEmail = (email) =>
   db.query('SELECT * FROM super_admins WHERE email = $1', [email])
     .then((r) => r.rows[0]);
 
+const findSuperAdminById = (id) =>
+  db.query('SELECT * FROM super_admins WHERE id = $1', [id])
+    .then((r) => r.rows[0]);
+
 const countSuperAdmins = () =>
   db.query('SELECT COUNT(*) FROM super_admins')
     .then((r) => parseInt(r.rows[0].count, 10));
@@ -50,7 +54,7 @@ const updateRestaurant = (id, name) =>
   ).then((r) => r.rows[0]);
 
 const deleteRestaurant = (id) =>
-  db.query('DELETE FROM restaurants WHERE id = $1 RETURNING id', [id])
+  db.query('DELETE FROM restaurants WHERE id = $1 RETURNING id, name', [id])
     .then((r) => r.rows[0]);
 
 // ── Users (cross-tenant) ─────────────────────────────────────────────────────
@@ -94,8 +98,8 @@ const getAuditLogs = ({ restaurantId, from, to, resourceType, limit }) =>
        l.id, l.restaurant_id, l.actor_type, l.actor_id,
        l.action, l.resource_type, l.resource_id,
        l.description, l.meta, l.created_at,
-       COALESCE(u.email, sa.email) AS actor_email,
-       r.name                      AS restaurant_name
+       COALESCE(u.email, sa.email)        AS actor_email,
+       COALESCE(l.restaurant_name, r.name) AS restaurant_name
      FROM audit_logs l
      LEFT JOIN users        u  ON u.id  = l.actor_id AND l.actor_type = 'user'
      LEFT JOIN super_admins sa ON sa.id = l.actor_id AND l.actor_type = 'super_admin'
@@ -111,6 +115,7 @@ const getAuditLogs = ({ restaurantId, from, to, resourceType, limit }) =>
 
 module.exports = {
   findSuperAdminByEmail,
+  findSuperAdminById,
   countSuperAdmins,
   createFirstSuperAdmin,
   getAllRestaurants,
