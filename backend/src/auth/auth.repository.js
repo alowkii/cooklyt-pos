@@ -49,7 +49,9 @@ async function deleteUser(id, restaurantId) {
 
 async function updatePassword(id, hashedPassword) {
   const { rows } = await db.query(
-    `UPDATE users SET password = $1, force_password_change = false
+    `UPDATE users SET password = $1,
+                       force_password_change = false,
+                       password_changed_at = now()
      WHERE id = $2 RETURNING id`,
     [hashedPassword, id],
   );

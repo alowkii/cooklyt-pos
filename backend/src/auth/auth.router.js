@@ -1,22 +1,50 @@
 const router = require('express').Router();
 const service = require('./auth.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
+const { rateLimit } = require('../shared/middleware/rateLimit');
+const audit = require('../shared/audit');
 
-router.post('/login', async (req, res, next) => {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many login attempts, please try again later',
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many requests',
+});
+
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const result = await service.login(email, password);
+    const result = await service.login(req.body.email, req.body.password);
+    audit.log({
+      actorType: 'user', actorId: result.user.id, restaurantId: result.user.restaurantId,
+      action: 'login', resourceType: 'user', resourceId: result.user.id,
+      description: `User signed in (${result.user.email})`,
+    });
     res.json(result);
   } catch (e) {
+    audit.log({
+      actorType: 'user', actorId: null, restaurantId: null,
+      action: 'login_failed', resourceType: 'user',
+      description: `Failed login for "${String(req.body?.email || '').slice(0, 200)}" from ${req.ip}`,
+    });
     next(e);
   }
 });
 
 // Admin-only: register new staff/admin accounts within the same restaurant
-router.post('/register', authenticate, authorize('admin'), async (req, res, next) => {
+router.post('/register', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
     const { email, password, role } = req.body;
     const user = await service.register(email, password, role, req.user.restaurantId);
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'create', resourceType: 'user', resourceId: user.id,
+      description: `Registered user "${email}" with role ${role}`,
+    });
     res.status(201).json(user);
   } catch (e) {
     next(e);
@@ -46,7 +74,12 @@ router.get('/users', authenticate, authorize('admin'), async (req, res, next) =>
 // Admin-only: delete a user (must belong to same restaurant)
 router.delete('/users/:id', authenticate, authorize('admin'), async (req, res, next) => {
   try {
-    await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
+    const deleted = await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'delete', resourceType: 'user', resourceId: req.params.id,
+      description: `Deleted user "${deleted?.email || req.params.id}"`,
+    });
     res.status(204).send();
   } catch (e) {
     next(e);
@@ -54,10 +87,15 @@ router.delete('/users/:id', authenticate, authorize('admin'), async (req, res, n
 });
 
 // Change own password (any authenticated user)
-router.post('/change-password', authenticate, async (req, res, next) => {
+router.post('/change-password', authenticate, writeLimiter, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const result = await service.changePassword(req.user.userId, currentPassword, newPassword);
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'update', resourceType: 'user', resourceId: req.user.userId,
+      description: 'Changed own password',
+    });
     res.json(result);
   } catch (e) {
     next(e);
@@ -73,6 +111,11 @@ router.patch('/users/:id/role', authenticate, authorize('admin'), async (req, re
       req.user.userId,
       req.user.restaurantId,
     );
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'update', resourceType: 'user', resourceId: req.params.id,
+      description: `Changed role of "${user.email}" to ${req.body.role}`,
+    });
     res.json(user);
   } catch (e) {
     next(e);

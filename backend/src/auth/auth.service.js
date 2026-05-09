@@ -3,7 +3,13 @@ const jwt = require('jsonwebtoken');
 const repo = require('./auth.repository');
 const { UnauthorizedError, ValidationError, NotFoundError } = require('../shared/errors');
 
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
+
+function assertStrongPassword(password) {
+  if (typeof password !== 'string' || password.length < 8) {
+    throw new ValidationError('Password must be at least 8 characters');
+  }
+}
 
 async function login(email, password) {
   if (!email || !password)
@@ -44,6 +50,7 @@ async function register(email, password, role = 'staff', restaurantId) {
     throw new ValidationError('Email and password are required');
   if (!restaurantId)
     throw new ValidationError('restaurantId is required');
+  assertStrongPassword(password);
 
   const existing = await repo.findUserByEmail(email);
   if (existing) throw new ValidationError('Email already in use');
@@ -85,6 +92,7 @@ async function updateUserRole(targetId, role, requestingUserId, restaurantId) {
 async function signup(restaurantName, email, password) {
   if (!restaurantName || !email || !password)
     throw new ValidationError('restaurantName, email and password are required');
+  assertStrongPassword(password);
 
   const existing = await repo.findUserByEmail(email);
   if (existing) throw new ValidationError('Email already in use');
@@ -112,8 +120,7 @@ async function signup(restaurantName, email, password) {
 async function changePassword(userId, currentPassword, newPassword) {
   if (!currentPassword || !newPassword)
     throw new ValidationError('currentPassword and newPassword are required');
-  if (newPassword.length < 6)
-    throw new ValidationError('New password must be at least 6 characters');
+  assertStrongPassword(newPassword);
 
   const user = await repo.findUserById(userId);
   if (!user) throw new UnauthorizedError('User not found');
