@@ -66,15 +66,16 @@ export function useDeleteUser(restaurantId) {
 
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
-export function useAuditLogs({ restaurantId, from, to, resourceType }) {
+export function useAuditLogs({ restaurantId, from, to, resourceType, limit = 500 }) {
   return useQuery({
-    queryKey: ['audit-logs', restaurantId, from, to, resourceType],
+    queryKey: ['audit-logs', restaurantId, from, to, resourceType, limit],
     queryFn: () => {
       const params = new URLSearchParams();
       if (restaurantId) params.set('restaurantId', restaurantId);
       if (from)         params.set('from', from);
       if (to)           params.set('to', to);
       if (resourceType) params.set('resourceType', resourceType);
+      params.set('limit', limit);
       return api.get(`/audit-logs?${params}`).then((r) => r.data);
     },
     staleTime: 30_000,
