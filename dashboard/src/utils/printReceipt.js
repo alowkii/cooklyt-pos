@@ -1,6 +1,9 @@
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+
 export function printReceipt(receipt, currency) {
   const { symbol, rate, decimals } = currency;
-  const fmt = (v) => `${symbol}${(parseFloat(v) * rate).toFixed(decimals)}`;
+  const fmt = (v) => `${esc(symbol)}${(parseFloat(v) * rate).toFixed(decimals)}`;
 
   const date = new Date(receipt.createdAt).toLocaleString('en-US', {
     timeZone: receipt.timezone,
@@ -8,15 +11,18 @@ export function printReceipt(receipt, currency) {
     hour: '2-digit', minute: '2-digit',
   });
 
+  const channelLabel = receipt.channel
+    ? receipt.channel.charAt(0).toUpperCase() + receipt.channel.slice(1)
+    : '';
   const location = receipt.channel === 'dining'
     ? (receipt.tableNumber ? `Table ${receipt.tableNumber}` : 'Dine-in')
-    : (receipt.customerRef || receipt.channel.charAt(0).toUpperCase() + receipt.channel.slice(1));
+    : (receipt.customerRef || channelLabel);
 
   const itemsHtml = (receipt.items || []).map((item) =>
     `<tr>
       <td style="padding:2px 0;vertical-align:top">
-        ${item.name} &times; ${item.quantity}
-        ${item.notes ? `<br><span style="color:#777;font-size:11px">${item.notes}</span>` : ''}
+        ${esc(item.name)} &times; ${esc(item.quantity)}
+        ${item.notes ? `<br><span style="color:#777;font-size:11px">${esc(item.notes)}</span>` : ''}
       </td>
       <td style="text-align:right;padding:2px 0;vertical-align:top;white-space:nowrap">${fmt(item.price * item.quantity)}</td>
     </tr>`,
@@ -24,7 +30,7 @@ export function printReceipt(receipt, currency) {
 
   const discountRow = parseFloat(receipt.discountAmount) > 0
     ? `<tr>
-        <td style="color:#15803d">Discount${receipt.discountType === 'percent' ? ` (${receipt.discountValue}%)` : ' (flat)'}</td>
+        <td style="color:#15803d">Discount${receipt.discountType === 'percent' ? ` (${esc(receipt.discountValue)}%)` : ' (flat)'}</td>
         <td style="text-align:right;color:#15803d">&minus;${fmt(receipt.discountAmount)}</td>
       </tr>` : '';
 
@@ -40,11 +46,14 @@ export function printReceipt(receipt, currency) {
         <td style="text-align:right">${fmt(receipt.serviceChargeAmount)}</td>
       </tr>` : '';
 
+  const titleToken = receipt.token || (receipt.order_id ? receipt.order_id.slice(-6).toUpperCase() : '');
+  const orderToken = (receipt.order_id || '').slice(-6).toUpperCase();
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Receipt #${receipt.token || receipt.order_id?.slice(-6).toUpperCase()}</title>
+  <title>Receipt #${esc(titleToken)}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
@@ -58,15 +67,15 @@ export function printReceipt(receipt, currency) {
 </head>
 <body>
   <div class="c">
-    <strong style="font-size:16px">${receipt.restaurantName || 'Restaurant'}</strong><br>
+    <strong style="font-size:16px">${esc(receipt.restaurantName || 'Restaurant')}</strong><br>
     <span class="lbl">Receipt</span>
   </div>
   <hr>
   <table>
-    <tr><td class="lbl">Order</td><td style="text-align:right">#${(receipt.order_id || '').slice(-6).toUpperCase()}</td></tr>
-    <tr><td class="lbl">Date</td><td style="text-align:right;font-size:12px">${date}</td></tr>
-    <tr><td class="lbl">Type</td><td style="text-align:right;text-transform:capitalize">${location}</td></tr>
-    <tr><td class="lbl">Payment</td><td style="text-align:right;text-transform:capitalize">${receipt.paymentMethod}</td></tr>
+    <tr><td class="lbl">Order</td><td style="text-align:right">#${esc(orderToken)}</td></tr>
+    <tr><td class="lbl">Date</td><td style="text-align:right;font-size:12px">${esc(date)}</td></tr>
+    <tr><td class="lbl">Type</td><td style="text-align:right;text-transform:capitalize">${esc(location)}</td></tr>
+    <tr><td class="lbl">Payment</td><td style="text-align:right;text-transform:capitalize">${esc(receipt.paymentMethod)}</td></tr>
   </table>
   <hr>
   <table>${itemsHtml}</table>

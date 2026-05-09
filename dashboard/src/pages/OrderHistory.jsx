@@ -36,12 +36,12 @@ const PRESETS = [
 // ── Status / channel config ──────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-  paid:       'bg-emerald-100 text-emerald-700',
-  cancelled:  'bg-red-100 text-red-600',
-  served:     'bg-indigo-100 text-indigo-700',
-  ready:      'bg-blue-100 text-blue-700',
-  preparing:  'bg-amber-100 text-amber-700',
-  received:   'bg-slate-100 text-slate-600',
+  paid:       'text-emerald-600',
+  cancelled:  'text-red-500',
+  served:     'text-indigo-500',
+  ready:      'text-blue-500',
+  preparing:  'text-amber-500',
+  received:   'text-slate-400',
 };
 
 const CHANNEL_ICONS = {
@@ -133,7 +133,7 @@ function OrderRow({ order, format, formatTime, currency }) {
           {order.status === 'paid' ? format(displayTotal) : '—'}
         </span>
 
-        <span className={`w-20 text-right text-xs font-semibold rounded-full px-2 py-0.5 ${STATUS_COLORS[order.status] ?? 'bg-slate-100 text-slate-600'}`}>
+        <span className={`w-20 text-right text-xs font-medium capitalize ${STATUS_COLORS[order.status] ?? 'text-slate-400'}`}>
           {order.status}
         </span>
       </button>

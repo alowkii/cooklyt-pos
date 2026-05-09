@@ -1,6 +1,6 @@
 const { ValidationError } = require("../errors");
 
-// Pass a schema object: { fieldName: { required, type } }
+// Pass a schema object: { fieldName: { required, type, min } }
 function validate(schema) {
   return (req, res, next) => {
     const errors = [];
@@ -18,10 +18,16 @@ function validate(schema) {
 
       if (value !== undefined && rules.type && typeof value !== rules.type) {
         errors.push(`${field} must be a ${rules.type}`);
+        continue;
       }
 
-      if (value !== undefined && rules.min !== undefined && value < rules.min) {
-        errors.push(`${field} must be at least ${rules.min}`);
+      if (value !== undefined && rules.min !== undefined) {
+        // Coerce only when the schema declared a numeric type, so non-numbers
+        // can't slip past with NaN < min === false.
+        const num = typeof value === "number" ? value : Number(value);
+        if (Number.isNaN(num) || num < rules.min) {
+          errors.push(`${field} must be at least ${rules.min}`);
+        }
       }
     }
 

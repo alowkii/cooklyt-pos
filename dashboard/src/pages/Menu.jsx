@@ -29,7 +29,7 @@ export default function Menu() {
 
   // ── Filtering ────────────────────────────────────────
   const filtered = items.filter((item) => {
-    const matchCat    = category === 'all' || item.category === category;
+    const matchCat    = category === 'all' || item.category?.toLowerCase() === category;
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
