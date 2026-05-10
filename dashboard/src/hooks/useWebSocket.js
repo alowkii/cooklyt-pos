@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Falls back to the vite proxy target in development
-const WS_URL = import.meta.env.VITE_WS_URL ?? `ws://${window.location.hostname}:3000`;
+const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}/ws`;
 
 export function useWebSocket() {
   const qc = useQueryClient();
