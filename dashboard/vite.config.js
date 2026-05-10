@@ -35,7 +35,7 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Krilok POS — Dashboard',
+        name: 'Cooklyt — Dashboard',
         short_name: 'POS Dashboard',
         description: 'Restaurant POS management dashboard',
         theme_color: '#1e293b',

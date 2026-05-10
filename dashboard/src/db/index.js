@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 // Local-first data store — every entity synced from the API lives here.
 // The UI reads from here; the API is just a sync target.
-export const db = new Dexie('krilok_pos_dashboard');
+export const db = new Dexie('cooklyt_pos_dashboard');
 
 db.version(1).stores({
   menu:              '&id, category, available, name',

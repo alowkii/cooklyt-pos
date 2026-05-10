@@ -18,7 +18,7 @@ export default function Layout() {
         <div className="flex h-16 items-center gap-2.5 px-5 border-b border-slate-700">
           <Shield size={18} className="text-violet-400" />
           <div>
-            <p className="text-sm font-bold leading-tight">Krilok Admin</p>
+            <p className="text-sm font-bold leading-tight">Cooklyt Admin</p>
             <p className="text-xs text-slate-400">Operator Panel</p>
           </div>
         </div>

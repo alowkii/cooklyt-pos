@@ -30,7 +30,7 @@ export default function Login() {
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 mb-1">
             Operator Panel
           </p>
-          <h1 className="text-2xl font-bold text-slate-800">Krilok Admin</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Cooklyt Admin</h1>
           <p className="mt-1 text-sm text-slate-500">Internal use only</p>
         </div>
 
@@ -42,7 +42,7 @@ export default function Login() {
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="input"
-              placeholder="ops@krilok.com"
+              placeholder="ops@cooklyt.com"
               autoComplete="username"
               required
             />

@@ -44,7 +44,7 @@ export default function Setup() {
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="input"
-              placeholder="ops@krilok.com"
+              placeholder="ops@cooklyt.com"
               required
             />
           </div>
