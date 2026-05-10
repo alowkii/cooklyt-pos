@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -9,6 +10,8 @@ import {
   Settings,
   ScrollText,
   LogOut,
+  Menu,
+  X,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
@@ -29,9 +32,15 @@ const ALL_NAV = [
 export default function Layout() {
   useWebSocket();
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate      = useNavigate();
   const location      = useLocation();
   const { user, restaurant, isAdmin } = useAuth();
+
+  // Close sidebar on route change (mobile nav tap)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const nav = ALL_NAV.filter((n) => !n.adminOnly || isAdmin);
 
@@ -47,16 +56,35 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen bg-slate-50">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="flex w-56 shrink-0 flex-col bg-slate-800 text-white">
-        <div className="flex h-16 items-center px-5 border-b border-slate-700">
-          <div>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col bg-slate-800 text-white
+          transition-transform duration-200 ease-in-out
+          lg:relative lg:w-56 lg:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="flex h-16 items-center justify-between px-5 border-b border-slate-700">
+          <div className="min-w-0">
             <p className="text-sm font-bold tracking-tight leading-tight">Cooklyt</p>
             {restaurant?.name && (
               <p className="text-xs text-slate-400 truncate max-w-[160px]">{restaurant.name}</p>
             )}
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-2 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-700 transition-colors lg:hidden"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3 py-3">
@@ -95,15 +123,24 @@ export default function Layout() {
       </aside>
 
       {/* ── Main area ────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
 
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 transition-colors lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
           <h1 className="text-sm font-semibold text-slate-700">{pageLabel}</h1>
-          <SyncBadge />
+          <div className="ml-auto">
+            <SyncBadge />
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

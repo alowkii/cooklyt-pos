@@ -30,6 +30,8 @@ export default function NewOrderModal({ onClose }) {
   const [quantities, setQty]       = useState({});
   const [notes,      setNotes]     = useState({});
   const [error,      setError]     = useState('');
+  // On mobile, toggle between "menu" and "cart" tabs
+  const [mobileTab,  setMobileTab] = useState('menu');
 
   // Reset table / customerRef when channel changes
   useEffect(() => {
@@ -107,25 +109,53 @@ export default function NewOrderModal({ onClose }) {
     }
   }
 
+  const cartCount = cartItems.reduce((s, m) => s + (quantities[m.id] ?? 0), 0);
+
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl"
-           style={{ maxHeight: '90vh' }}>
+      {/* Dialog: full-screen on mobile, max-w-4xl on sm+ */}
+      <div className="flex w-full flex-col bg-white shadow-xl
+        h-[100dvh] rounded-none
+        sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-xl">
 
         {/* ── Header ── */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-6">
           <h2 className="text-base font-semibold text-slate-800">New Order</h2>
-          <button onClick={onClose}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+          {/* Mobile tabs in header */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <div className="flex rounded-lg border border-slate-200 text-xs font-medium overflow-hidden">
+              <button
+                onClick={() => setMobileTab('menu')}
+                className={`px-3 py-1.5 transition-colors ${mobileTab === 'menu' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}
+              >
+                Menu
+              </button>
+              <button
+                onClick={() => setMobileTab('cart')}
+                className={`relative px-3 py-1.5 transition-colors ${mobileTab === 'cart' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}
+              >
+                Cart
+                {cartCount > 0 && (
+                  <span className="ml-1 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* ── Channel selector ── */}
-        <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+        <div className="shrink-0 border-b border-slate-100 px-4 py-3 sm:px-6">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
             Order Type
           </p>
@@ -134,14 +164,14 @@ export default function NewOrderModal({ onClose }) {
               <button
                 key={id}
                 onClick={() => setChannel(id)}
-                className={`flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-all
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all sm:flex-none sm:px-4
                   ${channel === id
                     ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                   }`}
               >
                 <Icon size={15} />
-                {label}
+                <span className="hidden xs:inline sm:inline">{label}</span>
               </button>
             ))}
           </div>
@@ -149,7 +179,7 @@ export default function NewOrderModal({ onClose }) {
 
         {/* ── Table selector (dining only) ── */}
         {channel === 'dining' && (
-          <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+          <div className="shrink-0 border-b border-slate-100 px-4 py-3 sm:px-6">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
               Select Table
             </p>
@@ -179,7 +209,7 @@ export default function NewOrderModal({ onClose }) {
 
         {/* ── Customer reference (takeaway / delivery) ── */}
         {channel !== 'dining' && (
-          <div className="shrink-0 border-b border-slate-100 px-6 py-3">
+          <div className="shrink-0 border-b border-slate-100 px-4 py-3 sm:px-6">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
               Customer / Reference <span className="font-normal normal-case text-slate-300">(optional)</span>
             </label>
@@ -188,7 +218,7 @@ export default function NewOrderModal({ onClose }) {
               value={customerRef}
               onChange={(e) => setCRef(e.target.value)}
               placeholder={channel === 'delivery' ? 'e.g. Rahul – 9th floor' : 'e.g. Token #12'}
-              className="input w-80"
+              className="input w-full sm:w-80"
             />
           </div>
         )}
@@ -196,8 +226,8 @@ export default function NewOrderModal({ onClose }) {
         {/* ── Body: menu + cart ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
 
-          {/* Menu */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+          {/* Menu — hidden on mobile when cart tab is active */}
+          <div className={`flex-1 overflow-y-auto px-4 py-4 sm:px-6 ${mobileTab === 'cart' ? 'hidden sm:block' : ''}`}>
             {Object.keys(grouped).length === 0 ? (
               <p className="text-sm text-slate-400">No menu items available</p>
             ) : (
@@ -211,18 +241,18 @@ export default function NewOrderModal({ onClose }) {
                       const qty = quantities[item.id] ?? 0;
                       return (
                         <div key={item.id}
-                          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
                             <p className="text-xs text-slate-400">{format(item.price)}</p>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             {qty > 0 && (
                               <button
                                 onClick={() => changeQty(item.id, -1)}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
                               >
-                                <Minus size={12} />
+                                <Minus size={14} />
                               </button>
                             )}
                             {qty > 0 && (
@@ -232,9 +262,9 @@ export default function NewOrderModal({ onClose }) {
                             )}
                             <button
                               onClick={() => changeQty(item.id, 1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                             >
-                              <Plus size={12} />
+                              <Plus size={14} />
                             </button>
                           </div>
                         </div>
@@ -246,8 +276,10 @@ export default function NewOrderModal({ onClose }) {
             )}
           </div>
 
-          {/* Cart */}
-          <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-100 bg-slate-50 px-4 py-4">
+          {/* Cart — full-width tab on mobile, side panel on desktop */}
+          <div className={`overflow-y-auto border-slate-100 bg-slate-50 px-4 py-4
+            w-full border-t sm:w-64 sm:shrink-0 sm:border-l sm:border-t-0
+            ${mobileTab === 'menu' ? 'hidden sm:block' : ''}`}>
             <div className="mb-3 flex items-center gap-2">
               <ShoppingBag size={14} className="text-slate-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -256,7 +288,7 @@ export default function NewOrderModal({ onClose }) {
             </div>
 
             {cartItems.length === 0 ? (
-              <p className="text-xs text-slate-400">No items yet</p>
+              <p className="text-xs text-slate-400">No items yet — add from the menu</p>
             ) : (
               <ul className="space-y-3">
                 {cartItems.map((item) => (
@@ -296,7 +328,7 @@ export default function NewOrderModal({ onClose }) {
         </div>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-slate-100 px-6 py-4">
+        <div className="shrink-0 border-t border-slate-100 px-4 py-4 sm:px-6">
           {error && (
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
           )}
@@ -308,7 +340,7 @@ export default function NewOrderModal({ onClose }) {
               className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
             >
               <ChevronRight size={15} />
-              {createOrder.isPending ? 'Placing…' : 'Place Order'}
+              {createOrder.isPending ? 'Placing…' : `Place Order${cartCount > 0 ? ` (${cartCount})` : ''}`}
             </button>
           </div>
         </div>

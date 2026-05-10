@@ -133,13 +133,13 @@ export default function Users() {
       </div>
 
       {/* ── Table ──────────────────────────────────────── */}
-      <div className="rounded-xl bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl bg-white shadow-sm overflow-x-auto">
         {isLoading ? (
           <div className="py-16 text-center text-sm text-slate-400">Loading users…</div>
         ) : users.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">No users found</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left">
                 <th className="px-5 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">Email</th>

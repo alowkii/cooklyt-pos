@@ -109,7 +109,7 @@ function OrderRow({ order, format, formatTime, currency }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors min-w-[480px]"
       >
         <span className="text-slate-400">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
 
@@ -238,21 +238,21 @@ export default function OrderHistory() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       {/* ── Header + filters ── */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div>
           <h1 className="text-lg font-bold text-slate-800">Order History</h1>
           <p className="text-xs text-slate-400">{iana}</p>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           {/* Date presets */}
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
+          <div className="flex rounded-lg border border-slate-200 overflow-x-auto text-xs font-medium">
             {PRESETS.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setPreset(p.id)}
-                className={`px-3 py-1.5 transition-colors ${
+                className={`whitespace-nowrap px-3 py-1.5 transition-colors ${
                   preset === p.id
                     ? 'bg-indigo-600 text-white'
                     : 'bg-white text-slate-600 hover:bg-slate-50'
@@ -304,7 +304,7 @@ export default function OrderHistory() {
 
       {/* ── Stats ── */}
       {stats && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
             { label: 'Total orders',  value: stats.total },
             { label: 'Paid',          value: stats.paid },
@@ -320,9 +320,9 @@ export default function OrderHistory() {
       )}
 
       {/* ── Table ── */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
         {/* Column headers */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400 min-w-[480px]">
           <span className="w-4" />
           <span className="w-14">Time</span>
           <span className="w-16">Token</span>

@@ -80,13 +80,13 @@ export default function Restaurants() {
       )}
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
         {isLoading ? (
           <div className="p-8 text-center text-sm text-slate-400">Loading…</div>
         ) : restaurants.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-400">No restaurants yet.</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>

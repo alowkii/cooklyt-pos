@@ -82,7 +82,7 @@ export default function Settings() {
         placeholder="Search currency…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="input w-64"
+        className="input w-full sm:w-64"
       />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -153,7 +153,7 @@ export default function Settings() {
         placeholder="Search timezone…"
         value={tzSearch}
         onChange={(e) => setTzSearch(e.target.value)}
-        className="input w-64"
+        className="input w-full sm:w-64"
       />
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">

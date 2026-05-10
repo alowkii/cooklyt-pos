@@ -111,7 +111,7 @@ function AddUserForm({ restaurantId, onClose }) {
   return (
     <form onSubmit={handleSubmit} className="border-t border-slate-100 pt-4 mt-4 space-y-3">
       <p className="text-xs font-semibold text-slate-600">Add user</p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
           className="input"
           type="email"
@@ -217,14 +217,14 @@ export default function RestaurantDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Settings */}
-        <div className="col-span-1">
+        <div className="lg:col-span-1">
           <SettingsCard restaurantId={id} settings={data.settings} />
         </div>
 
         {/* Users */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-700">
@@ -241,7 +241,8 @@ export default function RestaurantDetail() {
             {data.users.length === 0 ? (
               <p className="text-sm text-slate-400">No users yet.</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[400px] text-sm">
                 <thead className="border-b border-slate-100">
                   <tr>
                     <th className="pb-2 text-left text-xs font-semibold text-slate-500">Email</th>
@@ -274,6 +275,7 @@ export default function RestaurantDetail() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
 
             {showAddUser && (
