@@ -294,11 +294,15 @@ export default function OrderHistory() {
 
       {/* Custom date range */}
       {preset === 'custom' && (
-        <div className="flex items-center gap-3 text-sm">
-          <label className="text-slate-500">From</label>
-          <input type="date" className="input text-sm" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-          <label className="text-slate-500">To</label>
-          <input type="date" className="input text-sm" value={customTo}   onChange={(e) => setCustomTo(e.target.value)}   />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2">
+            <label className="w-8 shrink-0 text-sm text-slate-500">From</label>
+            <input type="date" className="input text-sm flex-1" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="w-8 shrink-0 text-sm text-slate-500">To</label>
+            <input type="date" className="input text-sm flex-1" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+          </div>
         </div>
       )}
 

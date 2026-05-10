@@ -30,8 +30,8 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg sm:p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800">Cooklyt</h1>
           <p className="mt-1 text-sm text-slate-500">Sign in to your dashboard</p>

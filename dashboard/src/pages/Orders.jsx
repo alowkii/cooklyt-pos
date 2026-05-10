@@ -59,14 +59,14 @@ export default function Orders() {
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-slate-500">
           {orders.length === 0
             ? 'No active orders'
             : `${orders.length} active order${orders.length !== 1 ? 's' : ''}`}
         </p>
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-slate-400">auto-refreshes every 30 s</p>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <p className="hidden text-xs text-slate-400 sm:block">auto-refreshes every 30 s</p>
           {canOrder && (
             <button
               onClick={() => setShowNewOrder(true)}

@@ -73,35 +73,20 @@ export default function Menu() {
   return (
     <div className="space-y-5">
       {/* ── Toolbar ─────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-64">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items…"
-            className="input pl-9"
-          />
-        </div>
-
+      <div className="space-y-3">
+        {/* Row 1: search + add button */}
         <div className="flex items-center gap-2">
-          <div className="flex gap-1 overflow-x-auto pb-0.5">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                  category === c
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search items…"
+              className="input pl-9"
+            />
           </div>
           {isAdmin && (
             <button
@@ -109,9 +94,26 @@ export default function Menu() {
               className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
             >
               <Plus size={15} />
-              Add Item
+              <span>Add Item</span>
             </button>
           )}
+        </div>
+
+        {/* Row 2: category pills — full width, scrollable */}
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                category === c
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -13,15 +13,15 @@ const STATUS_CLASSES = {
 
 function StatCard({ label, value, sub, Icon, accent }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm">
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${accent}`}>
-        <Icon size={22} className="text-white" />
+    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
+        <Icon size={18} className="text-white" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 leading-tight">
           {label}
         </p>
-        <p className="text-2xl font-bold text-slate-800">{value}</p>
+        <p className="truncate text-xl font-bold text-slate-800">{value}</p>
         {sub && <p className="text-xs text-slate-400">{sub}</p>}
       </div>
     </div>
@@ -82,8 +82,8 @@ export default function Overview() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Table status grid */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">Tables</h2>
+        <div className="rounded-xl bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">Tables</h2>
           {tables.length === 0 ? (
             <p className="text-sm text-slate-400">No tables found</p>
           ) : (
@@ -96,7 +96,7 @@ export default function Overview() {
                   }`}
                 >
                   <span className="text-lg font-bold leading-none">{t.number}</span>
-                  <span className="mt-0.5 capitalize">{t.status}</span>
+                  <span className="mt-0.5 hidden capitalize sm:block">{t.status}</span>
                 </div>
               ))}
             </div>
@@ -104,8 +104,8 @@ export default function Overview() {
         </div>
 
         {/* Active orders */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">
+        <div className="rounded-xl bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">
             Active Orders
             {orders.length > 0 && (
               <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600">

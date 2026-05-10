@@ -11,14 +11,16 @@ import { useTimezone } from '../context/TimezoneContext';
 
 function SummaryCard({ Icon, label, value, colorClass }) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm">
-      <div className={`mb-3 inline-flex rounded-lg p-2 ${colorClass}`}>
-        <Icon size={18} />
+    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+      <div className={`shrink-0 inline-flex rounded-lg p-2 ${colorClass}`}>
+        <Icon size={16} />
       </div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-0.5 text-2xl font-bold text-slate-800">{value}</p>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          {label}
+        </p>
+        <p className="truncate text-xl font-bold text-slate-800">{value}</p>
+      </div>
     </div>
   );
 }
@@ -49,13 +51,13 @@ export default function Reports() {
     <div className="space-y-6">
       {/* ── Date picker ─────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-600">Date</label>
+        <label className="shrink-0 text-sm font-medium text-slate-600">Date</label>
         <input
           type="date"
           value={date}
           max={today}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+          className="w-full max-w-[200px] rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
         />
       </div>
 
@@ -74,7 +76,7 @@ export default function Reports() {
       {data && (
         <>
           {/* ── Summary KPIs ────────────────────────── */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <SummaryCard
               Icon={DollarSign}
               label="Total Revenue"
