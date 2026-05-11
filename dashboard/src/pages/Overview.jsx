@@ -3,6 +3,7 @@ import { useDailyReport } from '../hooks/useReports';
 import { useTables } from '../hooks/useTables';
 import { useActiveOrders, useKitchenQueue } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
+import { useAuth } from '../hooks/useAuth';
 
 const STATUS_CLASSES = {
   available: 'bg-emerald-100 text-emerald-700',
@@ -44,6 +45,7 @@ export default function Overview() {
   const { data: orders = [] }   = useActiveOrders();
   const { data: queue  = [] }   = useKitchenQueue();
   const { format }              = useCurrency();
+  const { isAdmin }             = useAuth();
 
   const revenue      = report?.summary?.total_revenue ?? null;
   const orderCount   = report?.summary?.total_orders  ?? null;
@@ -52,13 +54,15 @@ export default function Overview() {
   return (
     <div className="space-y-6">
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Revenue Today"
-          value={revenue !== null ? format(revenue) : '—'}
-          Icon={TrendingUp}
-          accent="bg-emerald-500"
-        />
+      <div className={`grid grid-cols-2 gap-4 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        {isAdmin && (
+          <StatCard
+            label="Revenue Today"
+            value={revenue !== null ? format(revenue) : '—'}
+            Icon={TrendingUp}
+            accent="bg-emerald-500"
+          />
+        )}
         <StatCard
           label="Orders Today"
           value={orderCount ?? '—'}
