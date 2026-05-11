@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Authenticated app routes — no value to crawlers
+Disallow: /overview
+Disallow: /login
+Disallow: /change-password
+Disallow: /menu
+Disallow: /tables
+Disallow: /orders
+Disallow: /reports
+Disallow: /users
+Disallow: /settings
+Disallow: /history
+
+Sitemap: https://cooklyt.in/sitemap.xml

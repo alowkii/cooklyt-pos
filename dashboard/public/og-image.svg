@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <!-- Grid pattern -->
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="1"/>
+    </pattern>
+
+    <!-- Radial glow — top centre -->
+    <radialGradient id="glowTop" cx="50%" cy="0%" r="70%">
+      <stop offset="0%"   stop-color="#4f46e5" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Radial glow — bottom centre -->
+    <radialGradient id="glowBottom" cx="50%" cy="100%" r="60%">
+      <stop offset="0%"   stop-color="#4f46e5" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Horizontal gradient for the accent line -->
+    <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#4f46e5" stop-opacity="0"/>
+      <stop offset="30%"  stop-color="#6366f1" stop-opacity="1"/>
+      <stop offset="70%"  stop-color="#818cf8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Clip to canvas -->
+    <clipPath id="canvas">
+      <rect width="1200" height="630"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#canvas)">
+    <!-- Base background -->
+    <rect width="1200" height="630" fill="#020617"/>
+
+    <!-- Grid overlay -->
+    <rect width="1200" height="630" fill="url(#grid)" opacity="0.04"/>
+
+    <!-- Glow layers -->
+    <rect width="1200" height="630" fill="url(#glowTop)"/>
+    <rect width="1200" height="630" fill="url(#glowBottom)"/>
+
+    <!-- ── Krilok badge (top centre) ───────────────────────── -->
+    <rect x="476" y="122" width="248" height="34" rx="17"
+          fill="#4f46e5" fill-opacity="0.12"
+          stroke="#6366f1" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="600" y="139"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="13" font-weight="500" letter-spacing="0.8"
+          fill="#818cf8">
+      A PRODUCT BY KRILOK
+    </text>
+
+    <!-- ── Cooklyt wordmark ─────────────────────────────────── -->
+    <text x="600" y="248"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="96" font-weight="700" letter-spacing="-3"
+          fill="#ffffff">
+      Cooklyt
+    </text>
+
+    <!-- ── Accent line beneath wordmark ───────────────────── -->
+    <rect x="300" y="298" width="600" height="2" rx="1" fill="url(#accentLine)"/>
+
+    <!-- ── Sub-headline ────────────────────────────────────── -->
+    <text x="600" y="348"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="28" font-weight="600" letter-spacing="-0.5"
+          fill="#818cf8">
+      Restaurant Point of Sale
+    </text>
+
+    <!-- ── Tagline ─────────────────────────────────────────── -->
+    <text x="600" y="408"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="19" font-weight="400"
+          fill="#64748b">
+      Tables · Menu · Kitchen Sync · Reports — all in one place.
+    </text>
+
+    <!-- ── Table state pills (decorative) ─────────────────── -->
+    <!-- Occupied -->
+    <rect x="388" y="456" width="90" height="34" rx="17" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="406" cy="473" r="4" fill="#f59e0b"/>
+    <text x="446" y="473" text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="12" font-weight="500" fill="#fcd34d">Occupied</text>
+
+    <!-- Available -->
+    <rect x="495" y="456" width="90" height="34" rx="17" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="513" cy="473" r="4" fill="#10b981"/>
+    <text x="553" y="473" text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="12" font-weight="500" fill="#6ee7b7">Available</text>
+
+    <!-- Bill -->
+    <rect x="602" y="456" width="70" height="34" rx="17" fill="#8b5cf6" fill-opacity="0.12" stroke="#8b5cf6" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="618" cy="473" r="4" fill="#8b5cf6"/>
+    <text x="650" y="473" text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="12" font-weight="500" fill="#c4b5fd">Bill</text>
+
+    <!-- Full -->
+    <rect x="689" y="456" width="64" height="34" rx="17" fill="#ef4444" fill-opacity="0.12" stroke="#ef4444" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="705" cy="473" r="4" fill="#ef4444"/>
+    <text x="734" y="473" text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="12" font-weight="500" fill="#fca5a5">Full</text>
+
+    <!-- ── Domain ──────────────────────────────────────────── -->
+    <text x="600" y="556"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Inter','Segoe UI',system-ui,sans-serif"
+          font-size="15" font-weight="400" letter-spacing="0.3"
+          fill="#334155">
+      cooklyt.in
+    </text>
+
+    <!-- ── Subtle corner decoration (top-right) ──────────────── -->
+    <circle cx="1140" cy="60"  r="120" fill="#4f46e5" fill-opacity="0.06"/>
+    <circle cx="1140" cy="60"  r="72"  fill="#4f46e5" fill-opacity="0.06"/>
+
+    <!-- ── Subtle corner decoration (bottom-left) ────────────── -->
+    <circle cx="60"  cy="570" r="120" fill="#4f46e5" fill-opacity="0.06"/>
+    <circle cx="60"  cy="570" r="72"  fill="#4f46e5" fill-opacity="0.06"/>
+  </g>
+</svg>
