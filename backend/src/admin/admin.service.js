@@ -147,6 +147,40 @@ async function verifyPassword(superAdminId, password) {
   return { ok: true, email: admin.email };
 }
 
+async function me(superAdminId) {
+  const admin = await repo.findSuperAdminById(superAdminId);
+  if (!admin) throw new UnauthorizedError('Not found');
+  return { id: admin.id, email: admin.email, createdAt: admin.created_at, defaults: admin.defaults || {} };
+}
+
+async function updateDefaults(superAdminId, defaults) {
+  const admin = await repo.updateSuperAdminDefaults(superAdminId, defaults);
+  if (!admin) throw new UnauthorizedError('Not found');
+  return { defaults: admin.defaults || {} };
+}
+
+async function changePassword(superAdminId, currentPassword, newPassword) {
+  if (!currentPassword || !newPassword)
+    throw new ValidationError('currentPassword and newPassword are required');
+  assertStrongPassword(newPassword);
+
+  const admin = await repo.findSuperAdminById(superAdminId);
+  if (!admin) throw new UnauthorizedError('Not found');
+
+  const valid = await bcrypt.compare(currentPassword, admin.password);
+  if (!valid) throw new UnauthorizedError('Current password is incorrect');
+
+  const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await repo.updateSuperAdminPassword(superAdminId, hashed);
+
+  const token = jwt.sign(
+    { superAdminId: admin.id, role: 'super_admin' },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' },
+  );
+  return { token };
+}
+
 module.exports = {
   login,
   setup,
@@ -161,4 +195,7 @@ module.exports = {
   updateSetting,
   getAuditLogs,
   verifyPassword,
+  me,
+  changePassword,
+  updateDefaults,
 };

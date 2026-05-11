@@ -41,6 +41,34 @@ router.post('/auth/login', loginLimiter, async (req, res, next) => {
   }
 });
 
+router.get('/auth/me', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    res.json(await service.me(req.superAdmin.superAdminId));
+  } catch (e) { next(e); }
+});
+
+router.post('/auth/change-password', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const result = await service.changePassword(req.superAdmin.superAdminId, currentPassword, newPassword);
+    audit.log({
+      ...sa(req),
+      action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId,
+      description: 'Changed own password',
+    });
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+router.patch('/auth/me/defaults', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const { timezone, currency, tax_rate, service_charge } = req.body;
+    const result = await service.updateDefaults(req.superAdmin.superAdminId, { timezone, currency, tax_rate, service_charge });
+    audit.log({ ...sa(req), action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId, description: 'Updated new-restaurant defaults' });
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 router.post('/auth/verify-password', authenticateSuperAdmin, async (req, res, next) => {
   try {
     const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);

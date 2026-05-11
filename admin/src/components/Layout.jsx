@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
-import { LogOut, Shield, Building2, ScrollText, Menu, X } from 'lucide-react';
+import { LogOut, Shield, Building2, ScrollText, Menu, X, Settings, KeyRound } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { admin } = useAuth();
@@ -58,8 +60,9 @@ export default function Layout() {
             Management
           </p>
           {[
-            { to: '/',           label: 'Restaurants', Icon: Building2,  end: true },
+            { to: '/',           label: 'Restaurants', Icon: Building2,  end: true  },
             { to: '/audit-logs', label: 'Audit Logs',  Icon: ScrollText, end: false },
+            { to: '/settings',   label: 'Settings',    Icon: Settings,   end: false },
           ].map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
@@ -80,7 +83,14 @@ export default function Layout() {
         </nav>
 
         <div className="border-t border-slate-700 px-4 py-4 space-y-1">
-          <p className="px-3 text-xs text-slate-500 truncate">{admin.email}</p>
+          <p className="px-3 pb-1 text-xs text-slate-500 truncate">{admin.email}</p>
+          <button
+            onClick={() => setShowChangePwd(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          >
+            <KeyRound size={15} />
+            Change Password
+          </button>
           <button
             onClick={logout}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
@@ -109,6 +119,10 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {showChangePwd && (
+        <ChangePasswordModal onClose={() => setShowChangePwd(false)} />
+      )}
     </div>
   );
 }

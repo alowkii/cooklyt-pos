@@ -22,7 +22,10 @@ export function useCreateRestaurant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (name) => api.post('/restaurants', { name }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }
 
@@ -33,6 +36,7 @@ export function useUpdateRestaurant(id) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['restaurants'] });
       qc.invalidateQueries({ queryKey: ['restaurants', id] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
     },
   });
 }
@@ -41,7 +45,10 @@ export function useDeleteRestaurant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.delete(`/restaurants/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }
 
@@ -52,7 +59,10 @@ export function useCreateUser(restaurantId) {
   return useMutation({
     mutationFn: (body) =>
       api.post(`/restaurants/${restaurantId}/users`, body).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }
 
@@ -60,7 +70,10 @@ export function useDeleteUser(restaurantId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId) => api.delete(`/restaurants/${restaurantId}/users/${userId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }
 
@@ -82,6 +95,36 @@ export function useAuditLogs({ restaurantId, from, to, resourceType, limit = 500
   });
 }
 
+// ── Auth / profile ───────────────────────────────────────────────────────────
+
+export function useMe() {
+  return useQuery({
+    queryKey: ['me'],
+    queryFn: () => api.get('/auth/me').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useChangePassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ currentPassword, newPassword }) =>
+      api.post('/auth/change-password', { currentPassword, newPassword }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['audit-logs'] }),
+  });
+}
+
+export function useUpdateDefaults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (defaults) => api.patch('/auth/me/defaults', defaults).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export function useUpdateSetting(restaurantId) {
@@ -89,6 +132,9 @@ export function useUpdateSetting(restaurantId) {
   return useMutation({
     mutationFn: ({ key, value }) =>
       api.patch(`/restaurants/${restaurantId}/settings`, { key, value }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }

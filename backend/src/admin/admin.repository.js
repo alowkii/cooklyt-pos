@@ -10,6 +10,12 @@ const findSuperAdminById = (id) =>
   db.query('SELECT * FROM super_admins WHERE id = $1', [id])
     .then((r) => r.rows[0]);
 
+const updateSuperAdminDefaults = (id, defaults) =>
+  db.query(
+    'UPDATE super_admins SET defaults = $1 WHERE id = $2 RETURNING id, email, created_at, defaults',
+    [JSON.stringify(defaults), id],
+  ).then((r) => r.rows[0]);
+
 const countSuperAdmins = () =>
   db.query('SELECT COUNT(*) FROM super_admins')
     .then((r) => parseInt(r.rows[0].count, 10));
@@ -113,11 +119,19 @@ const getAuditLogs = ({ restaurantId, from, to, resourceType, limit }) =>
     [restaurantId || null, from || null, to || null, resourceType || null, limit || 500],
   ).then((r) => r.rows);
 
+const updateSuperAdminPassword = (id, hashedPassword) =>
+  db.query(
+    'UPDATE super_admins SET password = $1 WHERE id = $2 RETURNING id, email',
+    [hashedPassword, id],
+  ).then((r) => r.rows[0]);
+
 module.exports = {
   findSuperAdminByEmail,
   findSuperAdminById,
   countSuperAdmins,
   createFirstSuperAdmin,
+  updateSuperAdminPassword,
+  updateSuperAdminDefaults,
   getAllRestaurants,
   getRestaurantById,
   createRestaurant,
