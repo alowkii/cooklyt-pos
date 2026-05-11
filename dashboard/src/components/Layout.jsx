@@ -12,9 +12,11 @@ import {
   LogOut,
   Menu,
   X,
+  KeyRound,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
+import ChangePasswordModal from './ChangePasswordModal';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuth } from '../hooks/useAuth';
 
@@ -32,7 +34,8 @@ const ALL_NAV = [
 export default function Layout() {
   useWebSocket();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen,    setSidebarOpen]    = useState(false);
+  const [showChangePwd,  setShowChangePwd]  = useState(false);
   const navigate      = useNavigate();
   const location      = useLocation();
   const { user, restaurant, isAdmin } = useAuth();
@@ -108,10 +111,17 @@ export default function Layout() {
         </nav>
 
         <div className="border-t border-slate-700 px-4 py-4 space-y-1">
-          <div className="px-3">
+          <div className="px-3 pb-1">
             <p className="truncate text-xs text-slate-400">{user.email}</p>
             <p className="text-xs capitalize text-slate-500">{user.role}</p>
           </div>
+          <button
+            onClick={() => setShowChangePwd(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <KeyRound size={15} />
+            Change Password
+          </button>
           <button
             onClick={logout}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
@@ -144,6 +154,10 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {showChangePwd && (
+        <ChangePasswordModal onClose={() => setShowChangePwd(false)} />
+      )}
     </div>
   );
 }

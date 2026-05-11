@@ -1,17 +1,48 @@
-import { useState } from 'react';
-import { Check, Globe, Clock, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, Globe, Clock, AlertCircle, Percent } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
-import { useUpdateSetting } from '../hooks/useSettings';
+import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 
 export default function Settings() {
   const { code, setCurrency, currencies, format } = useCurrency();
   const { iana, setTimezone, timezones } = useTimezone();
   const updateSetting = useUpdateSetting();
+  const { data: settings } = useSettings();
 
-  const [search,   setSearch]   = useState('');
-  const [tzSearch, setTzSearch] = useState('');
+  const [search,    setSearch]   = useState('');
+  const [tzSearch,  setTzSearch] = useState('');
   const [saveError, setSaveError] = useState('');
+
+  // Business settings local state
+  const [taxRate,        setTaxRate]        = useState('');
+  const [serviceCharge,  setServiceCharge]  = useState('');
+  const [bizSaving,      setBizSaving]      = useState(false);
+  const [bizError,       setBizError]       = useState('');
+  const [bizSaved,       setBizSaved]       = useState(false);
+
+  // Sync business fields when settings load from DB
+  useEffect(() => {
+    if (!settings) return;
+    if (settings.tax_rate       !== undefined) setTaxRate(settings.tax_rate);
+    if (settings.service_charge !== undefined) setServiceCharge(settings.service_charge);
+  }, [settings]);
+
+  async function handleBizSave() {
+    setBizError('');
+    setBizSaved(false);
+    setBizSaving(true);
+    try {
+      await updateSetting.mutateAsync({ key: 'tax_rate',       value: taxRate       || '0' });
+      await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
+      setBizSaved(true);
+      setTimeout(() => setBizSaved(false), 2500);
+    } catch {
+      setBizError('Failed to save business settings.');
+    } finally {
+      setBizSaving(false);
+    }
+  }
 
   async function handleCurrencyChange(newCode) {
     setSaveError('');
@@ -190,6 +221,81 @@ export default function Settings() {
               </button>
             );
           })}
+      </div>
+
+      {/* ── Business ── */}
+      <div className="border-t border-slate-100 pt-6">
+        <div className="mb-1 flex items-center gap-2">
+          <Percent size={16} className="text-slate-500" />
+          <h2 className="text-sm font-semibold text-slate-700">Business Settings</h2>
+        </div>
+        <p className="text-xs text-slate-400">
+          Applied automatically when collecting payment. Set to 0 to disable.
+        </p>
+      </div>
+
+      {bizError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          <AlertCircle size={15} className="shrink-0" />
+          {bizError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
+          <label className="mb-1 block text-xs font-semibold text-slate-600">Tax Rate (%)</label>
+          <p className="mb-3 text-[11px] text-slate-400">
+            e.g. 8 for GST, 5 for VAT
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={taxRate}
+              onChange={(e) => setTaxRate(e.target.value)}
+              className="input w-28"
+              placeholder="0"
+            />
+            <span className="text-sm text-slate-400">%</span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
+          <label className="mb-1 block text-xs font-semibold text-slate-600">Service Charge (%)</label>
+          <p className="mb-3 text-[11px] text-slate-400">
+            e.g. 10 for a standard service charge
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={serviceCharge}
+              onChange={(e) => setServiceCharge(e.target.value)}
+              className="input w-28"
+              placeholder="0"
+            />
+            <span className="text-sm text-slate-400">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleBizSave}
+          disabled={bizSaving}
+          className="btn-primary disabled:opacity-50"
+        >
+          {bizSaving ? 'Saving…' : 'Save Business Settings'}
+        </button>
+        {bizSaved && (
+          <span className="flex items-center gap-1 text-xs text-emerald-600">
+            <Check size={13} /> Saved
+          </span>
+        )}
       </div>
     </div>
   );
