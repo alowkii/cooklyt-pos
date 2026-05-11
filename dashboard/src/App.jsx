@@ -7,6 +7,7 @@ import { useCurrency } from './context/CurrencyContext';
 import Layout   from './components/Layout';
 import Login          from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
+import Landing  from './pages/Landing';
 import Overview from './pages/Overview';
 import Menu     from './pages/Menu';
 import Tables   from './pages/Tables';
@@ -23,7 +24,7 @@ function RequireAuth({ children }) {
 function RequireAdmin({ children }) {
   const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
   if (!localStorage.getItem('pos_token')) return <Navigate to="/login" replace />;
-  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  if (user?.role !== 'admin') return <Navigate to="/overview" replace />;
   return children;
 }
 
@@ -67,11 +68,12 @@ export default function App() {
     <BrowserRouter>
       <SyncWatcher />
       <Routes>
+        <Route path="/"               element={<Landing />} />
         <Route path="/login"          element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
 
+        {/* Pathless layout route — wraps all authenticated pages */}
         <Route
-          path="/"
           element={
             <RequireAuth>
               <RequirePasswordSet>
@@ -81,42 +83,14 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route index          element={<Overview />} />
-          <Route path="menu"    element={<Menu />} />
-          <Route path="tables"  element={<Tables />} />
-          <Route path="orders"  element={<Orders />} />
-          <Route
-            path="reports"
-            element={
-              <RequireAdmin>
-                <Reports />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="users"
-            element={
-              <RequireAdmin>
-                <Users />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="settings"
-            element={
-              <RequireAdmin>
-                <Settings />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="history"
-            element={
-              <RequireAdmin>
-                <OrderHistory />
-              </RequireAdmin>
-            }
-          />
+          <Route path="/overview" element={<Overview />} />
+          <Route path="/menu"     element={<Menu />} />
+          <Route path="/tables"   element={<Tables />} />
+          <Route path="/orders"   element={<Orders />} />
+          <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
+          <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
+          <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+          <Route path="/history"  element={<RequireAdmin><OrderHistory /></RequireAdmin>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

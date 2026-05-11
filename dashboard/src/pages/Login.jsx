@@ -21,7 +21,7 @@ export default function Login() {
         navigate('/change-password');
         return;
       }
-      navigate('/');
+      navigate('/overview');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Check your connection.');
     } finally {
