@@ -112,8 +112,10 @@ async function main() {
   console.log('Seeding settings…');
   await client.query(`
     INSERT INTO settings (restaurant_id, key, value) VALUES
-      ($1, 'timezone', 'UTC'),
-      ($1, 'currency', 'USD')
+      ($1, 'timezone',       'UTC'),
+      ($1, 'currency',       'USD'),
+      ($1, 'tax_rate',       '0'),
+      ($1, 'service_charge', '0')
   `, [RESTAURANT_ID]);
 
   // ── 4. Users ───────────────────────────────────────────────────────────────
