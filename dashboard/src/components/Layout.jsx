@@ -51,6 +51,10 @@ export default function Layout() {
     n.end ? location.pathname === n.to : location.pathname.startsWith(n.to),
   )?.label ?? '';
 
+  useEffect(() => {
+    document.title = pageLabel ? `${pageLabel} — Cooklyt` : 'Cooklyt';
+  }, [pageLabel]);
+
   function logout() {
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_user');

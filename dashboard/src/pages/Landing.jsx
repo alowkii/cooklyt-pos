@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   UtensilsCrossed, Wifi, BarChart2, Users,
@@ -102,6 +103,10 @@ const FEATURES = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Landing() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = 'Cooklyt POS — Restaurant Point of Sale | Krilok';
+  }, []);
 
   return (
     <div className="min-h-screen bg-white text-slate-800 antialiased">
