@@ -52,4 +52,18 @@ const remove = (id, restaurantId) =>
     )
     .then((r) => r.rows[0]);
 
-module.exports = { getAll, getAvailable, getById, create, update, remove };
+const getPopular = (restaurantId, limit = 6) =>
+  db
+    .query(
+      `SELECT mi.*
+       FROM menu_items mi
+       INNER JOIN order_items oi ON oi.menu_item_id = mi.id
+       WHERE mi.restaurant_id = $1 AND mi.available = true
+       GROUP BY mi.id
+       ORDER BY SUM(oi.quantity) DESC
+       LIMIT $2`,
+      [restaurantId, limit],
+    )
+    .then((r) => r.rows);
+
+module.exports = { getAll, getAvailable, getById, create, update, remove, getPopular };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Minus, ShoppingBag, ChevronRight, Utensils, Truck } from 'lucide-react';
-import { useMenuItems } from '../hooks/useMenu';
+import { X, Plus, Minus, ShoppingBag, ChevronRight, ChevronDown, Utensils, Truck, Star } from 'lucide-react';
+import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useTables } from '../hooks/useTables';
 import { useCreateOrder } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
@@ -18,20 +18,52 @@ const TABLE_CLS = {
   cleaning:  'border-blue-300   bg-blue-50    text-blue-800',
 };
 
-export default function NewOrderModal({ onClose }) {
-  const { data: menuItems = [] } = useMenuItems();
-  const { data: tables = [] }    = useTables();
-  const createOrder              = useCreateOrder();
-  const { format }               = useCurrency();
+function MenuRow({ item, qty, onAdd, onRemove, format }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+        <p className="text-xs text-slate-400">{format(item.price)}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {qty > 0 && (
+          <button
+            onClick={onRemove}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+          >
+            <Minus size={14} />
+          </button>
+        )}
+        {qty > 0 && (
+          <span className="w-5 text-center text-sm font-semibold text-slate-800">{qty}</span>
+        )}
+        <button
+          onClick={onAdd}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
-  const [channel,    setChannel]   = useState('dining');
-  const [tableId,    setTableId]   = useState(null);
-  const [customerRef, setCRef]     = useState('');
-  const [quantities, setQty]       = useState({});
-  const [notes,      setNotes]     = useState({});
-  const [error,      setError]     = useState('');
+export default function NewOrderModal({ onClose }) {
+  const { data: menuItems = [] }  = useMenuItems();
+  const { data: popular  = [] }  = usePopularMenuItems();
+  const { data: tables   = [] }  = useTables();
+  const createOrder               = useCreateOrder();
+  const { format }                = useCurrency();
+
+  const [channel,        setChannel]     = useState('dining');
+  const [tableId,        setTableId]     = useState(null);
+  const [customerRef,    setCRef]        = useState('');
+  const [quantities,     setQty]         = useState({});
+  const [notes,          setNotes]       = useState({});
+  const [error,          setError]       = useState('');
+  const [openCategories, setOpenCats]    = useState(new Set());
   // On mobile, toggle between "menu" and "cart" tabs
-  const [mobileTab,  setMobileTab] = useState('menu');
+  const [mobileTab,      setMobileTab]   = useState('menu');
 
   // Reset table / customerRef when channel changes
   useEffect(() => {
@@ -231,48 +263,75 @@ export default function NewOrderModal({ onClose }) {
             {Object.keys(grouped).length === 0 ? (
               <p className="text-sm text-slate-400">No menu items available</p>
             ) : (
-              Object.entries(grouped).map(([category, items]) => (
-                <div key={category} className="mb-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    {category}
-                  </p>
-                  <div className="space-y-1">
-                    {items.map((item) => {
-                      const qty = quantities[item.id] ?? 0;
-                      return (
-                        <div key={item.id}
-                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                            <p className="text-xs text-slate-400">{format(item.price)}</p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {qty > 0 && (
-                              <button
-                                onClick={() => changeQty(item.id, -1)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
-                              >
-                                <Minus size={14} />
-                              </button>
-                            )}
-                            {qty > 0 && (
-                              <span className="w-5 text-center text-sm font-semibold text-slate-800">
-                                {qty}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => changeQty(item.id, 1)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+              <>
+                {/* Best Sellers */}
+                {popular.length > 0 && (
+                  <div className="mb-5">
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <Star size={12} className="text-amber-400 fill-amber-400" />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Best Sellers
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      {popular.map((item) => (
+                        <MenuRow
+                          key={item.id}
+                          item={item}
+                          qty={quantities[item.id] ?? 0}
+                          onAdd={() => changeQty(item.id, 1)}
+                          onRemove={() => changeQty(item.id, -1)}
+                          format={format}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
+                )}
+
+                {/* Categories — collapsible */}
+                {Object.entries(grouped).map(([category, items]) => {
+                  const isOpen = openCategories.has(category);
+                  return (
+                    <div key={category} className="mb-2">
+                      <button
+                        onClick={() =>
+                          setOpenCats((prev) => {
+                            const next = new Set(prev);
+                            isOpen ? next.delete(category) : next.add(category);
+                            return next;
+                          })
+                        }
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          {category}
+                          <span className="ml-2 font-normal normal-case text-slate-400">
+                            ({items.length})
+                          </span>
+                        </p>
+                        <ChevronDown
+                          size={14}
+                          className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="mt-0.5 space-y-1">
+                          {items.map((item) => (
+                            <MenuRow
+                              key={item.id}
+                              item={item}
+                              qty={quantities[item.id] ?? 0}
+                              onAdd={() => changeQty(item.id, 1)}
+                              onRemove={() => changeQty(item.id, -1)}
+                              format={format}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
 

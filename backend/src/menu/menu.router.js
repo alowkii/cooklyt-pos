@@ -21,6 +21,14 @@ router.get('/available', authenticate, async (req, res, next) => {
   }
 });
 
+router.get('/popular', authenticate, async (req, res, next) => {
+  try {
+    res.json(await service.getPopular(req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     res.json(await service.getById(req.params.id, req.user.restaurantId));

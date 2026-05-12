@@ -19,6 +19,20 @@ export function useMenuItems() {
   });
 }
 
+export function usePopularMenuItems(limit = 6) {
+  return useQuery({
+    queryKey: ['menu-popular', limit],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/menu/popular');
+        return data;
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
 export function useCreateMenuItem() {
   return useMutation({
     mutationFn: async (item) => {

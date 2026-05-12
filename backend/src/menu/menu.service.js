@@ -33,4 +33,8 @@ async function remove(id, restaurantId) {
   return repo.remove(id, restaurantId);
 }
 
-module.exports = { getAll, getAvailable, getById, create, update, remove };
+async function getPopular(restaurantId, limit = 6) {
+  return repo.getPopular(restaurantId, limit);
+}
+
+module.exports = { getAll, getAvailable, getById, create, update, remove, getPopular };
