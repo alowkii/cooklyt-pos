@@ -90,4 +90,66 @@ router.post('/orders', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/public/orders/table/:tableId
+// Returns active (non-paid, non-cancelled) orders for this table
+router.get('/orders/table/:tableId', async (req, res, next) => {
+  try {
+    const { tableId } = req.params;
+    if (!UUID_RE.test(tableId)) return res.status(404).json({ error: 'Table not found' });
+
+    const { rows: tableRows } = await db.query(
+      'SELECT id FROM tables WHERE id = $1',
+      [tableId],
+    );
+    if (!tableRows[0]) return res.status(404).json({ error: 'Table not found' });
+
+    const { rows } = await db.query(
+      `SELECT o.id, o.status, o.created_at,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'name',     mi.name,
+                    'quantity', oi.quantity,
+                    'price',    mi.price,
+                    'notes',    oi.notes
+                  ) ORDER BY mi.name
+                ) FILTER (WHERE oi.id IS NOT NULL),
+                '[]'::json
+              ) AS items
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
+       WHERE o.table_id = $1 AND o.status NOT IN ('paid', 'cancelled')
+       GROUP BY o.id
+       ORDER BY o.created_at DESC`,
+      [tableId],
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// POST /api/public/orders/:orderId/cancel
+// Cancels order if status is still 'received'; tableId in body acts as auth
+router.post('/orders/:orderId/cancel', async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { tableId } = req.body;
+    if (!UUID_RE.test(orderId) || !UUID_RE.test(tableId)) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    const { rows } = await db.query(
+      'SELECT id, status FROM orders WHERE id = $1 AND table_id = $2',
+      [orderId, tableId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
+    if (rows[0].status !== 'received') {
+      return res.status(409).json({ error: 'Cannot cancel — preparation has already started' });
+    }
+
+    await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
