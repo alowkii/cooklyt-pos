@@ -10,21 +10,22 @@ const create = ({
   orderId, amount, method,
   subtotal, taxRate, taxAmount,
   serviceChargeRate, serviceChargeAmount,
-  discountAmount, totalCharged,
+  discountAmount, totalCharged, tenders = null,
 }) =>
   db.query(
     `INSERT INTO payments
        (order_id, amount, method, status,
         subtotal, tax_rate, tax_amount,
         service_charge_rate, service_charge_amount,
-        discount_amount, total_charged)
-     VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $10)
+        discount_amount, total_charged, tenders)
+     VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING *`,
     [
       orderId, amount, method,
       subtotal, taxRate, taxAmount,
       serviceChargeRate, serviceChargeAmount,
       discountAmount ?? 0, totalCharged ?? amount,
+      tenders ? JSON.stringify(tenders) : null,
     ],
   ).then((r) => r.rows[0]);
 
@@ -34,7 +35,29 @@ const updateStatus = (id, status) =>
 
 const getReceiptData = (orderId, restaurantId) =>
   db.query(
-    `SELECT
+    `WITH payment_agg AS (
+       SELECT
+         order_id,
+         SUM(total_charged)            AS total_charged,
+         SUM(subtotal)                 AS subtotal,
+         MAX(tax_rate)                 AS tax_rate,
+         MAX(service_charge_rate)      AS service_charge_rate,
+         SUM(tax_amount)               AS tax_amount,
+         SUM(service_charge_amount)    AS service_charge_amount,
+         SUM(discount_amount)          AS discount_amount,
+         CASE WHEN COUNT(*) = 1 THEN MAX(method) ELSE 'split' END AS method,
+         json_agg(
+           json_build_object(
+             'method',  method,
+             'amount',  total_charged,
+             'tenders', tenders
+           ) ORDER BY created_at
+         ) AS payments_detail
+       FROM payments
+       WHERE status = 'completed'
+       GROUP BY order_id
+     )
+     SELECT
        r.name              AS restaurant_name,
        o.id                AS order_id,
        o.channel,
@@ -43,14 +66,15 @@ const getReceiptData = (orderId, restaurantId) =>
        o.discount_type,
        o.discount_value,
        t.number            AS table_number,
-       p.method            AS payment_method,
-       p.total_charged,
-       p.subtotal,
-       p.tax_rate,
-       p.tax_amount,
-       p.service_charge_rate,
-       p.service_charge_amount,
-       p.discount_amount,
+       pa.method           AS payment_method,
+       pa.payments_detail,
+       pa.total_charged,
+       pa.subtotal,
+       pa.tax_rate,
+       pa.tax_amount,
+       pa.service_charge_rate,
+       pa.service_charge_amount,
+       pa.discount_amount,
        COALESCE(
          json_agg(
            json_build_object(
@@ -65,16 +89,16 @@ const getReceiptData = (orderId, restaurantId) =>
      FROM orders o
      JOIN restaurants    r  ON r.id  = o.restaurant_id
      LEFT JOIN tables    t  ON t.id  = o.table_id
-     JOIN payments       p  ON p.order_id = o.id AND p.status = 'completed'
+     JOIN payment_agg    pa ON pa.order_id = o.id
      LEFT JOIN order_items oi ON oi.order_id = o.id
      LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
      WHERE o.id = $1 AND o.restaurant_id = $2
      GROUP BY r.name, o.id, o.channel, o.customer_ref, o.created_at,
               o.discount_type, o.discount_value, t.number,
-              p.method, p.total_charged, p.subtotal,
-              p.tax_rate, p.tax_amount,
-              p.service_charge_rate, p.service_charge_amount,
-              p.discount_amount`,
+              pa.method, pa.payments_detail, pa.total_charged, pa.subtotal,
+              pa.tax_rate, pa.tax_amount,
+              pa.service_charge_rate, pa.service_charge_amount,
+              pa.discount_amount`,
     [orderId, restaurantId],
   ).then((r) => r.rows[0] || null);
 

@@ -7,7 +7,6 @@ const { NotFoundError, ValidationError, AppError } = require('../shared/errors')
 
 const VALID_METHODS = ['cash', 'card', 'mobile'];
 
-// Pure function — no DB calls, easy to test
 function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, discountValue = 0) {
   let discountAmount = 0;
   if (discountType === 'percent') {
@@ -34,82 +33,188 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
   };
 }
 
-async function getBill(orderId, restaurantId) {
+// Returns bill for the full order, or for specific order_item IDs (split preview)
+async function getBill(orderId, restaurantId, orderItemIds = null) {
   const order = await ordersInterface.getOrderById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
 
-  const [subtotal, items, settings] = await Promise.all([
-    ordersInterface.getOrderTotal(orderId, restaurantId),
+  const [allItems, settings] = await Promise.all([
     ordersInterface.getOrderItems(orderId, restaurantId),
     settingsRepo.getAll(restaurantId),
   ]);
 
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
   const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
-  const bill = computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value);
 
-  return { ...bill, items };
+  if (orderItemIds && orderItemIds.length > 0) {
+    const items = allItems.filter((i) => orderItemIds.includes(i.id));
+    const subtotal      = parseFloat(items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+    const totalSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+
+    // Prorate flat discount by proportion of subtotal; percent applies naturally
+    let { discount_type: discountType, discount_value: discountValue } = order;
+    discountValue = parseFloat(discountValue || 0);
+    if (discountType === 'flat' && totalSubtotal > 0) {
+      discountValue = parseFloat((discountValue * subtotal / totalSubtotal).toFixed(2));
+    }
+
+    const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue);
+    return { ...bill, items };
+  }
+
+  const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
+  const bill = computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value);
+  return { ...bill, items: allItems };
 }
 
-async function processPayment(orderId, { method, amountTendered }, restaurantId) {
-  if (!VALID_METHODS.includes(method)) {
-    throw new ValidationError(`method must be one of: ${VALID_METHODS.join(', ')}`);
+async function processPayment(orderId, { method, tenders: tendersInput, amountTendered }, restaurantId) {
+  let effectiveMethod;
+  let effectiveTenders = null;
+
+  if (tendersInput && tendersInput.length > 0) {
+    for (const t of tendersInput) {
+      if (!VALID_METHODS.includes(t.method)) {
+        throw new ValidationError(`method must be one of: ${VALID_METHODS.join(', ')}`);
+      }
+    }
+    effectiveMethod  = tendersInput.map((t) => t.method).join('+');
+    effectiveTenders = tendersInput;
+  } else {
+    if (!VALID_METHODS.includes(method)) {
+      throw new ValidationError(`method must be one of: ${VALID_METHODS.join(', ')}`);
+    }
+    effectiveMethod = method;
   }
 
   const order = await ordersInterface.getOrderById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
   if (order.status === 'paid') throw new AppError('Order is already paid', 400);
 
-  const settings = await settingsRepo.getAll(restaurantId);
+  const settings          = await settingsRepo.getAll(restaurantId);
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
   const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const subtotal          = await ordersInterface.getOrderTotal(orderId, restaurantId);
 
-  const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
   const { taxAmount, serviceChargeAmount, discountAmount, total } =
     computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value);
 
-  if (amountTendered !== undefined && amountTendered < total) {
-    throw new ValidationError(
-      `Amount tendered (${amountTendered}) is less than total (${total})`,
-    );
+  if (effectiveTenders) {
+    const sum = parseFloat(effectiveTenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
+    if (Math.abs(sum - total) > 0.02) {
+      throw new ValidationError(`Tenders sum (${sum}) must equal total (${total})`);
+    }
+  } else if (amountTendered !== undefined && amountTendered < total) {
+    throw new ValidationError(`Amount tendered (${amountTendered}) is less than total (${total})`);
   }
 
   const payment = await repo.create({
-    orderId,
-    amount: total,
-    method,
-    subtotal,
-    taxRate,
-    taxAmount,
-    serviceChargeRate,
-    serviceChargeAmount,
-    discountAmount,
-    totalCharged: total,
+    orderId, amount: total, method: effectiveMethod,
+    subtotal, taxRate, taxAmount,
+    serviceChargeRate, serviceChargeAmount,
+    discountAmount, totalCharged: total,
+    tenders: effectiveTenders,
   });
 
-  // Simulate payment processing — swap in a real provider here
-  const success = true;
+  await repo.updateStatus(payment.id, 'completed');
+  await ordersInterface.markOrderPaid(orderId, restaurantId);
+  if (order.table_id) {
+    await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+  }
 
-  if (success) {
-    await repo.updateStatus(payment.id, 'completed');
-    await ordersInterface.markOrderPaid(orderId, restaurantId);
-    if (order.table_id) {
-      await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+  ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
+
+  return {
+    success: true,
+    paymentId: payment.id,
+    charged: total,
+    method: effectiveMethod,
+    change: (!effectiveTenders && amountTendered)
+      ? parseFloat((amountTendered - total).toFixed(2))
+      : 0,
+  };
+}
+
+// Split bill by items — each split has its own tender(s); order marked paid atomically
+async function processSplitPayment(orderId, { splits }, restaurantId) {
+  if (!Array.isArray(splits) || splits.length < 2) {
+    throw new ValidationError('Split payment requires at least 2 splits');
+  }
+
+  const order = await ordersInterface.getOrderById(orderId, restaurantId);
+  if (!order) throw new NotFoundError('Order');
+  if (order.status === 'paid') throw new AppError('Order is already paid', 400);
+
+  const [allItems, settings] = await Promise.all([
+    ordersInterface.getOrderItems(orderId, restaurantId),
+    settingsRepo.getAll(restaurantId),
+  ]);
+
+  const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
+  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const totalSubtotal     = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+
+  // Validate every item is assigned to exactly one split
+  const allItemIds     = new Set(allItems.map((i) => i.id));
+  const assignedIds    = new Set(splits.flatMap((s) => s.orderItemIds || []));
+  for (const id of allItemIds) {
+    if (!assignedIds.has(id)) throw new ValidationError(`Item ${id} is not assigned to any split`);
+  }
+
+  const payments = [];
+
+  for (const split of splits) {
+    const { orderItemIds, tenders } = split;
+    if (!orderItemIds?.length)  throw new ValidationError('Each split must have at least one item');
+    if (!tenders?.length)       throw new ValidationError('Each split must have at least one tender');
+
+    for (const t of tenders) {
+      if (!VALID_METHODS.includes(t.method)) {
+        throw new ValidationError(`method must be one of: ${VALID_METHODS.join(', ')}`);
+      }
     }
 
-    ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
+    const splitItems   = allItems.filter((i) => orderItemIds.includes(i.id));
+    const splitSubtotal = parseFloat(splitItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
-    return {
-      success: true,
-      paymentId: payment.id,
-      charged: total,
-      method,
-      change: amountTendered ? parseFloat((amountTendered - total).toFixed(2)) : 0,
-    };
-  } else {
-    await repo.updateStatus(payment.id, 'failed');
-    throw new AppError('Payment processing failed', 502);
+    // Prorate flat discount proportionally; percent applies naturally
+    let discountType  = order.discount_type;
+    let discountValue = parseFloat(order.discount_value || 0);
+    if (discountType === 'flat' && totalSubtotal > 0) {
+      discountValue = parseFloat((discountValue * splitSubtotal / totalSubtotal).toFixed(2));
+    }
+
+    const { taxAmount, serviceChargeAmount, discountAmount, total } =
+      computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue);
+
+    const tendersSum = parseFloat(tenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
+    if (Math.abs(tendersSum - total) > 0.02) {
+      throw new ValidationError(`Split tenders sum (${tendersSum}) must equal split total (${total})`);
+    }
+
+    const method = tenders.length === 1
+      ? tenders[0].method
+      : tenders.map((t) => t.method).join('+');
+
+    const payment = await repo.create({
+      orderId, amount: total, method,
+      subtotal: splitSubtotal, taxRate, taxAmount,
+      serviceChargeRate, serviceChargeAmount,
+      discountAmount, totalCharged: total,
+      tenders: tenders.length > 1 ? tenders : null,
+    });
+    await repo.updateStatus(payment.id, 'completed');
+    payments.push({ paymentId: payment.id, charged: total, method });
   }
+
+  await ordersInterface.markOrderPaid(orderId, restaurantId);
+  if (order.table_id) {
+    await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+  }
+
+  const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));
+  ws.broadcast('PAYMENT_COMPLETED', { orderId, total: totalCharged }, restaurantId);
+
+  return { success: true, splits: payments, totalCharged };
 }
 
 async function getPaymentsForOrder(orderId, restaurantId) {
@@ -126,4 +231,4 @@ async function getReceipt(orderId, restaurantId) {
   return { ...receipt, timezone: settings.timezone || 'UTC' };
 }
 
-module.exports = { computeBill, getBill, processPayment, getPaymentsForOrder, getReceipt };
+module.exports = { computeBill, getBill, processPayment, processSplitPayment, getPaymentsForOrder, getReceipt };

@@ -1,6 +1,21 @@
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
+function formatPaymentMethod(receipt) {
+  const detail = receipt.paymentsDetail;
+  if (!detail || detail.length === 0) return receipt.paymentMethod || '';
+  if (detail.length === 1) {
+    // Single payment — may have multiple tenders (e.g. cash+mobile)
+    const tenders = detail[0].tenders;
+    if (tenders && tenders.length > 1) {
+      return tenders.map((t) => t.method).join(' + ');
+    }
+    return detail[0].method || receipt.paymentMethod;
+  }
+  // Split bill — list each bill's method
+  return detail.map((p, i) => `Bill ${i + 1}: ${p.method}`).join('  |  ');
+}
+
 export function printReceipt(receipt, currency) {
   const { symbol, rate, decimals } = currency;
   const fmt = (v) => `${esc(symbol)}${(parseFloat(v) * rate).toFixed(decimals)}`;
@@ -75,7 +90,7 @@ export function printReceipt(receipt, currency) {
     <tr><td class="lbl">Order</td><td style="text-align:right">#${esc(orderToken)}</td></tr>
     <tr><td class="lbl">Date</td><td style="text-align:right;font-size:12px">${esc(date)}</td></tr>
     <tr><td class="lbl">Type</td><td style="text-align:right;text-transform:capitalize">${esc(location)}</td></tr>
-    <tr><td class="lbl">Payment</td><td style="text-align:right;text-transform:capitalize">${esc(receipt.paymentMethod)}</td></tr>
+    <tr><td class="lbl">Payment</td><td style="text-align:right;text-transform:capitalize">${esc(formatPaymentMethod(receipt))}</td></tr>
   </table>
   <hr>
   <table>${itemsHtml}</table>

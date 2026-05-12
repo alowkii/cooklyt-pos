@@ -146,7 +146,21 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
      FROM orders o
      LEFT JOIN users       u  ON u.id  = o.created_by
      LEFT JOIN tables      t  ON t.id  = o.table_id
-     LEFT JOIN payments    p  ON p.order_id = o.id AND p.status = 'completed'
+     LEFT JOIN (
+       SELECT
+         order_id,
+         CASE WHEN COUNT(*) = 1 THEN MAX(method) ELSE 'split' END AS method,
+         SUM(total_charged)         AS total_charged,
+         SUM(subtotal)              AS subtotal,
+         MAX(tax_rate)              AS tax_rate,
+         SUM(tax_amount)            AS tax_amount,
+         MAX(service_charge_rate)   AS service_charge_rate,
+         SUM(service_charge_amount) AS service_charge_amount,
+         SUM(discount_amount)       AS discount_amount
+       FROM payments
+       WHERE status = 'completed'
+       GROUP BY order_id
+     ) p ON p.order_id = o.id
      LEFT JOIN order_items oi ON oi.order_id = o.id
      LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
      WHERE o.restaurant_id = $1
