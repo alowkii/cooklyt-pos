@@ -61,6 +61,12 @@ export function printReceipt(receipt, currency) {
         <td style="text-align:right">${fmt(receipt.serviceChargeAmount)}</td>
       </tr>` : '';
 
+  const packagingRow = parseFloat(receipt.packagingFee) > 0
+    ? `<tr>
+        <td>Packaging fee</td>
+        <td style="text-align:right">${fmt(receipt.packagingFee)}</td>
+      </tr>` : '';
+
   const titleToken = receipt.token || (receipt.order_id ? receipt.order_id.slice(-6).toUpperCase() : '');
   const orderToken = (receipt.order_id || '').slice(-6).toUpperCase();
 
@@ -97,7 +103,7 @@ export function printReceipt(receipt, currency) {
   <hr>
   <table>
     <tr><td>Subtotal</td><td style="text-align:right">${fmt(receipt.subtotal)}</td></tr>
-    ${discountRow}${taxRow}${scRow}
+    ${discountRow}${taxRow}${scRow}${packagingRow}
     <tr class="total-row"><td>TOTAL</td><td style="text-align:right">${fmt(receipt.totalCharged)}</td></tr>
   </table>
   <hr>

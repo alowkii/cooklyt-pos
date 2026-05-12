@@ -166,6 +166,9 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
               <BillRow label={`Service charge (${+(bill.serviceChargeRate * 100).toFixed(4)}%)`}
                 value={bill.serviceChargeAmount} format={format} />
             )}
+            {bill.packagingFee > 0 && (
+              <BillRow label="Packaging fee" value={bill.packagingFee} format={format} />
+            )}
           </div>
           <div className="border-t border-slate-300 pt-2 mt-1">
             <BillRow label="Total" value={bill.total} format={format} bold />
@@ -188,8 +191,10 @@ function computeSubTotal(items, bill) {
   } else if (bill.discountType === 'flat' && totalSub > 0) {
     discAmt = bill.discountAmount * (sub / totalSub);
   }
-  const discounted = sub - discAmt;
-  return parseFloat((discounted + discounted * bill.taxRate + discounted * bill.serviceChargeRate).toFixed(2));
+  const discounted   = sub - discAmt;
+  const taxAndSc     = discounted * (bill.taxRate + bill.serviceChargeRate);
+  const packagingFee = totalSub > 0 ? (bill.packagingFee || 0) * (sub / totalSub) : 0;
+  return parseFloat((discounted + taxAndSc + packagingFee).toFixed(2));
 }
 
 // ── Main modal ────────────────────────────────────────────────────────────────

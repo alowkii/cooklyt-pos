@@ -7,7 +7,7 @@ const { NotFoundError, ValidationError, AppError } = require('../shared/errors')
 
 const VALID_METHODS = ['cash', 'card', 'mobile'];
 
-function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, discountValue = 0) {
+function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, discountValue = 0, packagingFee = 0) {
   let discountAmount = 0;
   if (discountType === 'percent') {
     discountAmount = parseFloat((subtotal * (discountValue / 100)).toFixed(2));
@@ -18,7 +18,8 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
   const discountedSubtotal = parseFloat((subtotal - discountAmount).toFixed(2));
   const tax           = parseFloat((discountedSubtotal * taxRate).toFixed(2));
   const serviceCharge = parseFloat((discountedSubtotal * serviceChargeRate).toFixed(2));
-  const total         = parseFloat((discountedSubtotal + tax + serviceCharge).toFixed(2));
+  const fee           = parseFloat((packagingFee || 0).toFixed(2));
+  const total         = parseFloat((discountedSubtotal + tax + serviceCharge + fee).toFixed(2));
 
   return {
     subtotal,
@@ -29,6 +30,7 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
     taxAmount:            tax,
     serviceChargeRate,
     serviceChargeAmount:  serviceCharge,
+    packagingFee:         fee,
     total,
   };
 }
@@ -45,25 +47,31 @@ async function getBill(orderId, restaurantId, orderItemIds = null) {
 
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
   const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const packagingFeeTotal = order.channel !== 'dining'
+    ? parseFloat(settings.packaging_fee || '0')
+    : 0;
 
   if (orderItemIds && orderItemIds.length > 0) {
     const items = allItems.filter((i) => orderItemIds.includes(i.id));
     const subtotal      = parseFloat(items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
     const totalSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
-    // Prorate flat discount by proportion of subtotal; percent applies naturally
+    // Prorate flat discount and packaging fee by proportion of subtotal
     let { discount_type: discountType, discount_value: discountValue } = order;
     discountValue = parseFloat(discountValue || 0);
     if (discountType === 'flat' && totalSubtotal > 0) {
       discountValue = parseFloat((discountValue * subtotal / totalSubtotal).toFixed(2));
     }
+    const packagingFee = totalSubtotal > 0
+      ? parseFloat((packagingFeeTotal * subtotal / totalSubtotal).toFixed(2))
+      : 0;
 
-    const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue);
+    const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee);
     return { ...bill, items };
   }
 
   const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
-  const bill = computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value);
+  const bill = computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFeeTotal);
   return { ...bill, items: allItems };
 }
 
@@ -93,10 +101,13 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   const settings          = await settingsRepo.getAll(restaurantId);
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
   const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const packagingFee      = order.channel !== 'dining'
+    ? parseFloat(settings.packaging_fee || '0')
+    : 0;
   const subtotal          = await ordersInterface.getOrderTotal(orderId, restaurantId);
 
   const { taxAmount, serviceChargeAmount, discountAmount, total } =
-    computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value);
+    computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFee);
 
   if (effectiveTenders) {
     const sum = parseFloat(effectiveTenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
@@ -111,7 +122,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     orderId, amount: total, method: effectiveMethod,
     subtotal, taxRate, taxAmount,
     serviceChargeRate, serviceChargeAmount,
-    discountAmount, totalCharged: total,
+    discountAmount, packagingFee, totalCharged: total,
     tenders: effectiveTenders,
   });
 
@@ -149,9 +160,12 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
     settingsRepo.getAll(restaurantId),
   ]);
 
-  const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
-  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
-  const totalSubtotal     = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+  const taxRate              = parseFloat(settings.tax_rate      || '0') / 100;
+  const serviceChargeRate    = parseFloat(settings.service_charge || '0') / 100;
+  const packagingFeeTotal    = order.channel !== 'dining'
+    ? parseFloat(settings.packaging_fee || '0')
+    : 0;
+  const totalSubtotal        = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
   // Validate every item is assigned to exactly one split
   const allItemIds     = new Set(allItems.map((i) => i.id));
@@ -183,8 +197,13 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
       discountValue = parseFloat((discountValue * splitSubtotal / totalSubtotal).toFixed(2));
     }
 
+    // Prorate packaging fee by proportion of this split's subtotal
+    const packagingFee = totalSubtotal > 0
+      ? parseFloat((packagingFeeTotal * splitSubtotal / totalSubtotal).toFixed(2))
+      : 0;
+
     const { taxAmount, serviceChargeAmount, discountAmount, total } =
-      computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue);
+      computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee);
 
     const tendersSum = parseFloat(tenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
     if (Math.abs(tendersSum - total) > 0.02) {
@@ -199,7 +218,7 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
       orderId, amount: total, method,
       subtotal: splitSubtotal, taxRate, taxAmount,
       serviceChargeRate, serviceChargeAmount,
-      discountAmount, totalCharged: total,
+      discountAmount, packagingFee, totalCharged: total,
       tenders: tenders.length > 1 ? tenders : null,
     });
     await repo.updateStatus(payment.id, 'completed');

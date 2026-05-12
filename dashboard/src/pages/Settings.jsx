@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 
 export default function Settings() {
-  const { code, setCurrency, currencies, format } = useCurrency();
+  const { code, currency, setCurrency, currencies, format } = useCurrency();
   const { iana, setTimezone, timezones } = useTimezone();
   const updateSetting = useUpdateSetting();
   const { data: settings } = useSettings();
@@ -17,6 +17,7 @@ export default function Settings() {
   // Business settings local state
   const [taxRate,        setTaxRate]        = useState('');
   const [serviceCharge,  setServiceCharge]  = useState('');
+  const [packagingFee,   setPackagingFee]   = useState('');
   const [bizSaving,      setBizSaving]      = useState(false);
   const [bizError,       setBizError]       = useState('');
   const [bizSaved,       setBizSaved]       = useState(false);
@@ -26,6 +27,11 @@ export default function Settings() {
     if (!settings) return;
     if (settings.tax_rate       !== undefined) setTaxRate(settings.tax_rate);
     if (settings.service_charge !== undefined) setServiceCharge(settings.service_charge);
+    if (settings.packaging_fee  !== undefined) {
+      // Convert from base (USD) to display currency so the user sees ₹50 not $0.60
+      const display = parseFloat(settings.packaging_fee || '0') * currency.rate;
+      setPackagingFee(display ? display.toFixed(currency.decimals ?? 2) : '');
+    }
   }, [settings]);
 
   async function handleBizSave() {
@@ -35,6 +41,9 @@ export default function Settings() {
     try {
       await updateSetting.mutateAsync({ key: 'tax_rate',       value: taxRate       || '0' });
       await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
+      // Convert from display currency back to base (USD) before storing
+      const pkgBase = (parseFloat(packagingFee || '0') / currency.rate).toFixed(4);
+      await updateSetting.mutateAsync({ key: 'packaging_fee', value: pkgBase });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2500);
     } catch {
@@ -241,7 +250,7 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
           <label className="mb-1 block text-xs font-semibold text-slate-600">Tax Rate (%)</label>
           <p className="mb-3 text-[11px] text-slate-400">
@@ -279,6 +288,28 @@ export default function Settings() {
               placeholder="0"
             />
             <span className="text-sm text-slate-400">%</span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
+          <div className="mb-1 flex items-center gap-1.5">
+            <Package size={13} className="text-slate-400" />
+            <label className="block text-xs font-semibold text-slate-600">Packaging Fee</label>
+          </div>
+          <p className="mb-3 text-[11px] text-slate-400">
+            Flat amount added to takeaway &amp; delivery orders.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={packagingFee}
+              onChange={(e) => setPackagingFee(e.target.value)}
+              className="input w-28"
+              placeholder="0"
+            />
+            <span className="text-sm text-slate-400">{currencies[code]?.symbol ?? '$'}</span>
           </div>
         </div>
       </div>
