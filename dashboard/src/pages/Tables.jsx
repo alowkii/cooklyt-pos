@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, QrCode, Copy, Check } from 'lucide-react';
+import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
@@ -32,6 +33,10 @@ export default function Tables() {
   const [newTable, setNewTable]   = useState({ number: '', seats: '' });
   const [addError, setAddError]   = useState('');
 
+  const [qrTable,   setQrTable]   = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copied,    setCopied]    = useState(false);
+
   function handleTableClick(t) {
     if (!canEdit) return;
     setSelected(t);
@@ -55,6 +60,23 @@ export default function Tables() {
     } catch (err) {
       setAddError(err.response?.data?.error || err.message || 'Failed to create table');
     }
+  }
+
+  async function handleQrClick(t) {
+    setQrDataUrl('');
+    setCopied(false);
+    setQrTable(t);
+    const url = `${window.location.origin}/order/${t.id}`;
+    const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#1e1b4b' } });
+    setQrDataUrl(dataUrl);
+  }
+
+  function handleCopyUrl() {
+    const url = `${window.location.origin}/order/${qrTable.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   if (isLoading) {
@@ -100,18 +122,28 @@ export default function Tables() {
           {[...tables]
             .sort((a, b) => a.number - b.number)
             .map((t) => (
-              <button
-                key={t.id}
-                onClick={() => handleTableClick(t)}
-                disabled={!canEdit}
-                className={`flex flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all ${
-                  canEdit ? 'hover:scale-105 hover:shadow-md cursor-pointer' : 'cursor-default'
-                } ${CARD_CLASSES[t.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}`}
-              >
-                <span className="text-2xl font-bold leading-none">{t.number}</span>
-                <span className="mt-1 text-[10px] font-medium capitalize leading-none">{t.status}</span>
-                <span className="mt-0.5 text-[10px] opacity-60">{t.seats}p</span>
-              </button>
+              <div key={t.id} className="group relative">
+                <button
+                  onClick={() => handleTableClick(t)}
+                  disabled={!canEdit}
+                  className={`flex w-full flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all ${
+                    canEdit ? 'hover:scale-105 hover:shadow-md cursor-pointer' : 'cursor-default'
+                  } ${CARD_CLASSES[t.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}`}
+                >
+                  <span className="text-2xl font-bold leading-none">{t.number}</span>
+                  <span className="mt-1 text-[10px] font-medium capitalize leading-none">{t.status}</span>
+                  <span className="mt-0.5 text-[10px] opacity-60">{t.seats}p</span>
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleQrClick(t)}
+                    title="Show QR code"
+                    className="absolute right-1 top-1 rounded-md bg-white/60 p-0.5 text-slate-500 hover:bg-white hover:text-indigo-600 transition-colors"
+                  >
+                    <QrCode size={12} />
+                  </button>
+                )}
+              </div>
             ))}
         </div>
       )}
@@ -183,6 +215,39 @@ export default function Tables() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* ── QR Code Modal ───────────────────────────────── */}
+      {qrTable && (
+        <Modal title={`Table ${qrTable.number} — QR Code`} onClose={() => setQrTable(null)}>
+          <p className="mb-4 text-sm text-slate-500">
+            Customers scan this code to view the menu and place orders directly from their phone.
+          </p>
+          <div className="flex justify-center">
+            {qrDataUrl
+              ? <img src={qrDataUrl} alt={`QR code for table ${qrTable.number}`} className="h-56 w-56 rounded-xl" />
+              : <div className="flex h-56 w-56 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400">Generating…</div>
+            }
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={handleCopyUrl}
+              className="btn-secondary flex flex-1 items-center justify-center gap-1.5"
+            >
+              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy link'}
+            </button>
+            {qrDataUrl && (
+              <a
+                href={qrDataUrl}
+                download={`table-${qrTable.number}-qr.png`}
+                className="btn-primary flex flex-1 items-center justify-center gap-1.5 text-center"
+              >
+                Download PNG
+              </a>
+            )}
+          </div>
         </Modal>
       )}
     </div>

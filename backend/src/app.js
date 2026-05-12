@@ -27,8 +27,12 @@ const corsOptions = {
 app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: false },
 }));
-app.use(cors(corsOptions));
 app.use(express.json({ limit: '100kb' }));
+
+// Public API — mounted before restricted CORS so customer phones can reach it
+app.use('/api/public', require('./public/public.router'));
+
+app.use(cors(corsOptions));
 
 // Health check
 app.get('/health', (req, res) =>

@@ -16,6 +16,7 @@ import Reports  from './pages/Reports';
 import Users    from './pages/Users';
 import Settings from './pages/Settings';
 import OrderHistory from './pages/OrderHistory';
+import OrderMenu    from './pages/OrderMenu';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/"               element={<Landing />} />
         <Route path="/login"          element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/order/:tableId" element={<OrderMenu />} />
 
         {/* Pathless layout route — wraps all authenticated pages */}
         <Route
