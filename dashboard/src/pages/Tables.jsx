@@ -66,13 +66,15 @@ export default function Tables() {
     setQrDataUrl('');
     setCopied(false);
     setQrTable(t);
-    const url = `${window.location.origin}/order/${t.id}`;
+    const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
+    const url = `${menuBase}/order/${t.id}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#1e1b4b' } });
     setQrDataUrl(dataUrl);
   }
 
   function handleCopyUrl() {
-    const url = `${window.location.origin}/order/${qrTable.id}`;
+    const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
+    const url = `${menuBase}/order/${qrTable.id}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
