@@ -21,25 +21,26 @@ const getById = (id, restaurantId) =>
     .query('SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-const create = ({ name, price, category, restaurantId }) =>
+const create = ({ name, price, category, sku, restaurantId }) =>
   db
     .query(
-      'INSERT INTO menu_items (name, price, category, restaurant_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, price, category, restaurantId],
+      'INSERT INTO menu_items (name, price, category, sku, restaurant_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, price, category, sku || null, restaurantId],
     )
     .then((r) => r.rows[0]);
 
-const update = (id, { name, price, category, available }, restaurantId) =>
+const update = (id, { name, price, category, available, sku }, restaurantId) =>
   db
     .query(
       `UPDATE menu_items
        SET name      = COALESCE($1, name),
            price     = COALESCE($2, price),
            category  = COALESCE($3, category),
-           available = COALESCE($4, available)
-       WHERE id = $5 AND restaurant_id = $6
+           available = COALESCE($4, available),
+           sku       = COALESCE($5, sku)
+       WHERE id = $6 AND restaurant_id = $7
        RETURNING *`,
-      [name, price, category, available, id, restaurantId],
+      [name, price, category, available, sku || null, id, restaurantId],
     )
     .then((r) => r.rows[0]);
 
