@@ -11,7 +11,7 @@ import Modal from '../components/Modal';
 import { useCurrency } from '../context/CurrencyContext';
 
 const CATEGORIES = ['all', 'starters', 'mains', 'desserts', 'drinks', 'sides'];
-const EMPTY_FORM  = { name: '', price: '', category: 'mains', available: true };
+const EMPTY_FORM  = { name: '', price: '', category: 'mains', available: true, sku: '' };
 
 export default function Menu() {
   const { data: items = [], isLoading } = useMenuItems();
@@ -30,7 +30,8 @@ export default function Menu() {
   // ── Filtering ────────────────────────────────────────
   const filtered = items.filter((item) => {
     const matchCat    = category === 'all' || item.category?.toLowerCase() === category;
-    const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const q           = search.toLowerCase();
+    const matchSearch = item.name.toLowerCase().includes(q) || item.sku?.toLowerCase().includes(q);
     return matchCat && matchSearch;
   });
 
@@ -47,14 +48,18 @@ export default function Menu() {
       price:     (parseFloat(item.price) * currency.rate).toFixed(currency.decimals),
       category:  item.category || 'mains',
       available: item.available,
+      sku:       item.sku || '',
     });
     setModal(item);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    // Convert from display currency back to USD for storage
-    const payload = { ...form, price: parseFloat(form.price) / currency.rate };
+    const payload = {
+      ...form,
+      price: parseFloat(form.price) / currency.rate,
+      sku: form.sku.trim() || undefined,
+    };
     if (modal === 'add') {
       await createItem.mutateAsync(payload);
     } else {
@@ -147,11 +152,18 @@ export default function Menu() {
                 </span>
               </div>
 
-              {item.category && (
-                <span className="mt-2 w-fit rounded bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-500">
-                  {item.category}
-                </span>
-              )}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {item.category && (
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-500">
+                    {item.category}
+                  </span>
+                )}
+                {item.sku && (
+                  <span className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-xs text-indigo-500">
+                    {item.sku}
+                  </span>
+                )}
+              </div>
 
               {isAdmin && (
               <div className="mt-auto flex gap-2 border-t border-slate-100 pt-3">
@@ -199,6 +211,18 @@ export default function Menu() {
                 className="input"
                 placeholder="e.g. Grilled Salmon"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                SKU <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                value={form.sku}
+                onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
+                className="input font-mono"
+                placeholder="e.g. SALMN-001"
               />
             </div>
 
