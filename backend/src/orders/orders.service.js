@@ -48,8 +48,15 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
 }
 
 async function addItems(orderId, items, restaurantId) {
-  await getById(orderId, restaurantId);
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status)) {
+    throw new ValidationError('Cannot add items to a paid or cancelled order');
+  }
   await repo.addItems(orderId, items);
+  // New items on a served order go back to kitchen — reset to received
+  if (order.status === 'served') {
+    await repo.updateStatus(orderId, 'received');
+  }
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
 }

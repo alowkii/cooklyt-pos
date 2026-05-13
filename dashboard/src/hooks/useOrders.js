@@ -75,6 +75,18 @@ export function useOrderHistory({ from, to, status, channel }) {
   });
 }
 
+export function useAddItems() {
+  return useMutation({
+    mutationFn: async ({ orderId, items }) => {
+      const { data } = await api.post(`/orders/${orderId}/items`, { items });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+    },
+  });
+}
+
 export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {

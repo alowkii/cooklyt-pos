@@ -7,6 +7,7 @@ import { useActiveOrders, useUpdateOrderStatus } from '../hooks/useOrders';
 import { useTables } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
 import NewOrderModal from '../components/NewOrderModal';
+import AddItemsModal from '../components/AddItemsModal';
 import PaymentModal from '../components/PaymentModal';
 
 const STATUS_META = {
@@ -46,9 +47,10 @@ export default function Orders() {
   const canCancel = isAdmin || user?.role === 'staff';
   const canOrder  = isAdmin || user?.role === 'staff';
 
-  const [expanded,     setExpanded]     = useState(null);
-  const [showNewOrder, setShowNewOrder] = useState(false);
-  const [payingOrder,  setPayingOrder]  = useState(null);
+  const [expanded,        setExpanded]        = useState(null);
+  const [showNewOrder,    setShowNewOrder]    = useState(false);
+  const [payingOrder,     setPayingOrder]     = useState(null);
+  const [addingToOrder,   setAddingToOrder]   = useState(null);
 
   const tableMap = Object.fromEntries(tables.map((t) => [t.id, t]));
 
@@ -209,12 +211,20 @@ export default function Orders() {
                       ))}
 
                       {order.status === 'served' && canOrder && (
-                        <button
-                          onClick={() => setPayingOrder(order)}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        >
-                          <DollarSign size={13} /> Collect Payment
-                        </button>
+                        <>
+                          <button
+                            onClick={() => setAddingToOrder(order)}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                          >
+                            <Plus size={13} /> Add Items
+                          </button>
+                          <button
+                            onClick={() => setPayingOrder(order)}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                          >
+                            <DollarSign size={13} /> Collect Payment
+                          </button>
+                        </>
                       )}
 
                       {canCancel && order.status !== 'served' && (
@@ -234,6 +244,18 @@ export default function Orders() {
           );
         })}
       </div>
+
+      {addingToOrder && (
+        <AddItemsModal
+          order={addingToOrder}
+          orderTitle={
+            addingToOrder.channel === 'dining'
+              ? `Table ${tableMap[addingToOrder.table_id]?.number ?? '?'}`
+              : addingToOrder.customer_ref || CHANNEL_META[addingToOrder.channel]?.label
+          }
+          onClose={() => setAddingToOrder(null)}
+        />
+      )}
 
       {payingOrder && (
         <PaymentModal
