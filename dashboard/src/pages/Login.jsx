@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import api from '../api/client';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm]       = useState({ email: '', password: '' });
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [form, setForm]         = useState({ email: '', password: '' });
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -31,65 +33,127 @@ export default function Login() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center px-4 py-8"
+      className="flex min-h-screen flex-col items-center justify-center px-4 py-8"
       style={{ background: 'var(--paper-2)' }}
     >
-      <div
-        className="w-full max-w-sm p-6 sm:p-8"
-        style={{ background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8 }}
-      >
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-1">
-            <div style={{ width: 18, height: 18, background: 'var(--ink)', borderRadius: 4, flexShrink: 0 }} />
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Cooklyt</h1>
+      <div className="w-full max-w-sm">
+
+        {/* Brand mark — above the card */}
+        <div className="mb-7 flex flex-col items-center text-center">
+          <div
+            className="mb-4 flex items-center justify-center"
+            style={{ width: 46, height: 46, background: 'var(--ink)', borderRadius: 11 }}
+          >
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <rect x="2"  y="2"  width="8" height="8" rx="1.5" fill="var(--accent-on)" fillOpacity=".95" />
+              <rect x="12" y="2"  width="8" height="8" rx="1.5" fill="var(--accent-on)" fillOpacity=".45" />
+              <rect x="2"  y="12" width="8" height="8" rx="1.5" fill="var(--accent-on)" fillOpacity=".45" />
+              <rect x="12" y="12" width="8" height="8" rx="1.5" fill="var(--accent-on)" fillOpacity=".18" />
+            </svg>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--mute)', marginTop: 4 }}>Sign in to your dashboard</p>
+          <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
+            Cooklyt
+          </h1>
+          <p style={{ fontSize: 12.5, color: 'var(--mute)', margin: 0 }}>
+            Sign in to your restaurant dashboard
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className="input"
-              placeholder="admin@example.com"
-              autoComplete="username"
-              required
-            />
-          </div>
+        {/* Card */}
+        <div
+          style={{
+            background: 'var(--paper)',
+            border: '1px solid var(--line-2)',
+            borderRadius: 10,
+            padding: '28px 28px 24px',
+          }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
 
-          <div>
-            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              className="input"
-              placeholder="••••••••"
-              autoComplete="current-password"
-              required
-            />
-          </div>
+            <div>
+              <label
+                htmlFor="email"
+                style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--mute)', marginBottom: 5 }}
+              >
+                Email address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="input"
+                placeholder="you@restaurant.com"
+                autoComplete="username"
+                autoFocus
+                required
+              />
+            </div>
 
-          {error && (
-            <p
-              className="rounded-[6px] px-3 py-2"
-              style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}
+            <div>
+              <label
+                htmlFor="password"
+                style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--mute)', marginBottom: 5 }}
+              >
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  type={showPass ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="input"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  style={{ paddingRight: 36 }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPass ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', padding: 2, cursor: 'pointer',
+                    color: 'var(--mute-2)', display: 'flex', borderRadius: 4,
+                  }}
+                >
+                  {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <p
+                style={{
+                  margin: 0, fontSize: 12, color: 'var(--bad)',
+                  background: 'rgba(179,55,43,.06)', borderRadius: 6, padding: '8px 12px',
+                }}
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary"
+              style={{ width: '100%', height: 38, justifyContent: 'center', marginTop: 2 }}
             >
-              {error}
-            </p>
-          )}
+              {loading
+                ? <><Loader2 size={13} className="animate-spin" /> Signing in…</>
+                : 'Sign in'}
+            </button>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+          </form>
+        </div>
+
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11.5, color: 'var(--mute-2)' }}>
+          Can't log in? Contact your administrator.
+        </p>
+
       </div>
     </div>
   );
