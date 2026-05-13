@@ -6,20 +6,21 @@ const getCashSince = (restaurantId, since) =>
   db.query(
     `SELECT COALESCE(SUM(
        CASE
-         WHEN (tenders IS NULL OR jsonb_array_length(tenders) = 0) AND method = 'cash'
-           THEN total_charged
-         WHEN tenders IS NOT NULL AND jsonb_array_length(tenders) > 0
+         WHEN (p.tenders IS NULL OR jsonb_array_length(p.tenders) = 0) AND p.method = 'cash'
+           THEN p.total_charged
+         WHEN p.tenders IS NOT NULL AND jsonb_array_length(p.tenders) > 0
            THEN (
              SELECT COALESCE(SUM((t->>'amount')::numeric), 0)
-             FROM jsonb_array_elements(tenders) t
+             FROM jsonb_array_elements(p.tenders) t
              WHERE t->>'method' = 'cash'
            )
          ELSE 0
        END
      ), 0) AS cash_total,
      COUNT(*) AS order_count
-     FROM payments
-     WHERE status = 'completed' AND restaurant_id = $1 AND created_at > $2`,
+     FROM payments p
+     JOIN orders o ON o.id = p.order_id
+     WHERE p.status = 'completed' AND o.restaurant_id = $1 AND p.created_at > $2`,
     [restaurantId, since],
   ).then((r) => r.rows[0]);
 

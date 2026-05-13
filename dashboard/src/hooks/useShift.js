@@ -14,6 +14,7 @@ export function useShiftHistory() {
   return useQuery({
     queryKey: ['shift-history'],
     queryFn: () => api.get('/shift/history').then((r) => r.data),
+    staleTime: 30_000,
   });
 }
 

@@ -22,7 +22,7 @@ router.post('/count', authenticate, async (req, res, next) => {
     if (isNaN(n) || n < 0) throw new ValidationError('actualCash must be a non-negative number');
     const result = await service.recordCount({
       restaurantId: req.user.restaurantId,
-      countedBy:    req.user.id,
+      countedBy:    req.user.userId,
       actualCash:   n,
       notes,
       denominations,
