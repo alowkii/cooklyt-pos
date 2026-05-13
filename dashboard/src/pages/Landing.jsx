@@ -31,13 +31,12 @@ const ELAPSED_STYLE = {
   mute: { color: 'var(--mute)' },
 };
 
-// Device preview rows
 const ROWS = [
-  { key: 'T03', label: 'T03',        status: 'preparing', elapsed: '4m',       elStyle: 'mute', amount: '$104.00' },
-  { key: 'T06', label: 'T06',        status: 'ready',     elapsed: '12m',      elStyle: 'warn', amount: '$226.00' },
-  { key: '#042',label: null,         status: 'received',  elapsed: 'just now', elStyle: 'mute', amount: '$59.00',  icon: 'cart',     sub: 'Maya K. · #042' },
-  { key: 'T14', label: 'T14',        status: 'served',    elapsed: '22m',      elStyle: 'bad',  amount: '$71.00' },
-  { key: 'dlv', label: null,         status: 'preparing', elapsed: '8m',       elStyle: 'mute', amount: '$49.00',  icon: 'delivery', sub: '#DLV-7741', last: true },
+  { key: 'T03',  label: 'T03',  status: 'preparing', elapsed: '4m',       elStyle: 'mute', amount: '$104.00' },
+  { key: 'T06',  label: 'T06',  status: 'ready',     elapsed: '12m',      elStyle: 'warn', amount: '$226.00' },
+  { key: '#042', label: null,   status: 'received',  elapsed: 'just now', elStyle: 'mute', amount: '$59.00',  icon: 'cart',     sub: 'Maya K. · #042' },
+  { key: 'T14',  label: 'T14',  status: 'served',    elapsed: '22m',      elStyle: 'bad',  amount: '$71.00' },
+  { key: 'dlv',  label: null,   status: 'preparing', elapsed: '8m',       elStyle: 'mute', amount: '$49.00',  icon: 'delivery', sub: '#DLV-7741', last: true },
 ];
 
 function DevicePreview() {
@@ -68,14 +67,14 @@ function DevicePreview() {
           display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px',
         }}>
           <div style={{ display: 'flex', gap: 5 }}>
-            {[0,1,2].map((i) => (
+            {[0, 1, 2].map((i) => (
               <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--line-2)', display: 'inline-block' }} />
             ))}
           </div>
           <span style={{ fontFamily: '"Geist Mono", monospace', fontSize: 11, color: 'var(--mute)', marginLeft: 8 }}>
             cooklyt.app · Orders
           </span>
-          <span style={{ marginLeft: 'auto', fontFamily: '"Geist Mono", monospace', fontSize: 10, color: 'var(--mute)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ marginLeft: 'auto', fontFamily: '"Geist Mono", monospace', fontSize: 10, color: 'var(--mute)', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ok)', display: 'inline-block' }} />
             Live · 3 in kitchen
           </span>
@@ -117,12 +116,8 @@ function DevicePreview() {
               fontFamily: '"Geist Mono", monospace', fontSize: 10, color: 'var(--mute)',
               textTransform: 'uppercase', letterSpacing: '.08em',
             }}>
-              <span />
-              <span>Order</span>
-              <span>Status</span>
-              <span>Elapsed</span>
-              <span style={{ textAlign: 'right' }}>Total</span>
-              <span />
+              <span /><span>Order</span><span>Status</span><span>Elapsed</span>
+              <span style={{ textAlign: 'right' }}>Total</span><span />
             </div>
 
             {/* Rows */}
@@ -177,13 +172,14 @@ function DevicePreview() {
 export default function Landing() {
   const navigate = useNavigate();
 
-  const navLinkStyle = {
+  const navLinkBase = {
     height: 32, padding: '0 12px', borderRadius: 6,
     fontSize: 13, color: 'var(--mute)',
     display: 'inline-flex', alignItems: 'center',
     transition: 'background .08s, color .08s',
     textDecoration: 'none', border: 0, cursor: 'pointer',
     background: 'transparent', fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
   };
 
   return (
@@ -197,9 +193,9 @@ export default function Landing() {
         WebkitBackdropFilter: 'blur(14px) saturate(140%)',
         borderBottom: '1px solid var(--line)',
       }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div className="nav-inner" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', gap: 18 }}>
           {/* Brand */}
-          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 14, letterSpacing: '-.005em', textDecoration: 'none', color: 'var(--ink)' }}>
+          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 14, letterSpacing: '-.005em', textDecoration: 'none', color: 'var(--ink)', flexShrink: 0 }}>
             <span style={{ width: 20, height: 20, borderRadius: 4, background: 'var(--ink)', color: 'var(--accent-on)', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700 }}>
               C
             </span>
@@ -208,11 +204,11 @@ export default function Landing() {
             <span style={{ color: 'var(--mute)', fontWeight: 500 }}>CookLyt</span>
           </a>
 
-          {/* Nav links */}
           <nav style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
             <a
               href="#how"
-              style={navLinkStyle}
+              className="nav-text-link"
+              style={navLinkBase}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
             >
@@ -220,7 +216,8 @@ export default function Landing() {
             </a>
             <a
               href="#features"
-              style={navLinkStyle}
+              className="nav-text-link"
+              style={navLinkBase}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
             >
@@ -228,7 +225,8 @@ export default function Landing() {
             </a>
             <button
               onClick={() => navigate('/login')}
-              style={navLinkStyle}
+              className="nav-text-link"
+              style={navLinkBase}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
             >
@@ -237,7 +235,7 @@ export default function Landing() {
             <a
               href="#cta"
               style={{
-                ...navLinkStyle,
+                ...navLinkBase,
                 background: 'var(--ink)', color: 'var(--accent-on)',
                 padding: '0 14px', height: 34, gap: 6,
               }}
@@ -245,20 +243,19 @@ export default function Landing() {
               onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; }}
             >
               <Mail size={13} />
-              Request a demo
+              <span className="nav-demo-label">Request a demo</span>
             </a>
           </nav>
         </div>
       </header>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section id="top" style={{ padding: '80px 0 110px' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+      <section id="top" className="hero-section">
+        <div className="lp-container" style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: 64, alignItems: 'center' }}
             className="hero-grid">
             {/* Left — copy */}
             <div>
-              {/* Pill badge */}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 height: 26, padding: '0 12px',
@@ -271,7 +268,7 @@ export default function Landing() {
               </span>
 
               <h1 style={{
-                fontSize: 'clamp(48px, 7.5vw, 88px)',
+                fontSize: 'clamp(40px, 7.5vw, 88px)',
                 lineHeight: .98, letterSpacing: '-.035em',
                 fontWeight: 600, margin: '16px 0 24px',
               }}>
@@ -300,6 +297,7 @@ export default function Landing() {
                     fontSize: 13.5, fontWeight: 500,
                     background: 'var(--ink)', color: 'var(--accent-on)',
                     textDecoration: 'none', transition: 'background .08s',
+                    whiteSpace: 'nowrap',
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-2)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; }}
@@ -315,7 +313,7 @@ export default function Landing() {
                     fontSize: 13.5, fontWeight: 500,
                     border: '1px solid var(--line-2)', color: 'var(--ink)',
                     background: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
-                    transition: 'background .08s',
+                    transition: 'background .08s', whiteSpace: 'nowrap',
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -325,7 +323,6 @@ export default function Landing() {
                 </button>
               </div>
 
-              {/* Trust */}
               <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 28 }}>
                 {['No credit card', 'Full-access demo', 'Ready in 24 hrs'].map((t) => (
                   <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--mute)', fontSize: 12.5 }}>
@@ -337,7 +334,7 @@ export default function Landing() {
             </div>
 
             {/* Right — device preview */}
-            <div style={{ paddingBottom: 32, paddingRight: 32 }}>
+            <div className="hero-preview" style={{ paddingBottom: 32, paddingRight: 32 }}>
               <DevicePreview />
             </div>
           </div>
@@ -349,9 +346,9 @@ export default function Landing() {
         <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}
           className="stats-grid">
           {[
-            { value: '< 3s',  label: 'Order to kitchen'              },
+            { value: '< 3s',  label: 'Order to kitchen'               },
             { value: '100%',  label: 'Real-time sync, offline-tolerant' },
-            { value: '24 h',  label: 'From email to working demo'    },
+            { value: '24 h',  label: 'From email to working demo'     },
           ].map(({ value, label }, i) => (
             <div key={label} style={{
               padding: '36px 28px',
@@ -369,8 +366,8 @@ export default function Landing() {
       </div>
 
       {/* ── How to get access ────────────────────────────────────────────── */}
-      <section id="how" style={{ padding: '80px 0', borderTop: '1px solid var(--line)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+      <section id="how" className="lp-section" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="lp-container" style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ marginBottom: 48, maxWidth: 680 }}>
             <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
               02 — Onboarding
@@ -387,21 +384,9 @@ export default function Landing() {
         <div style={{ maxWidth: 1180, margin: '0 auto', borderTop: '1px solid var(--line)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }} className="process-grid">
             {[
-              {
-                n: '01', title: 'Send an email',
-                body: "Tell us your restaurant name and a couple of details. We'll take it from there.",
-                cta: true,
-              },
-              {
-                n: '02', title: 'We provision your demo',
-                body: 'Our team spins up a live instance — your menu, your tables, a believable order history.',
-                cta: false,
-              },
-              {
-                n: '03', title: 'Log in & explore',
-                body: 'Place orders, fire the kitchen, pull reports — exactly as it works in production.',
-                cta: false,
-              },
+              { n: '01', title: 'Send an email',        body: "Tell us your restaurant name and a couple of details. We'll take it from there.", cta: true  },
+              { n: '02', title: 'We provision your demo', body: 'Our team spins up a live instance — your menu, your tables, a believable order history.', cta: false },
+              { n: '03', title: 'Log in & explore',     body: 'Place orders, fire the kitchen, pull reports — exactly as it works in production.',        cta: false },
             ].map(({ n, title, body, cta }, i) => (
               <div key={n} style={{
                 padding: '32px 28px 36px',
@@ -433,8 +418,8 @@ export default function Landing() {
       </section>
 
       {/* ── Features ─────────────────────────────────────────────────────── */}
-      <section id="features" style={{ padding: '80px 0', borderTop: '1px solid var(--line)', background: 'var(--paper-2)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+      <section id="features" className="lp-section" style={{ borderTop: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+        <div className="lp-container" style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ marginBottom: 48, maxWidth: 680 }}>
             <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
               03 — The product
@@ -469,12 +454,12 @@ export default function Landing() {
       </section>
 
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
-      <section id="cta" style={{ textAlign: 'center', padding: '120px 0', background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+      <section id="cta" className="cta-section" style={{ textAlign: 'center', background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
+        <div className="lp-container" style={{ maxWidth: 1180, margin: '0 auto' }}>
           <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
             04 — Get in touch
           </span>
-          <h2 style={{ fontSize: 'clamp(36px, 5.5vw, 64px)', letterSpacing: '-.03em', lineHeight: 1, margin: '0 0 16px', fontWeight: 600 }}>
+          <h2 style={{ fontSize: 'clamp(32px, 5.5vw, 64px)', letterSpacing: '-.03em', lineHeight: 1.05, margin: '8px 0 16px', fontWeight: 600 }}>
             See CookLyt live,<br />in your browser.
           </h2>
           <p style={{ color: 'var(--mute)', fontSize: 15, maxWidth: 480, margin: '0 auto 32px' }}>
@@ -483,6 +468,7 @@ export default function Landing() {
 
           <a
             href={MAILTO_HREF}
+            className="cta-email"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               padding: '16px 22px',
@@ -490,11 +476,12 @@ export default function Landing() {
               fontFamily: '"Geist Mono", monospace', fontSize: 14,
               borderRadius: 8, textDecoration: 'none',
               transition: 'transform .12s ease, background .12s ease',
+              wordBreak: 'break-all',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; e.currentTarget.style.transform = 'none'; }}
           >
-            <Mail size={16} />
+            <Mail size={16} style={{ flexShrink: 0 }} />
             {DEMO_EMAIL}
           </a>
 
@@ -506,16 +493,16 @@ export default function Landing() {
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer style={{ padding: '36px 0', borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--mute)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div className="lp-container footer-inner" style={{ maxWidth: 1180, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
             CookLyt <span style={{ color: 'var(--mute)' }}> by </span> Krilos
           </span>
-          <span style={{ flex: 1 }} />
-          <span className="mono num" style={{ color: 'var(--mute)' }}>© {new Date().getFullYear()} Krilos. All rights reserved.</span>
-          <span style={{ flex: 1 }} />
+          <span className="mono num" style={{ color: 'var(--mute)' }}>
+            © {new Date().getFullYear()} Krilos. All rights reserved.
+          </span>
           <button
             onClick={() => navigate('/login')}
-            style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+            style={{ marginLeft: 'auto', color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, whiteSpace: 'nowrap' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; }}
           >
@@ -524,30 +511,78 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* Responsive overrides */}
       <style>{`
+        /* ── Container padding ─────────────────────────── */
+        .lp-container { padding-left: 28px; padding-right: 28px; }
+
+        /* ── Hero section ──────────────────────────────── */
+        .hero-section { padding: 80px 0 110px; }
+
+        /* ── Generic interior sections ─────────────────── */
+        .lp-section { padding: 80px 0; }
+
+        /* ── CTA ───────────────────────────────────────── */
+        .cta-section { padding: 120px 0; }
+
+        /* ── Hero grid → 1 col at 980px ────────────────── */
         @media (max-width: 980px) {
           .hero-grid    { grid-template-columns: 1fr !important; gap: 48px !important; }
           .process-grid { grid-template-columns: 1fr !important; }
           .process-grid > div { border-right: 0 !important; }
         }
-        @media (max-width: 880px) {
-          .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .features-grid > div:nth-child(2n) { border-right: 0 !important; }
-          .features-grid > div:nth-child(3n) { border-right: 1px solid var(--line) !important; }
-          .features-grid > div:nth-child(2n):not(:nth-child(3n)) { border-right: 0 !important; }
+
+        /* ── Hide device preview on phones ─────────────── */
+        @media (max-width: 600px) {
+          .hero-preview { display: none !important; }
         }
-        @media (max-width: 760px) {
+
+        /* ── Hide text nav links on small screens ───────── */
+        @media (max-width: 620px) {
+          .nav-text-link  { display: none !important; }
+          .nav-demo-label { display: none !important; }
+          .nav-inner      { padding: 0 18px !important; }
+        }
+
+        /* ── Tighten hero on tablet ─────────────────────── */
+        @media (max-width: 768px) {
+          .hero-section { padding: 52px 0 68px !important; }
+          .lp-section   { padding: 60px 0 !important; }
+          .cta-section  { padding: 80px 0 !important; }
+        }
+
+        /* ── Mobile overrides ───────────────────────────── */
+        @media (max-width: 480px) {
+          .lp-container  { padding-left: 18px !important; padding-right: 18px !important; }
+          .hero-section  { padding: 40px 0 52px !important; }
+          .lp-section    { padding: 48px 0 !important; }
+          .cta-section   { padding: 60px 0 !important; }
+          .cta-email     { font-size: 12px !important; padding: 14px 16px !important; }
+        }
+
+        /* ── Stats strip → 1 col ────────────────────────── */
+        @media (max-width: 700px) {
           .stats-grid { grid-template-columns: 1fr !important; }
-          .stats-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--line); }
-          .stats-grid > div:last-child { border-bottom: 0; }
+          .stats-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--line) !important; }
+          .stats-grid > div:last-child { border-bottom: 0 !important; }
         }
-        @media (max-width: 560px) {
+
+        /* ── Features → 2 col ──────────────────────────── */
+        @media (max-width: 860px) {
+          .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .features-grid > div:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
+          .features-grid > div:nth-child(even) { border-right: 0 !important; }
+        }
+
+        /* ── Features → 1 col ──────────────────────────── */
+        @media (max-width: 520px) {
           .features-grid { grid-template-columns: 1fr !important; }
           .features-grid > div { border-right: 0 !important; }
         }
-        @media (max-width: 680px) {
-          .hero-grid > div:last-child { padding-right: 16px !important; padding-bottom: 16px !important; }
+
+        /* ── Footer stack on mobile ─────────────────────── */
+        @media (max-width: 600px) {
+          .footer-inner { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+          .footer-inner button { margin-left: 0 !important; }
         }
       `}</style>
     </div>
