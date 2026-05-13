@@ -58,7 +58,10 @@ const getPopular = (restaurantId, limit = 6) =>
       `SELECT mi.*
        FROM menu_items mi
        INNER JOIN order_items oi ON oi.menu_item_id = mi.id
-       WHERE mi.restaurant_id = $1 AND mi.available = true
+       INNER JOIN orders o ON o.id = oi.order_id
+       WHERE mi.restaurant_id = $1
+         AND mi.available = true
+         AND o.created_at >= NOW() - INTERVAL '30 days'
        GROUP BY mi.id
        ORDER BY SUM(oi.quantity) DESC
        LIMIT $2`,

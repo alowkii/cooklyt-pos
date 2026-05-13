@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   KeyRound,
+  Wallet,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
@@ -27,6 +28,7 @@ const ALL_NAV = [
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,               adminOnly: false },
   { to: '/reports',  label: 'Reports',  Icon: BarChart2,   adminOnly: true },
   { to: '/history',  label: 'History',  Icon: ScrollText,  adminOnly: true },
+  { to: '/shift',    label: 'Shift',    Icon: Wallet,      adminOnly: false },
   { to: '/users',    label: 'Users',    Icon: Users,       adminOnly: true },
   { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
 ];

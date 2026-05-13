@@ -50,6 +50,7 @@ app.use('/api/payments',    require('./payments/payments.router'));
 app.use('/api/kitchen',     require('./kitchen/kitchen.router'));
 app.use('/api/reports',     require('./reports/reports.router'));
 app.use('/api/settings',    require('./settings/settings.router'));
+app.use('/api/shift',       require('./shift/shift.router'));
 
 // 404
 app.use((req, res) => {
