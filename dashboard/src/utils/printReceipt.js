@@ -31,15 +31,18 @@ export function printReceipt(receipt, currency) {
     ? (receipt.table_number ? `Table ${receipt.table_number}` : 'Dine-in')
     : (receipt.customer_ref || channelLabel);
 
-  const itemsHtml = (receipt.items || []).map((item) =>
-    `<tr>
+  const itemsHtml = (receipt.items || []).map((item) => {
+    const custLabels = Object.entries(item.customizations || {})
+      .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
+    return `<tr>
       <td style="padding:2px 0;vertical-align:top">
         ${esc(item.name)} &times; ${esc(item.quantity)}
+        ${custLabels.length > 0 ? `<br><span style="color:#6d28d9;font-size:11px">${custLabels.map(esc).join(', ')}</span>` : ''}
         ${item.notes ? `<br><span style="color:#777;font-size:11px">${esc(item.notes)}</span>` : ''}
       </td>
       <td style="text-align:right;padding:2px 0;vertical-align:top;white-space:nowrap">${fmt(item.price * item.quantity)}</td>
-    </tr>`,
-  ).join('');
+    </tr>`;
+  }).join('');
 
   const discountRow = parseFloat(receipt.discount_amount) > 0
     ? `<tr>

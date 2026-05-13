@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Minus, ShoppingBag, ChevronRight, ChevronDown, Utensils, Truck, Star } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, ChevronRight, ChevronDown, Utensils, Truck, Star, SlidersHorizontal } from 'lucide-react';
 import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useTables } from '../hooks/useTables';
 import { useCreateOrder } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
+import CustomizationPicker from './CustomizationPicker';
 
 const CHANNELS = [
   { id: 'dining',   label: 'Dine In',  Icon: Utensils    },
@@ -18,11 +19,14 @@ const TABLE_CLS = {
   cleaning:  'border-blue-300   bg-blue-50    text-blue-800',
 };
 
-function MenuRow({ item, qty, onAdd, onRemove, format }) {
+function MenuRow({ item, qty, hasGroups, onAdd, onRemove, format }) {
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+          {hasGroups && <SlidersHorizontal size={11} className="shrink-0 text-violet-400" />}
+        </div>
         <p className="text-xs text-slate-400">{format(item.price)}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -58,11 +62,11 @@ export default function NewOrderModal({ onClose }) {
   const [channel,        setChannel]     = useState('dining');
   const [tableId,        setTableId]     = useState(null);
   const [customerRef,    setCRef]        = useState('');
-  const [quantities,     setQty]         = useState({});
-  const [notes,          setNotes]       = useState({});
+  // cart: { [itemId]: { quantity, customizations, notes, priceAdd } }
+  const [cart,           setCart]        = useState({});
+  const [pickerItem,     setPickerItem]  = useState(null);
   const [error,          setError]       = useState('');
   const [openCategories, setOpenCats]    = useState(new Set());
-  // On mobile, toggle between "menu" and "cart" tabs
   const [mobileTab,      setMobileTab]   = useState('menu');
 
   // Reset table / customerRef when channel changes
@@ -97,24 +101,44 @@ export default function NewOrderModal({ onClose }) {
   }, [menuItems]);
 
   const cartItems = useMemo(
-    () => menuItems.filter((m) => (quantities[m.id] ?? 0) > 0),
-    [menuItems, quantities],
+    () => menuItems.filter((m) => (cart[m.id]?.quantity ?? 0) > 0),
+    [menuItems, cart],
   );
 
   const total = useMemo(
-    () => cartItems.reduce((sum, m) => sum + m.price * (quantities[m.id] ?? 0), 0),
-    [cartItems, quantities],
+    () => cartItems.reduce((sum, m) => {
+      const entry = cart[m.id];
+      return sum + (m.price + (entry?.priceAdd || 0)) * entry.quantity;
+    }, 0),
+    [cartItems, cart],
   );
 
-  function changeQty(menuItemId, delta) {
-    setQty((prev) => {
-      const next = Math.max(0, (prev[menuItemId] ?? 0) + delta);
-      if (next === 0) {
-        const { [menuItemId]: _, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [menuItemId]: next };
+  function handleAdd(item) {
+    const groups = item.customization_groups || [];
+    if (groups.length > 0 && !cart[item.id]) {
+      setPickerItem(item);
+    } else {
+      setCart((prev) => {
+        const cur = prev[item.id] || { quantity: 0, customizations: {}, notes: '', priceAdd: 0 };
+        return { ...prev, [item.id]: { ...cur, quantity: cur.quantity + 1 } };
+      });
+    }
+  }
+
+  function handleRemove(itemId) {
+    setCart((prev) => {
+      const qty = (prev[itemId]?.quantity ?? 1) - 1;
+      if (qty <= 0) { const { [itemId]: _, ...rest } = prev; return rest; }
+      return { ...prev, [itemId]: { ...prev[itemId], quantity: qty } };
     });
+  }
+
+  function handlePickerConfirm({ customizations, notes, priceAdd }) {
+    setCart((prev) => {
+      const cur = prev[pickerItem.id] || { quantity: 0 };
+      return { ...prev, [pickerItem.id]: { quantity: cur.quantity + 1, customizations, notes, priceAdd } };
+    });
+    setPickerItem(null);
   }
 
   async function handleSubmit() {
@@ -122,11 +146,15 @@ export default function NewOrderModal({ onClose }) {
     if (channel === 'dining' && !tableId) { setError('Please select a table.'); return; }
     if (cartItems.length === 0) { setError('Add at least one item.'); return; }
 
-    const items = cartItems.map((m) => ({
-      menuItemId: m.id,
-      quantity:   quantities[m.id],
-      notes:      notes[m.id] || undefined,
-    }));
+    const items = cartItems.map((m) => {
+      const entry = cart[m.id];
+      return {
+        menuItemId:     m.id,
+        quantity:       entry.quantity,
+        notes:          entry.notes || undefined,
+        customizations: entry.customizations || undefined,
+      };
+    });
 
     try {
       await createOrder.mutateAsync({
@@ -141,9 +169,10 @@ export default function NewOrderModal({ onClose }) {
     }
   }
 
-  const cartCount = cartItems.reduce((s, m) => s + (quantities[m.id] ?? 0), 0);
+  const cartCount = cartItems.reduce((s, m) => s + (cart[m.id]?.quantity ?? 0), 0);
 
   return (
+    <>
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -278,9 +307,10 @@ export default function NewOrderModal({ onClose }) {
                         <MenuRow
                           key={item.id}
                           item={item}
-                          qty={quantities[item.id] ?? 0}
-                          onAdd={() => changeQty(item.id, 1)}
-                          onRemove={() => changeQty(item.id, -1)}
+                          qty={cart[item.id]?.quantity ?? 0}
+                          hasGroups={(item.customization_groups?.length ?? 0) > 0}
+                          onAdd={() => handleAdd(item)}
+                          onRemove={() => handleRemove(item.id)}
                           format={format}
                         />
                       ))}
@@ -320,9 +350,10 @@ export default function NewOrderModal({ onClose }) {
                             <MenuRow
                               key={item.id}
                               item={item}
-                              qty={quantities[item.id] ?? 0}
-                              onAdd={() => changeQty(item.id, 1)}
-                              onRemove={() => changeQty(item.id, -1)}
+                              qty={cart[item.id]?.quantity ?? 0}
+                              hasGroups={(item.customization_groups?.length ?? 0) > 0}
+                              onAdd={() => handleAdd(item)}
+                              onRemove={() => handleRemove(item.id)}
                               format={format}
                             />
                           ))}
@@ -350,28 +381,29 @@ export default function NewOrderModal({ onClose }) {
               <p className="text-xs text-slate-400">No items yet — add from the menu</p>
             ) : (
               <ul className="space-y-3">
-                {cartItems.map((item) => (
-                  <li key={item.id} className="text-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-slate-700">
-                        <span className="font-medium">{quantities[item.id]}×</span>{' '}
-                        {item.name}
-                      </span>
-                      <span className="shrink-0 text-slate-500">
-                        {format(item.price * quantities[item.id])}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Notes…"
-                      value={notes[item.id] ?? ''}
-                      onChange={(e) =>
-                        setNotes((n) => ({ ...n, [item.id]: e.target.value }))
-                      }
-                      className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                    />
-                  </li>
-                ))}
+                {cartItems.map((item) => {
+                  const entry = cart[item.id];
+                  const custLabels = Object.entries(entry.customizations || {})
+                    .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
+                  return (
+                    <li key={item.id} className="text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-slate-700">
+                          <span className="font-medium">{entry.quantity}×</span>{' '}{item.name}
+                        </span>
+                        <span className="shrink-0 text-slate-500">
+                          {format((item.price + (entry.priceAdd || 0)) * entry.quantity)}
+                        </span>
+                      </div>
+                      {custLabels.length > 0 && (
+                        <p className="mt-0.5 text-xs text-violet-600">{custLabels.join(', ')}</p>
+                      )}
+                      {entry.notes && (
+                        <p className="mt-0.5 text-xs italic text-slate-400">{entry.notes}</p>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
 
@@ -405,5 +437,15 @@ export default function NewOrderModal({ onClose }) {
         </div>
       </div>
     </div>
+
+    {pickerItem && (
+      <CustomizationPicker
+        item={pickerItem}
+        format={format}
+        onConfirm={handlePickerConfirm}
+        onCancel={() => setPickerItem(null)}
+      />
+    )}
+    </>
   );
 }

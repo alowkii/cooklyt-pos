@@ -75,6 +75,30 @@ export function useOrderHistory({ from, to, status, channel }) {
   });
 }
 
+export function useCancelPendingItems() {
+  return useMutation({
+    mutationFn: async (orderId) => {
+      const { data } = await api.post(`/orders/${orderId}/cancel-pending`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+    },
+  });
+}
+
+export function useUpdateItemStatus() {
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, status }) => {
+      const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+    },
+  });
+}
+
 export function useAddItems() {
   return useMutation({
     mutationFn: async ({ orderId, items }) => {

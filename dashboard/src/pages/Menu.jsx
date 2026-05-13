@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -11,7 +11,115 @@ import Modal from '../components/Modal';
 import { useCurrency } from '../context/CurrencyContext';
 
 const CATEGORIES = ['all', 'starters', 'mains', 'desserts', 'drinks', 'sides'];
-const EMPTY_FORM  = { name: '', price: '', category: 'mains', available: true, sku: '' };
+const EMPTY_FORM  = { name: '', price: '', category: 'mains', available: true, sku: '', customizationGroups: [] };
+
+function newGroup() {
+  return { name: '', type: 'single', required: false, options: [{ label: '', priceAdd: 0 }] };
+}
+
+function CustomizationGroupsEditor({ groups, onChange }) {
+  const setGroup = (i, patch) =>
+    onChange(groups.map((g, idx) => idx === i ? { ...g, ...patch } : g));
+
+  const setOption = (gi, oi, patch) =>
+    setGroup(gi, {
+      options: groups[gi].options.map((o, idx) => idx === oi ? { ...o, ...patch } : o),
+    });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Customization Options</p>
+        <button type="button"
+          onClick={() => onChange([...groups, newGroup()])}
+          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+          <Plus size={12} /> Add group
+        </button>
+      </div>
+
+      {groups.length === 0 && (
+        <p className="text-xs text-slate-400 italic">No customizations — customers will only see a notes field.</p>
+      )}
+
+      {groups.map((group, gi) => (
+        <div key={gi} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+          {/* Group header */}
+          <div className="flex items-center gap-2">
+            <input
+              value={group.name}
+              onChange={(e) => setGroup(gi, { name: e.target.value })}
+              placeholder="Group name (e.g. Spice Level)"
+              className="input flex-1 text-sm"
+            />
+            <button type="button"
+              onClick={() => onChange(groups.filter((_, idx) => idx !== gi))}
+              className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500 transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* Type + required toggles */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex rounded border border-slate-200 overflow-hidden">
+              {['single', 'multi'].map((t) => (
+                <button key={t} type="button"
+                  onClick={() => setGroup(gi, { type: t })}
+                  className={`px-2.5 py-1 capitalize transition-colors ${
+                    group.type === t
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}>
+                  {t === 'single' ? 'Pick one' : 'Pick many'}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer text-slate-500">
+              <input type="checkbox" checked={group.required}
+                onChange={(e) => setGroup(gi, { required: e.target.checked })}
+                className="rounded" />
+              Required
+            </label>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-1.5">
+            {group.options.map((opt, oi) => (
+              <div key={oi} className="flex items-center gap-2">
+                <input
+                  value={opt.label}
+                  onChange={(e) => setOption(gi, oi, { label: e.target.value })}
+                  placeholder="Option label (e.g. Spicy)"
+                  className="input flex-1 text-sm"
+                />
+                <div className="relative shrink-0 w-24">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">+</span>
+                  <input type="number" min="0" step="0.01"
+                    value={opt.priceAdd || ''}
+                    onChange={(e) => setOption(gi, oi, { priceAdd: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="input pl-5 text-sm w-full"
+                    title="Extra charge for this option"
+                  />
+                </div>
+                <button type="button"
+                  onClick={() => setGroup(gi, { options: group.options.filter((_, idx) => idx !== oi) })}
+                  disabled={group.options.length <= 1}
+                  className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30">
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+            <button type="button"
+              onClick={() => setGroup(gi, { options: [...group.options, { label: '', priceAdd: 0 }] })}
+              className="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+              + Add option
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Menu() {
   const { data: items = [], isLoading } = useMenuItems();
@@ -43,12 +151,12 @@ export default function Menu() {
 
   function openEdit(item) {
     setForm({
-      name:      item.name,
-      // Pre-fill price in the selected display currency
-      price:     (parseFloat(item.price) * currency.rate).toFixed(currency.decimals),
-      category:  item.category || 'mains',
-      available: item.available,
-      sku:       item.sku || '',
+      name:                item.name,
+      price:               (parseFloat(item.price) * currency.rate).toFixed(currency.decimals),
+      category:            item.category || 'mains',
+      available:           item.available,
+      sku:                 item.sku || '',
+      customizationGroups: item.customization_groups || [],
     });
     setModal(item);
   }
@@ -163,6 +271,11 @@ export default function Menu() {
                     {item.sku}
                   </span>
                 )}
+                {item.customization_groups?.length > 0 && (
+                  <span className="rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-600">
+                    {item.customization_groups.length} option{item.customization_groups.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
 
               {isAdmin && (
@@ -273,6 +386,13 @@ export default function Menu() {
               />
               Available to order
             </label>
+
+            <div className="border-t border-slate-100 pt-3">
+              <CustomizationGroupsEditor
+                groups={form.customizationGroups}
+                onChange={(groups) => setForm((f) => ({ ...f, customizationGroups: groups }))}
+              />
+            </div>
 
             <div className="flex gap-2 pt-2">
               <button
