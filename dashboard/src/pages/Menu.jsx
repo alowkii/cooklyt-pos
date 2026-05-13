@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff } from 'lucide-react';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -317,11 +317,14 @@ export default function Menu() {
         </div>
       ) : (
         <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <div className={isAdmin ? 'menu-table-admin' : 'menu-table-nonadmin'}>
+
           {/* Column header */}
           <div
-            className="grid items-center px-4 py-2"
+            className={`grid items-center px-4 py-2${isAdmin ? ' menu-row-admin' : ''}`}
             style={{
-              gridTemplateColumns: isAdmin ? '1fr 90px 90px 148px' : '1fr 90px 90px',
+              gridTemplateColumns: isAdmin ? '1fr 90px 90px 168px' : '1fr 90px 90px',
               fontSize: 10, fontWeight: 600, color: 'var(--mute)',
               textTransform: 'uppercase', letterSpacing: '.07em',
               background: 'var(--paper-2)',
@@ -329,17 +332,17 @@ export default function Menu() {
             }}
           >
             <span>Item</span>
-            <span className="mono">Price</span>
+            <span className="mono" style={{ paddingLeft: 14 }}>Price</span>
             <span>Status</span>
-            {isAdmin && <span style={{ textAlign: 'right' }}>Actions</span>}
+            {isAdmin && <span className="menu-action-text" style={{ textAlign: 'right' }}>Actions</span>}
           </div>
 
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="grid items-center px-4"
+              className={`grid items-center px-4${isAdmin ? ' menu-row-admin' : ''}`}
               style={{
-                gridTemplateColumns: isAdmin ? '1fr 90px 90px 148px' : '1fr 90px 90px',
+                gridTemplateColumns: isAdmin ? '1fr 90px 90px 168px' : '1fr 90px 90px',
                 minHeight: 46,
                 borderBottom: '1px solid var(--line)',
                 background: 'transparent',
@@ -380,7 +383,7 @@ export default function Menu() {
               </div>
 
               {/* Price */}
-              <span className="mono num" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+              <span className="mono num" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', paddingLeft: 14 }}>
                 {format(item.price)}
               </span>
 
@@ -404,15 +407,17 @@ export default function Menu() {
                     style={{ gap: 4, fontSize: 12 }}
                     title="Edit"
                   >
-                    <Pencil size={12} /> Edit
+                    <Pencil size={12} />
+                    <span className="menu-action-text">Edit</span>
                   </button>
                   <button
                     onClick={() => updateItem.mutate({ id: item.id, available: !item.available })}
                     className="btn btn-sm btn-ghost"
-                    style={{ fontSize: 12 }}
+                    style={{ gap: 4, fontSize: 12 }}
                     title={item.available ? 'Take off menu' : 'Make available'}
                   >
-                    {item.available ? 'Disable' : 'Enable'}
+                    {item.available ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span className="menu-action-text">{item.available ? 'Disable' : 'Enable'}</span>
                   </button>
                   <button
                     onClick={() => setConfirmDelete(item)}
@@ -426,6 +431,9 @@ export default function Menu() {
               )}
             </div>
           ))}
+
+          </div>
+          </div>
         </div>
       )}
 
@@ -532,6 +540,17 @@ export default function Menu() {
           </div>
         </Modal>
       )}
+
+      <style>{`
+        .menu-action-text { display: inline; }
+        .menu-table-admin    { min-width: 500px; }
+        .menu-table-nonadmin { min-width: 300px; }
+        @media (max-width: 640px) {
+          .menu-action-text { display: none; }
+          .menu-row-admin { grid-template-columns: 1fr 90px 90px 92px !important; }
+          .menu-table-admin { min-width: 380px; }
+        }
+      `}</style>
     </div>
   );
 }
