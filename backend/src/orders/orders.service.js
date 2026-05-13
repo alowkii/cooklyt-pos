@@ -61,6 +61,101 @@ async function addItems(orderId, items, restaurantId) {
   return getById(orderId, restaurantId);
 }
 
+const ITEM_STATUS_ORDER = ['pending', 'preparing', 'ready', 'served'];
+const CANCELLABLE_ITEM_STATUSES = ['pending', 'preparing'];
+
+async function updateItemStatus(orderId, itemId, status, restaurantId) {
+  const validStatuses = [...ITEM_STATUS_ORDER, 'cancelled'];
+  if (!validStatuses.includes(status))
+    throw new ValidationError(`Invalid item status: ${status}`);
+
+  if (status === 'cancelled') {
+    const order = await getById(orderId, restaurantId);
+    if (['paid', 'cancelled'].includes(order.status))
+      throw new ValidationError('Cannot update items on a paid or cancelled order');
+    // Fetch current item status to enforce cancellable constraint
+    const [itemRow] = await repo.getItemStatuses(orderId).then((rows) => rows.filter((r) => r.id === itemId));
+    if (!itemRow) throw new NotFoundError('Order item');
+    const currentStatus = itemRow.status ?? 'pending';
+    if (!CANCELLABLE_ITEM_STATUSES.includes(currentStatus))
+      throw new ValidationError(`Cannot cancel an item that is already ${currentStatus}`);
+    const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled');
+    if (!updated) throw new NotFoundError('Order item');
+
+    // Re-evaluate order status now that this item is gone
+    const allItems = await repo.getItemStatuses(orderId);
+    const remaining = allItems.filter((i) => i.status !== 'cancelled');
+    let nextOrderStatus = null;
+    if (remaining.length === 0) {
+      nextOrderStatus = 'cancelled';
+    } else if (remaining.every((i) => (i.status ?? 'pending') === 'served')) {
+      nextOrderStatus = 'served';
+    } else if (remaining.every((i) => ['ready', 'served'].includes(i.status ?? 'pending'))) {
+      nextOrderStatus = 'ready';
+    }
+    if (nextOrderStatus) await repo.updateStatus(orderId, nextOrderStatus);
+
+    ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
+    return getById(orderId, restaurantId);
+  }
+
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot update items on a paid or cancelled order');
+
+  const updated = await repo.updateItemStatus(itemId, orderId, status);
+  if (!updated) throw new NotFoundError('Order item');
+
+  // Auto-advance order status based on collective item state (ignore cancelled)
+  const allItems = await repo.getItemStatuses(orderId);
+  const statuses = allItems.filter((i) => i.status !== 'cancelled').map((i) => i.status ?? 'pending');
+  const allAtLeast = (min) => statuses.every((s) => ITEM_STATUS_ORDER.indexOf(s) >= ITEM_STATUS_ORDER.indexOf(min));
+
+  let nextOrderStatus = null;
+  if (allAtLeast('served')   && order.status === 'ready')     nextOrderStatus = 'served';
+  else if (allAtLeast('ready')    && order.status === 'preparing') nextOrderStatus = 'ready';
+  else if (statuses.some((s) => s === 'preparing') && order.status === 'received') nextOrderStatus = 'preparing';
+
+  if (nextOrderStatus) await repo.updateStatus(orderId, nextOrderStatus);
+
+  ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
+  return getById(orderId, restaurantId);
+}
+
+async function cancelPendingItems(orderId, restaurantId) {
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot cancel a paid or already-cancelled order');
+
+  const allItems = await repo.getItemStatuses(orderId);
+  const toCancelIds = allItems
+    .filter((i) => CANCELLABLE_ITEM_STATUSES.includes(i.status))
+    .map((i) => i.id);
+
+  if (toCancelIds.length === 0)
+    throw new ValidationError('No pending or preparing items to cancel');
+
+  for (const itemId of toCancelIds) {
+    await repo.updateItemStatus(itemId, orderId, 'cancelled');
+  }
+
+  // Determine what remains
+  const remaining = allItems.filter((i) => !toCancelIds.includes(i.id) && i.status !== 'cancelled');
+
+  let nextStatus;
+  if (remaining.length === 0) {
+    nextStatus = 'cancelled';
+  } else if (remaining.every((i) => i.status === 'served')) {
+    nextStatus = 'served';
+  } else {
+    nextStatus = 'ready';
+  }
+  await repo.updateStatus(orderId, nextStatus);
+
+  ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
+  return getById(orderId, restaurantId);
+}
+
 async function updateStatus(orderId, status, restaurantId) {
   const VALID = ['received', 'preparing', 'ready', 'served', 'paid', 'cancelled'];
   if (!VALID.includes(status))
@@ -107,6 +202,8 @@ module.exports = {
   getActiveByTable,
   createOrder,
   addItems,
+  updateItemStatus,
+  cancelPendingItems,
   updateStatus,
   calculateTotal,
   markOrderPaid,

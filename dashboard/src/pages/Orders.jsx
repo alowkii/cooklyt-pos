@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import {
   Clock, ChefHat, ChevronDown, ChevronUp, XCircle,
-  Plus, DollarSign, Utensils, ShoppingBag, Truck,
+  Plus, DollarSign, Utensils, ShoppingBag, Truck, X,
 } from 'lucide-react';
-import { useActiveOrders, useUpdateOrderStatus } from '../hooks/useOrders';
+import { useActiveOrders, useUpdateOrderStatus, useUpdateItemStatus, useCancelPendingItems } from '../hooks/useOrders';
 import { useTables } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
 import NewOrderModal from '../components/NewOrderModal';
@@ -30,6 +30,55 @@ const CHANNEL_META = {
   delivery: { label: 'Delivery', cls: 'bg-blue-100   text-blue-700',   Icon: Truck,       badgeCls: 'bg-blue-100   text-blue-600'   },
 };
 
+const ITEM_STATUS = {
+  pending:   { label: 'Pending',   cls: 'bg-slate-100  text-slate-500',   dot: 'bg-slate-400',   next: 'preparing' },
+  preparing: { label: 'Preparing', cls: 'bg-amber-100  text-amber-700',   dot: 'bg-amber-400',   next: 'ready'     },
+  ready:     { label: 'Ready',     cls: 'bg-blue-100   text-blue-700',    dot: 'bg-blue-500',    next: 'served'    },
+  served:    { label: 'Served',    cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', next: null        },
+};
+
+const CANCELLABLE = ['pending', 'preparing'];
+
+function ItemStatusBadge({ orderId, item, canUpdate }) {
+  const updateItemStatus = useUpdateItemStatus();
+  const status = item.item_status ?? 'pending';
+  const cfg = ITEM_STATUS[status] ?? ITEM_STATUS.pending;
+  const busy = updateItemStatus.isPending;
+  const canCancel = canUpdate && CANCELLABLE.includes(status);
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      {/* Advance button */}
+      <button
+        type="button"
+        onClick={() => canUpdate && cfg.next && !busy && updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: cfg.next })}
+        disabled={!canUpdate || !cfg.next || busy}
+        title={cfg.next ? `Mark ${cfg.next}` : 'Fully served'}
+        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-all
+          ${cfg.cls}
+          ${canUpdate && cfg.next ? 'cursor-pointer hover:brightness-95 active:scale-95' : 'cursor-default opacity-75'}
+        `}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+        {cfg.label}
+      </button>
+
+      {/* Cancel item button — only while pending or preparing */}
+      {canCancel && (
+        <button
+          type="button"
+          onClick={() => !busy && updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: 'cancelled' })}
+          disabled={busy}
+          title="Cancel this item"
+          className="rounded-full p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
+        >
+          <X size={11} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function elapsed(dateStr) {
   const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60_000);
   if (m < 1)  return { label: 'just now', cls: 'text-slate-400' };
@@ -42,6 +91,7 @@ export default function Orders() {
   const { data: orders = [], isLoading } = useActiveOrders();
   const { data: tables = [] }            = useTables();
   const updateStatus                     = useUpdateOrderStatus();
+  const cancelPending                    = useCancelPendingItems();
   const { isAdmin, user }                = useAuth();
 
   const canCancel = isAdmin || user?.role === 'staff';
@@ -151,7 +201,14 @@ export default function Orders() {
                     </span>
                     <span className="text-slate-300">·</span>
                     <span className="text-slate-400">
-                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                      {(() => {
+                        const total = order.items.length;
+                        const ready = order.items.filter((i) => i.item_status === 'ready' || i.item_status === 'served').length;
+                        const served = order.items.filter((i) => i.item_status === 'served').length;
+                        if (served === total) return `All served`;
+                        if (ready > 0) return `${ready}/${total} ready`;
+                        return `${total} item${total !== 1 ? 's' : ''}`;
+                      })()}
                     </span>
                     <span className="text-slate-300">·</span>
                     <span className="font-mono text-[10px] text-slate-300">#{token}</span>
@@ -176,28 +233,34 @@ export default function Orders() {
                           {cat}
                         </p>
                         <ul className="space-y-1">
-                          {catItems.map((item, i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
-                              <span className="text-slate-800">
-                                <span className="mr-1.5 font-bold text-slate-900">
-                                  {item.quantity}×
-                                </span>
-                                {item.item_name}
-                              </span>
-                              {item.notes && (
-                                <span className="shrink-0 text-xs italic text-slate-400">
-                                  {item.notes}
-                                </span>
-                              )}
-                            </li>
-                          ))}
+                          {catItems.map((item, i) => {
+                            const custLabels = Object.entries(item.customizations || {})
+                              .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
+                            return (
+                              <li key={i} className="py-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex-1 text-sm text-slate-800 min-w-0">
+                                    <span className="mr-1.5 font-bold text-slate-900">{item.quantity}×</span>
+                                    {item.item_name}
+                                    {item.notes && (
+                                      <span className="ml-2 text-xs italic text-slate-400">{item.notes}</span>
+                                    )}
+                                  </span>
+                                  <ItemStatusBadge orderId={order.id} item={item} canUpdate={canOrder} />
+                                </div>
+                                {custLabels.length > 0 && (
+                                  <p className="ml-5 text-xs text-violet-600">{custLabels.join(' · ')}</p>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     ))}
                   </div>
 
                   {/* Action buttons */}
-                  {(actions.length > 0 || canCancel || (order.status === 'served' && canOrder)) && (
+                  {(actions.length > 0 || canCancel || canOrder) && (
                     <div className="flex gap-2 border-t border-slate-100 pt-3">
                       {actions.map(({ status: s, label, cls, Icon }) => (
                         <button
@@ -210,32 +273,44 @@ export default function Orders() {
                         </button>
                       ))}
 
-                      {order.status === 'served' && canOrder && (
-                        <>
-                          <button
-                            onClick={() => setAddingToOrder(order)}
-                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
-                          >
-                            <Plus size={13} /> Add Items
-                          </button>
-                          <button
-                            onClick={() => setPayingOrder(order)}
-                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                          >
-                            <DollarSign size={13} /> Collect Payment
-                          </button>
-                        </>
-                      )}
-
-                      {canCancel && order.status !== 'served' && (
+                      {canOrder && (
                         <button
-                          onClick={() => updateStatus.mutate({ id: order.id, status: 'cancelled' })}
-                          disabled={updateStatus.isPending}
-                          className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                          onClick={() => setAddingToOrder(order)}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
                         >
-                          <XCircle size={13} /> Cancel
+                          <Plus size={13} /> Add Items
                         </button>
                       )}
+
+                      {order.status === 'served' && canOrder && (
+                        <button
+                          onClick={() => setPayingOrder(order)}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        >
+                          <DollarSign size={13} /> Collect Payment
+                        </button>
+                      )}
+
+                      {canCancel && (() => {
+                        const hasPending = order.items.some((i) =>
+                          !i.item_status || CANCELLABLE.includes(i.item_status),
+                        );
+                        const hasServedOrReady = order.items.some((i) =>
+                          i.item_status === 'ready' || i.item_status === 'served',
+                        );
+                        if (!hasPending) return null;
+                        return (
+                          <button
+                            onClick={() => cancelPending.mutate(order.id)}
+                            disabled={cancelPending.isPending}
+                            title={hasServedOrReady ? 'Cancel only pending/preparing items — served items stay' : 'Cancel order'}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                          >
+                            <XCircle size={13} />
+                            {hasServedOrReady ? 'Cancel remaining' : 'Cancel'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
