@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
-  Printer, Split, Plus, Minus,
+  Printer, Split, Plus, Minus, ArrowLeft,
 } from 'lucide-react';
 import Modal from './Modal';
 import { useBill, useApplyDiscount, useProcessPayment, useProcessSplitPayment } from '../hooks/usePayments';
@@ -499,7 +499,10 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
             )}
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={onClose}
+                className="btn-secondary flex-1 flex items-center justify-center gap-1.5">
+                <ArrowLeft size={14} /> Back to Order
+              </button>
               <button type="submit" disabled={isPending || billLoading} className="btn-primary flex-1">
                 {isPending ? 'Processing…' : 'Confirm Payment'}
               </button>
@@ -618,7 +621,10 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
             )}
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={onClose}
+                className="btn-secondary flex-1 flex items-center justify-center gap-1.5">
+                <ArrowLeft size={14} /> Back to Order
+              </button>
               <button
                 type="button"
                 onClick={handleSplitSubmit}
