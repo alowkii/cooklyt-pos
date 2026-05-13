@@ -12,6 +12,15 @@ const TABLE_DOT = {
   cleaning:  'var(--info)',
 };
 
+function valueFontSize(str) {
+  const len = str.length;
+  if (len <= 6)  return 28;
+  if (len <= 8)  return 24;
+  if (len <= 10) return 20;
+  if (len <= 13) return 17;
+  return 14;
+}
+
 function Stat({ label, value, hint }) {
   return (
     <div style={{
@@ -27,7 +36,8 @@ function Stat({ label, value, hint }) {
         {label}
       </div>
       <div className="mono num" style={{
-        fontSize: 28, fontWeight: 600,
+        fontSize: valueFontSize(String(value ?? '')),
+        fontWeight: 600,
         letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)',
       }}>
         {value}
