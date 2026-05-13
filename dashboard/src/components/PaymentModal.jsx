@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
-  Printer, Split, Plus,
+  Printer, Split, Plus, Minus,
 } from 'lucide-react';
 import Modal from './Modal';
 import { useBill, useApplyDiscount, useProcessPayment, useProcessSplitPayment } from '../hooks/usePayments';
@@ -216,8 +216,8 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const [amountTendered, setAmountTendered] = useState('');
 
   // ── Split-by-items mode state
-  // assignments: { [itemId]: 1 | 2 } — items default to bill 1
-  const [assignments,  setAssignments]  = useState({});
+  // quantities: { [itemId]: number } — how many go to Bill 1 (default = item.quantity = all)
+  const [quantities,   setQuantities]   = useState({});
   const [splitMethods, setSplitMethods] = useState({ 1: 'cash', 2: 'mobile' });
 
   // ── Shared
@@ -226,14 +226,18 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const [printing,   setPrinting]   = useState(false);
   const [printError, setPrintError] = useState('');
 
-  // Computed: items per bill (split mode)
+  // Computed: items per bill with partial quantities
   const bill1Items = useMemo(
-    () => bill?.items.filter((i) => (assignments[i.id] ?? 1) === 1) ?? [],
-    [bill, assignments],
+    () => (bill?.items ?? [])
+      .map((i) => ({ ...i, quantity: quantities[i.id] ?? i.quantity }))
+      .filter((i) => i.quantity > 0),
+    [bill, quantities],
   );
   const bill2Items = useMemo(
-    () => bill?.items.filter((i) => (assignments[i.id] ?? 1) === 2) ?? [],
-    [bill, assignments],
+    () => (bill?.items ?? [])
+      .map((i) => ({ ...i, quantity: i.quantity - (quantities[i.id] ?? i.quantity) }))
+      .filter((i) => i.quantity > 0),
+    [bill, quantities],
   );
   const bill1Total = useMemo(() => computeSubTotal(bill1Items, bill), [bill1Items, bill]);
   const bill2Total = useMemo(() => computeSubTotal(bill2Items, bill), [bill2Items, bill]);
@@ -295,20 +299,19 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
     setError('');
 
     if (bill2Items.length === 0) {
-      setError('Assign at least one item to Bill 2'); return;
+      setError('Move at least one item (or partial quantity) to Bill 2'); return;
     }
     if (bill1Total <= 0 || bill2Total <= 0) {
       setError('Both bills must have a positive total'); return;
     }
 
-    // bill1Total / bill2Total are already in base currency (prices stored as USD)
     const splits = [
       {
-        orderItemIds: bill1Items.map((i) => i.id),
+        items: bill1Items.map((i) => ({ orderItemId: i.id, quantity: i.quantity })),
         tenders: [{ method: splitMethods[1], amount: parseFloat(bill1Total.toFixed(4)) }],
       },
       {
-        orderItemIds: bill2Items.map((i) => i.id),
+        items: bill2Items.map((i) => ({ orderItemId: i.id, quantity: i.quantity })),
         tenders: [{ method: splitMethods[2], amount: parseFloat(bill2Total.toFixed(4)) }],
       },
     ];
@@ -520,7 +523,12 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                   </p>
                   <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
                     {bill.items.map((item) => {
-                      const assigned = assignments[item.id] ?? 1;
+                      const qty1 = quantities[item.id] ?? item.quantity;
+                      const qty2 = item.quantity - qty1;
+                      const setQty1 = (n) => {
+                        const clamped = Math.max(0, Math.min(item.quantity, n));
+                        setQuantities((q) => ({ ...q, [item.id]: clamped }));
+                      };
                       return (
                         <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 bg-white">
                           <div className="flex-1 min-w-0">
@@ -529,30 +537,38 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                               {format(item.price)} × {item.quantity}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setAssignments((a) => ({ ...a, [item.id]: 1 }))}
-                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold border-2 transition-colors ${
-                                assigned === 1
-                                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                                  : 'border-slate-200 text-slate-400 hover:border-slate-300'
-                              }`}
-                            >
-                              Bill 1
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAssignments((a) => ({ ...a, [item.id]: 2 }))}
-                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold border-2 transition-colors ${
-                                assigned === 2
-                                  ? 'border-violet-500 bg-violet-50 text-violet-700'
-                                  : 'border-slate-200 text-slate-400 hover:border-slate-300'
-                              }`}
-                            >
-                              Bill 2
-                            </button>
-                          </div>
+                          {item.quantity === 1 ? (
+                            /* Single unit — toggle between Bill 1 and Bill 2 */
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button type="button" onClick={() => setQty1(1)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-semibold border-2 transition-colors ${
+                                  qty1 === 1 ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                                }`}>B1</button>
+                              <button type="button" onClick={() => setQty1(0)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-semibold border-2 transition-colors ${
+                                  qty1 === 0 ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                                }`}>B2</button>
+                            </div>
+                          ) : (
+                            /* Multiple units — stepper for Bill 1, Bill 2 auto-fills */
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-indigo-500 font-medium w-5 text-right">B1</span>
+                                <button type="button" onClick={() => setQty1(qty1 - 1)} disabled={qty1 <= 0}
+                                  className="rounded border border-slate-200 p-0.5 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+                                  <Minus size={11} />
+                                </button>
+                                <span className="w-5 text-center text-sm font-semibold text-slate-800">{qty1}</span>
+                                <button type="button" onClick={() => setQty1(qty1 + 1)} disabled={qty1 >= item.quantity}
+                                  className="rounded border border-slate-200 p-0.5 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+                                  <Plus size={11} />
+                                </button>
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                <span className="text-violet-500 font-medium">B2</span> {qty2}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -570,7 +586,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                     <div className="text-xs text-slate-400 truncate">
                       {bill1Items.length === 0
                         ? 'No items'
-                        : bill1Items.map((i) => i.name).join(', ')}
+                        : bill1Items.map((i) => `${i.name} ×${i.quantity}`).join(', ')}
                     </div>
                     <MethodPicker
                       value={splitMethods[1]}
@@ -587,7 +603,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                     <div className="text-xs text-slate-400 truncate">
                       {bill2Items.length === 0
                         ? 'No items'
-                        : bill2Items.map((i) => i.name).join(', ')}
+                        : bill2Items.map((i) => `${i.name} ×${i.quantity}`).join(', ')}
                     </div>
                     <MethodPicker
                       value={splitMethods[2]}
@@ -606,7 +622,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
               <button
                 type="button"
                 onClick={handleSplitSubmit}
-                disabled={isPending || billLoading || bill2Items.length === 0}
+                disabled={isPending || billLoading || bill2Items.length === 0 || bill1Items.length === 0}
                 className="btn-primary flex-1 disabled:opacity-50"
               >
                 {isPending ? 'Processing…' : 'Confirm Split'}

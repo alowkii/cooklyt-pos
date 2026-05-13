@@ -145,7 +145,9 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   };
 }
 
-// Split bill by items — each split has its own tender(s); order marked paid atomically
+// Split bill by items — each split has its own tender(s); order marked paid atomically.
+// Each split.items entry is { orderItemId, quantity } — quantities may be partial
+// (e.g. 2 of 5 burgers on one split, 3 on the other).
 async function processSplitPayment(orderId, { splits }, restaurantId) {
   if (!Array.isArray(splits) || splits.length < 2) {
     throw new ValidationError('Split payment requires at least 2 splits');
@@ -160,25 +162,32 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
     settingsRepo.getAll(restaurantId),
   ]);
 
-  const taxRate              = parseFloat(settings.tax_rate      || '0') / 100;
-  const serviceChargeRate    = parseFloat(settings.service_charge || '0') / 100;
-  const packagingFeeTotal    = order.channel !== 'dining'
+  const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
+  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const packagingFeeTotal = order.channel !== 'dining'
     ? parseFloat(settings.packaging_fee || '0')
     : 0;
-  const totalSubtotal        = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+  const totalSubtotal     = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
-  // Validate every item is assigned to exactly one split
-  const allItemIds     = new Set(allItems.map((i) => i.id));
-  const assignedIds    = new Set(splits.flatMap((s) => s.orderItemIds || []));
-  for (const id of allItemIds) {
-    if (!assignedIds.has(id)) throw new ValidationError(`Item ${id} is not assigned to any split`);
+  // Validate that quantities for each item sum to the full ordered quantity
+  const itemMap = new Map(allItems.map((i) => [i.id, i]));
+  for (const [id, fullItem] of itemMap) {
+    const assigned = splits.reduce((sum, split) => {
+      const si = (split.items || []).find((i) => i.orderItemId === id);
+      return sum + (si ? Math.max(0, parseInt(si.quantity) || 0) : 0);
+    }, 0);
+    if (assigned !== parseInt(fullItem.quantity)) {
+      throw new ValidationError(
+        `Quantities for "${fullItem.name}" don't add up (assigned ${assigned}, ordered ${fullItem.quantity})`,
+      );
+    }
   }
 
   const payments = [];
 
   for (const split of splits) {
-    const { orderItemIds, tenders } = split;
-    if (!orderItemIds?.length)  throw new ValidationError('Each split must have at least one item');
+    const { items: splitItemDefs, tenders } = split;
+    if (!splitItemDefs?.length) throw new ValidationError('Each split must have at least one item');
     if (!tenders?.length)       throw new ValidationError('Each split must have at least one tender');
 
     for (const t of tenders) {
@@ -187,7 +196,15 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
       }
     }
 
-    const splitItems   = allItems.filter((i) => orderItemIds.includes(i.id));
+    // Build split items with the partial (or full) quantities requested
+    const splitItems = splitItemDefs
+      .map(({ orderItemId, quantity }) => {
+        const full = itemMap.get(orderItemId);
+        if (!full) throw new ValidationError(`Item ${orderItemId} not found in order`);
+        return { ...full, quantity: parseInt(quantity) };
+      })
+      .filter((i) => i.quantity > 0);
+
     const splitSubtotal = parseFloat(splitItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
     // Prorate flat discount proportionally; percent applies naturally
