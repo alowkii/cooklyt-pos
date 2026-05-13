@@ -45,6 +45,29 @@ export function useUpdateTableStatus() {
   });
 }
 
+export function useUpdateTablePosition() {
+  return useMutation({
+    mutationFn: async ({ id, x, y }) => {
+      const { data } = await api.patch(`/tables/${id}/position`, { x, y });
+      return data;
+    },
+    onMutate: async ({ id, x, y }) => {
+      await queryClient.cancelQueries({ queryKey: ['tables'] });
+      const prev = queryClient.getQueryData(['tables']);
+      queryClient.setQueryData(['tables'], (old) =>
+        old?.map((t) => (t.id === id ? { ...t, x_pos: x ?? null, y_pos: y ?? null } : t)) ?? old,
+      );
+      return { prev };
+    },
+    onError: (_, __, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['tables'], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    },
+  });
+}
+
 export function useCreateTable() {
   return useMutation({
     mutationFn: async (table) => {

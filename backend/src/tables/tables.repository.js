@@ -34,9 +34,17 @@ const updateStatus = (id, status, restaurantId) =>
     )
     .then((r) => r.rows[0]);
 
+const updatePosition = (id, x, y, restaurantId) =>
+  db
+    .query(
+      'UPDATE tables SET x_pos = $1, y_pos = $2 WHERE id = $3 AND restaurant_id = $4 RETURNING *',
+      [x ?? null, y ?? null, id, restaurantId],
+    )
+    .then((r) => r.rows[0]);
+
 const remove = (id, restaurantId) =>
   db
     .query('DELETE FROM tables WHERE id = $1 AND restaurant_id = $2 RETURNING *', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-module.exports = { getAll, getById, getByStatus, create, updateStatus, remove };
+module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove };

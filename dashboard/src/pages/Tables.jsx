@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Plus, QrCode, Copy, Check } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus } from 'lucide-react';
 import QRCode from 'qrcode';
-import { useTables, useUpdateTableStatus, useCreateTable } from '../hooks/useTables';
+import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
+
+const GRID_COLS_MIN = 4;  const GRID_COLS_MAX = 20;
+const GRID_ROWS_MIN = 3;  const GRID_ROWS_MAX = 14;
 
 const STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
 
@@ -23,15 +26,35 @@ const DOT_CLASSES = {
 
 export default function Tables() {
   const { data: tables = [], isLoading } = useTables();
-  const updateStatus = useUpdateTableStatus();
-  const createTable  = useCreateTable();
-  const { isAdmin, user }  = useAuth();
+  const updateStatus   = useUpdateTableStatus();
+  const updatePosition = useUpdateTablePosition();
+  const createTable    = useCreateTable();
+  const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff';
 
   const [selected, setSelected]   = useState(null);
   const [addModal, setAddModal]   = useState(false);
   const [newTable, setNewTable]   = useState({ number: '', seats: '' });
   const [addError, setAddError]   = useState('');
+
+  // Layout editor state
+  const [layoutMode, setLayoutMode] = useState(false);
+  const [draggingId, setDraggingId] = useState(null);
+  const [overCell,   setOverCell]   = useState(null);
+  const [gridCols,   setGridCols]   = useState(() => parseInt(localStorage.getItem('layoutGridCols') || '12'));
+  const [gridRows,   setGridRows]   = useState(() => parseInt(localStorage.getItem('layoutGridRows') || '8'));
+
+  function changeGrid(axis, delta) {
+    if (axis === 'cols') {
+      const next = Math.min(GRID_COLS_MAX, Math.max(GRID_COLS_MIN, gridCols + delta));
+      setGridCols(next);
+      localStorage.setItem('layoutGridCols', next);
+    } else {
+      const next = Math.min(GRID_ROWS_MAX, Math.max(GRID_ROWS_MIN, gridRows + delta));
+      setGridRows(next);
+      localStorage.setItem('layoutGridRows', next);
+    }
+  }
 
   const [qrTable,   setQrTable]   = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -87,7 +110,7 @@ export default function Tables() {
 
   return (
     <div className="space-y-5">
-      {/* ── Legend + Add button ─────────────────────────── */}
+      {/* ── Legend + buttons ───────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-4 text-sm text-slate-500">
           {STATUSES.map((s) => {
@@ -100,22 +123,172 @@ export default function Tables() {
             );
           })}
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => { setAddError(''); setAddModal(true); }}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={15} /> Add Table
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && !layoutMode && (
+            <button
+              onClick={() => setLayoutMode(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <LayoutGrid size={15} /> Arrange Layout
+            </button>
+          )}
+          {isAdmin && layoutMode && (
+            <button
+              onClick={() => setLayoutMode(false)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <X size={15} /> Done
+            </button>
+          )}
+          {isAdmin && !layoutMode && (
+            <button
+              onClick={() => { setAddError(''); setAddModal(true); }}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+            >
+              <Plus size={15} /> Add Table
+            </button>
+          )}
+        </div>
       </div>
 
-      {!canEdit && (
+      {!canEdit && !layoutMode && (
         <p className="text-xs text-slate-400">View only — contact an admin or staff member to make changes</p>
       )}
 
-      {/* ── Table grid ──────────────────────────────────── */}
-      {tables.length === 0 ? (
+      {/* ── Layout editor (admin only) ──────────────────── */}
+      {layoutMode && (() => {
+        const placed   = tables.filter((t) => t.x_pos != null && t.y_pos != null);
+        const unplaced = tables.filter((t) => t.x_pos == null || t.y_pos == null);
+        const cellMap  = Object.fromEntries(placed.map((t) => [`${t.x_pos},${t.y_pos}`, t]));
+
+        function handleCellDrop(x, y) {
+          if (!draggingId) return;
+          const occupant = cellMap[`${x},${y}`];
+          if (occupant && occupant.id !== draggingId) return;
+          updatePosition.mutate({ id: draggingId, x, y });
+          setDraggingId(null);
+          setOverCell(null);
+        }
+
+        function handleUnplacedDrop() {
+          if (!draggingId) return;
+          updatePosition.mutate({ id: draggingId, x: null, y: null });
+          setDraggingId(null);
+          setOverCell(null);
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Unplaced strip */}
+            <div
+              className={`min-h-[72px] rounded-xl border-2 border-dashed p-3 transition-colors ${
+                draggingId && placed.find((t) => t.id === draggingId)
+                  ? 'border-amber-300 bg-amber-50'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleUnplacedDrop}
+            >
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Unplaced — drag onto grid
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {unplaced.length === 0 && (
+                  <span className="text-xs text-slate-400">All tables placed on the floor</span>
+                )}
+                {unplaced.map((t) => (
+                  <div
+                    key={t.id}
+                    draggable
+                    onDragStart={() => setDraggingId(t.id)}
+                    onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
+                    className={`flex h-14 w-14 cursor-grab flex-col items-center justify-center rounded-lg border-2 select-none active:cursor-grabbing transition-opacity
+                      ${CARD_CLASSES[t.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}
+                      ${draggingId === t.id ? 'opacity-40' : ''}
+                    `}
+                  >
+                    <span className="text-lg font-bold leading-none">{t.number}</span>
+                    <span className="text-[10px] opacity-60">{t.seats}p</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Grid canvas */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Floor layout — drag tables to arrange
+                </p>
+                <div className="flex items-center gap-4 text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    Columns
+                    <button onClick={() => changeGrid('cols', -1)} disabled={gridCols <= GRID_COLS_MIN} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Minus size={12} /></button>
+                    <span className="w-5 text-center font-semibold text-slate-700">{gridCols}</span>
+                    <button onClick={() => changeGrid('cols', +1)} disabled={gridCols >= GRID_COLS_MAX} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Plus size={12} /></button>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    Rows
+                    <button onClick={() => changeGrid('rows', -1)} disabled={gridRows <= GRID_ROWS_MIN} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Minus size={12} /></button>
+                    <span className="w-5 text-center font-semibold text-slate-700">{gridRows}</span>
+                    <button onClick={() => changeGrid('rows', +1)} disabled={gridRows >= GRID_ROWS_MAX} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Plus size={12} /></button>
+                  </span>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${gridCols}, 64px)`,
+                  gridTemplateRows: `repeat(${gridRows}, 64px)`,
+                  gap: '4px',
+                  width: `${gridCols * 68}px`,
+                }}
+              >
+                {Array.from({ length: gridRows }, (_, row) =>
+                  Array.from({ length: gridCols }, (_, col) => {
+                    const key    = `${col},${row}`;
+                    const table  = cellMap[key];
+                    const isOver = overCell?.x === col && overCell?.y === row;
+                    const blocked = isOver && table && table.id !== draggingId;
+
+                    return (
+                      <div
+                        key={key}
+                        className={`h-16 w-16 rounded-lg border-2 transition-colors
+                          ${!table ? 'border-dashed border-slate-200 bg-slate-50' : 'border-transparent'}
+                          ${isOver && !table ? 'border-indigo-400 bg-indigo-50' : ''}
+                          ${blocked ? 'border-red-300 bg-red-50' : ''}
+                        `}
+                        onDragOver={(e) => { e.preventDefault(); setOverCell({ x: col, y: row }); }}
+                        onDragLeave={() => setOverCell(null)}
+                        onDrop={() => handleCellDrop(col, row)}
+                      >
+                        {table && (
+                          <div
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); setDraggingId(table.id); }}
+                            onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
+                            className={`h-full w-full flex flex-col items-center justify-center rounded-lg border-2 cursor-grab select-none active:cursor-grabbing transition-opacity
+                              ${CARD_CLASSES[table.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}
+                              ${draggingId === table.id ? 'opacity-40' : ''}
+                            `}
+                          >
+                            <span className="text-lg font-bold leading-none">{table.number}</span>
+                            <span className="text-[10px] opacity-60">{table.seats}p</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Normal table grid ───────────────────────────── */}
+      {!layoutMode && (tables.length === 0 ? (
         <div className="py-16 text-center text-sm text-slate-400">
           No tables yet{isAdmin ? ' — add one to get started' : ' — contact an admin'}
         </div>
@@ -148,7 +321,7 @@ export default function Tables() {
               </div>
             ))}
         </div>
-      )}
+      ))}
 
       {/* ── Change Status Modal (admin + staff) ─────────── */}
       {selected && canEdit && (

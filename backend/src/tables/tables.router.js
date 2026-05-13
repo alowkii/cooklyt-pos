@@ -35,6 +35,15 @@ router.patch('/:id/status', authenticate, async (req, res, next) => {
   }
 });
 
+router.patch('/:id/position', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { x, y } = req.body;
+    res.json(await service.updatePosition(req.params.id, x ?? null, y ?? null, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.delete('/:id', authenticate, authorize('admin'), async (req, res, next) => {
   try {
     await service.remove(req.params.id, req.user.restaurantId);

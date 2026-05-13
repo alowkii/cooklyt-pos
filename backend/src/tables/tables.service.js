@@ -35,9 +35,14 @@ async function updateStatus(tableId, status, restaurantId) {
   return repo.updateStatus(tableId, status, restaurantId);
 }
 
+async function updatePosition(id, x, y, restaurantId) {
+  await getById(id, restaurantId);
+  return repo.updatePosition(id, x, y, restaurantId);
+}
+
 async function remove(id, restaurantId) {
   await getById(id, restaurantId);
   return repo.remove(id, restaurantId);
 }
 
-module.exports = { getAll, getById, getByStatus, create, updateStatus, remove };
+module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove };
