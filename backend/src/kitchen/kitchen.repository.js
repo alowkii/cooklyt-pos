@@ -5,10 +5,12 @@ const getPendingItems = (restaurantId) =>
     .query(
       `
     SELECT
-      oi.id          AS order_item_id,
+      oi.id             AS order_item_id,
       oi.order_id,
       oi.quantity,
       oi.notes,
+      oi.customizations,
+      oi.status         AS item_status,
       mi.name        AS item_name,
       mi.category,
       o.table_id,
@@ -23,6 +25,7 @@ const getPendingItems = (restaurantId) =>
     LEFT JOIN tables t   ON t.id = o.table_id
     WHERE o.status IN ('received', 'preparing', 'ready', 'served')
       AND o.restaurant_id = $1
+      AND oi.status != 'cancelled'
     ORDER BY o.created_at ASC
   `,
       [restaurantId],

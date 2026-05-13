@@ -33,7 +33,7 @@ const getItemsByOrderId = (orderId) =>
       `SELECT oi.*, mi.name, mi.price
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE oi.order_id = $1`,
+       WHERE oi.order_id = $1 AND oi.status != 'cancelled'`,
       [orderId],
     )
     .then((r) => r.rows);
@@ -53,8 +53,8 @@ const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dini
 
     for (const item of items) {
       await client.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes) VALUES ($1, $2, $3, $4)',
-        [order.id, item.menuItemId, item.quantity, item.notes || null],
+        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
+        [order.id, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
 
@@ -74,8 +74,8 @@ const addItems = async (orderId, items) => {
     await client.query('BEGIN');
     for (const item of items) {
       await client.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes) VALUES ($1, $2, $3, $4)',
-        [orderId, item.menuItemId, item.quantity, item.notes || null],
+        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
+        [orderId, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
     await client.query('COMMIT');
@@ -92,6 +92,19 @@ const updateStatus = (id, status) =>
     .query('UPDATE orders SET status = $1 WHERE id = $2 RETURNING *', [status, id])
     .then((r) => r.rows[0]);
 
+const updateItemStatus = (itemId, orderId, status) =>
+  db
+    .query(
+      'UPDATE order_items SET status = $1 WHERE id = $2 AND order_id = $3 RETURNING *',
+      [status, itemId, orderId],
+    )
+    .then((r) => r.rows[0]);
+
+const getItemStatuses = (orderId) =>
+  db
+    .query('SELECT id, status FROM order_items WHERE order_id = $1', [orderId])
+    .then((r) => r.rows);
+
 const setDiscount = (id, discountType, discountValue) =>
   db
     .query(
@@ -106,7 +119,7 @@ const calculateTotal = (orderId) =>
       `SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE oi.order_id = $1`,
+       WHERE oi.order_id = $1 AND oi.status != 'cancelled'`,
       [orderId],
     )
     .then((r) => parseFloat(r.rows[0].total));
@@ -184,6 +197,8 @@ module.exports = {
   create,
   addItems,
   updateStatus,
+  updateItemStatus,
+  getItemStatuses,
   setDiscount,
   calculateTotal,
   getHistory,

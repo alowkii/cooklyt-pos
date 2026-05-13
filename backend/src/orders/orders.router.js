@@ -61,6 +61,22 @@ router.post('/:id/items', authenticate, authorize('admin', 'staff'), async (req,
   }
 });
 
+router.patch('/:id/items/:itemId/status', authenticate, authorize('admin', 'staff', 'kitchen'), async (req, res, next) => {
+  try {
+    res.json(await service.updateItemStatus(req.params.id, req.params.itemId, req.body.status, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/cancel-pending', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
+  try {
+    res.json(await service.cancelPendingItems(req.params.id, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.patch('/:id/status', authenticate, authorize('admin', 'staff', 'kitchen'), async (req, res, next) => {
   try {
     const updated = await service.updateStatus(req.params.id, req.body.status, req.user.restaurantId);

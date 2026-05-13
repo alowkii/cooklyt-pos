@@ -15,11 +15,11 @@ async function getById(id, restaurantId) {
   return item;
 }
 
-async function create({ name, price, category, sku }, restaurantId) {
+async function create({ name, price, category, sku, customizationGroups }, restaurantId) {
   if (!name || price === undefined)
     throw new ValidationError('name and price are required');
   if (price < 0) throw new ValidationError('price must be non-negative');
-  return repo.create({ name, price, category, sku: sku || null, restaurantId });
+  return repo.create({ name, price, category, sku: sku || null, restaurantId, customizationGroups });
 }
 
 async function update(id, fields, restaurantId) {
