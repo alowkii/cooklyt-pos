@@ -321,7 +321,7 @@ export default function Menu() {
           <div
             className="grid items-center px-4 py-2"
             style={{
-              gridTemplateColumns: isAdmin ? '1fr 90px 90px auto' : '1fr 90px 90px',
+              gridTemplateColumns: isAdmin ? '1fr 90px 90px 148px' : '1fr 90px 90px',
               fontSize: 10, fontWeight: 600, color: 'var(--mute)',
               textTransform: 'uppercase', letterSpacing: '.07em',
               background: 'var(--paper-2)',
@@ -339,7 +339,7 @@ export default function Menu() {
               key={item.id}
               className="grid items-center px-4"
               style={{
-                gridTemplateColumns: isAdmin ? '1fr 90px 90px auto' : '1fr 90px 90px',
+                gridTemplateColumns: isAdmin ? '1fr 90px 90px 148px' : '1fr 90px 90px',
                 minHeight: 46,
                 borderBottom: '1px solid var(--line)',
                 background: 'transparent',
