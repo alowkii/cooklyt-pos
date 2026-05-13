@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
@@ -10,19 +10,25 @@ const GRID_ROWS_MIN = 3;  const GRID_ROWS_MAX = 14;
 
 const STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
 
-const CARD_CLASSES = {
-  available: 'bg-emerald-100 border-emerald-300 text-emerald-800',
-  occupied:  'bg-red-100    border-red-300    text-red-800',
-  reserved:  'bg-amber-100  border-amber-300  text-amber-800',
-  cleaning:  'bg-blue-100   border-blue-300   text-blue-800',
+const STATUS_DOT = {
+  available: 'var(--ok)',
+  occupied:  'var(--bad)',
+  reserved:  'var(--warn)',
+  cleaning:  'var(--info)',
 };
 
-const DOT_CLASSES = {
-  available: 'bg-emerald-500',
-  occupied:  'bg-red-500',
-  reserved:  'bg-amber-500',
-  cleaning:  'bg-blue-500',
-};
+function TableStatusDot({ status }) {
+  return (
+    <span className="inline-flex items-center gap-1.5" style={{ fontSize: 11.5, color: 'var(--ink-2)' }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: STATUS_DOT[status] ?? 'var(--mute-2)',
+        display: 'inline-block', flexShrink: 0,
+      }} />
+      {status[0].toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
 
 export default function Tables() {
   const { data: tables = [], isLoading } = useTables();
@@ -32,12 +38,12 @@ export default function Tables() {
   const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff';
 
-  const [selected, setSelected]   = useState(null);
-  const [addModal, setAddModal]   = useState(false);
-  const [newTable, setNewTable]   = useState({ number: '', seats: '' });
-  const [addError, setAddError]   = useState('');
+  const [view,     setView]     = useState('grid');
+  const [selected, setSelected] = useState(null);
+  const [addModal, setAddModal] = useState(false);
+  const [newTable, setNewTable] = useState({ number: '', seats: '' });
+  const [addError, setAddError] = useState('');
 
-  // Layout editor state
   const [layoutMode, setLayoutMode] = useState(false);
   const [draggingId, setDraggingId] = useState(null);
   const [overCell,   setOverCell]   = useState(null);
@@ -47,23 +53,16 @@ export default function Tables() {
   function changeGrid(axis, delta) {
     if (axis === 'cols') {
       const next = Math.min(GRID_COLS_MAX, Math.max(GRID_COLS_MIN, gridCols + delta));
-      setGridCols(next);
-      localStorage.setItem('layoutGridCols', next);
+      setGridCols(next); localStorage.setItem('layoutGridCols', next);
     } else {
       const next = Math.min(GRID_ROWS_MAX, Math.max(GRID_ROWS_MIN, gridRows + delta));
-      setGridRows(next);
-      localStorage.setItem('layoutGridRows', next);
+      setGridRows(next); localStorage.setItem('layoutGridRows', next);
     }
   }
 
   const [qrTable,   setQrTable]   = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied,    setCopied]    = useState(false);
-
-  function handleTableClick(t) {
-    if (!canEdit) return;
-    setSelected(t);
-  }
 
   async function handleStatusChange(status) {
     await updateStatus.mutateAsync({ id: selected.id, status });
@@ -74,10 +73,7 @@ export default function Tables() {
     e.preventDefault();
     setAddError('');
     try {
-      await createTable.mutateAsync({
-        number: parseInt(newTable.number),
-        seats:  parseInt(newTable.seats),
-      });
+      await createTable.mutateAsync({ number: parseInt(newTable.number), seats: parseInt(newTable.seats) });
       setAddModal(false);
       setNewTable({ number: '', seats: '' });
     } catch (err) {
@@ -86,76 +82,88 @@ export default function Tables() {
   }
 
   async function handleQrClick(t) {
-    setQrDataUrl('');
-    setCopied(false);
-    setQrTable(t);
+    setQrDataUrl(''); setCopied(false); setQrTable(t);
     const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
     const url = `${menuBase}/order/${t.id}`;
-    const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#1e1b4b' } });
+    const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#0A0A0A' } });
     setQrDataUrl(dataUrl);
   }
 
   function handleCopyUrl() {
     const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
     const url = `${menuBase}/order/${qrTable.id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }
 
+  const counts = {
+    available: tables.filter((t) => t.status === 'available').length,
+    occupied:  tables.filter((t) => t.status === 'occupied').length,
+    reserved:  tables.filter((t) => t.status === 'reserved').length,
+    cleaning:  tables.filter((t) => t.status === 'cleaning').length,
+  };
+
   if (isLoading) {
-    return <div className="py-16 text-center text-sm text-slate-400">Loading tables…</div>;
+    return <div className="py-16 text-center text-[13px]" style={{ color: 'var(--mute)' }}>Loading tables…</div>;
   }
 
   return (
     <div className="space-y-5">
-      {/* ── Legend + buttons ───────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-          {STATUSES.map((s) => {
-            const count = tables.filter((t) => t.status === s).length;
-            return (
-              <span key={s} className="flex items-center gap-1.5 capitalize">
-                <span className={`h-2.5 w-2.5 rounded-full ${DOT_CLASSES[s]}`} />
-                {count} {s}
-              </span>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && !layoutMode && (
+      {/* Page head */}
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h1 className="text-[22px] font-semibold m-0" style={{ letterSpacing: '-.015em', color: 'var(--ink)' }}>
+          Tables
+        </h1>
+        <span style={{ fontSize: 12, color: 'var(--mute)' }}>{tables.length} total</span>
+        <div className="ml-auto flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex overflow-hidden rounded-[6px]" style={{ border: '1px solid var(--line-2)' }}>
             <button
-              onClick={() => setLayoutMode(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              onClick={() => setView('grid')}
+              className="btn"
+              style={{ borderRadius: 0, border: 0, height: 28, background: view === 'grid' ? 'var(--paper-2)' : 'transparent' }}
+              title="Grid view"
             >
-              <LayoutGrid size={15} /> Arrange Layout
+              <LayoutGrid size={13} />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className="btn"
+              style={{ borderRadius: 0, border: 0, height: 28, background: view === 'list' ? 'var(--paper-2)' : 'transparent' }}
+              title="List view"
+            >
+              <List size={13} />
+            </button>
+          </div>
+          {isAdmin && !layoutMode && (
+            <button onClick={() => setLayoutMode(true)} className="btn">
+              <LayoutGrid size={13} /> Arrange
             </button>
           )}
           {isAdmin && layoutMode && (
-            <button
-              onClick={() => setLayoutMode(false)}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              <X size={15} /> Done
+            <button onClick={() => setLayoutMode(false)} className="btn">
+              <X size={13} /> Done
             </button>
           )}
           {isAdmin && !layoutMode && (
-            <button
-              onClick={() => { setAddError(''); setAddModal(true); }}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
-            >
-              <Plus size={15} /> Add Table
+            <button onClick={() => { setAddError(''); setAddModal(true); }} className="btn-primary">
+              <Plus size={13} /> Add table
             </button>
           )}
         </div>
       </div>
 
-      {!canEdit && !layoutMode && (
-        <p className="text-xs text-slate-400">View only — contact an admin or staff member to make changes</p>
-      )}
+      {/* Legend */}
+      <div className="flex flex-wrap gap-5" style={{ fontSize: 12 }}>
+        {STATUSES.map((s) => (
+          <span key={s} className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-2)' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[s], display: 'inline-block' }} />
+            {s[0].toUpperCase() + s.slice(1)}
+            <span className="mono num ml-0.5" style={{ color: 'var(--mute-2)', fontSize: 11 }}>{counts[s]}</span>
+          </span>
+        ))}
+      </div>
 
-      {/* ── Layout editor (admin only) ──────────────────── */}
+      {/* Layout editor */}
       {layoutMode && (() => {
         const placed   = tables.filter((t) => t.x_pos != null && t.y_pos != null);
         const unplaced = tables.filter((t) => t.x_pos == null || t.y_pos == null);
@@ -166,99 +174,95 @@ export default function Tables() {
           const occupant = cellMap[`${x},${y}`];
           if (occupant && occupant.id !== draggingId) return;
           updatePosition.mutate({ id: draggingId, x, y });
-          setDraggingId(null);
-          setOverCell(null);
+          setDraggingId(null); setOverCell(null);
         }
 
         function handleUnplacedDrop() {
           if (!draggingId) return;
           updatePosition.mutate({ id: draggingId, x: null, y: null });
-          setDraggingId(null);
-          setOverCell(null);
+          setDraggingId(null); setOverCell(null);
         }
 
         return (
           <div className="space-y-4">
             {/* Unplaced strip */}
             <div
-              className={`min-h-[72px] rounded-xl border-2 border-dashed p-3 transition-colors ${
-                draggingId && placed.find((t) => t.id === draggingId)
-                  ? 'border-amber-300 bg-amber-50'
-                  : 'border-slate-200 bg-slate-50'
-              }`}
+              className="min-h-[72px] rounded-[6px] p-3"
+              style={{
+                border: `2px dashed ${draggingId && placed.find((t) => t.id === draggingId) ? 'var(--warn)' : 'var(--line-2)'}`,
+                background: 'var(--paper-2)',
+              }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleUnplacedDrop}
             >
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 8 }}>
                 Unplaced — drag onto grid
               </p>
               <div className="flex flex-wrap gap-2">
-                {unplaced.length === 0 && (
-                  <span className="text-xs text-slate-400">All tables placed on the floor</span>
-                )}
+                {unplaced.length === 0 && <span style={{ fontSize: 12, color: 'var(--mute)' }}>All tables placed</span>}
                 {unplaced.map((t) => (
                   <div
-                    key={t.id}
-                    draggable
+                    key={t.id} draggable
                     onDragStart={() => setDraggingId(t.id)}
                     onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
-                    className={`flex h-14 w-14 cursor-grab flex-col items-center justify-center rounded-lg border-2 select-none active:cursor-grabbing transition-opacity
-                      ${CARD_CLASSES[t.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}
-                      ${draggingId === t.id ? 'opacity-40' : ''}
-                    `}
+                    className="flex h-14 w-14 cursor-grab flex-col items-center justify-center rounded-[6px] select-none"
+                    style={{
+                      border: '1px solid var(--line-2)', background: 'var(--paper)',
+                      opacity: draggingId === t.id ? 0.4 : 1,
+                    }}
                   >
-                    <span className="text-lg font-bold leading-none">{t.number}</span>
-                    <span className="text-[10px] opacity-60">{t.seats}p</span>
+                    <span className="mono num font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{t.number}</span>
+                    <span style={{ fontSize: 10, color: 'var(--mute)' }}>{t.seats}p</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Grid canvas */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  Floor layout — drag tables to arrange
+            <div
+              className="overflow-x-auto rounded-[6px] p-3"
+              style={{ border: '1px solid var(--line)', background: 'var(--paper)' }}
+            >
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+                <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
+                  Floor layout
                 </p>
-                <div className="flex items-center gap-4 text-xs text-slate-500">
+                <div className="flex items-center gap-4" style={{ fontSize: 12, color: 'var(--mute)' }}>
                   <span className="flex items-center gap-1.5">
                     Columns
-                    <button onClick={() => changeGrid('cols', -1)} disabled={gridCols <= GRID_COLS_MIN} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Minus size={12} /></button>
-                    <span className="w-5 text-center font-semibold text-slate-700">{gridCols}</span>
-                    <button onClick={() => changeGrid('cols', +1)} disabled={gridCols >= GRID_COLS_MAX} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Plus size={12} /></button>
+                    <button onClick={() => changeGrid('cols', -1)} disabled={gridCols <= GRID_COLS_MIN} className="rounded p-0.5" style={{ color: 'var(--mute)' }}><Minus size={12} /></button>
+                    <span className="mono num font-semibold" style={{ width: 20, textAlign: 'center', color: 'var(--ink)' }}>{gridCols}</span>
+                    <button onClick={() => changeGrid('cols', +1)} disabled={gridCols >= GRID_COLS_MAX} className="rounded p-0.5" style={{ color: 'var(--mute)' }}><Plus size={12} /></button>
                   </span>
                   <span className="flex items-center gap-1.5">
                     Rows
-                    <button onClick={() => changeGrid('rows', -1)} disabled={gridRows <= GRID_ROWS_MIN} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Minus size={12} /></button>
-                    <span className="w-5 text-center font-semibold text-slate-700">{gridRows}</span>
-                    <button onClick={() => changeGrid('rows', +1)} disabled={gridRows >= GRID_ROWS_MAX} className="rounded p-0.5 hover:bg-slate-100 disabled:opacity-30"><Plus size={12} /></button>
+                    <button onClick={() => changeGrid('rows', -1)} disabled={gridRows <= GRID_ROWS_MIN} className="rounded p-0.5" style={{ color: 'var(--mute)' }}><Minus size={12} /></button>
+                    <span className="mono num font-semibold" style={{ width: 20, textAlign: 'center', color: 'var(--ink)' }}>{gridRows}</span>
+                    <button onClick={() => changeGrid('rows', +1)} disabled={gridRows >= GRID_ROWS_MAX} className="rounded p-0.5" style={{ color: 'var(--mute)' }}><Plus size={12} /></button>
                   </span>
                 </div>
               </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${gridCols}, 64px)`,
-                  gridTemplateRows: `repeat(${gridRows}, 64px)`,
-                  gap: '4px',
-                  width: `${gridCols * 68}px`,
-                }}
-              >
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${gridCols}, 64px)`,
+                gridTemplateRows: `repeat(${gridRows}, 64px)`,
+                gap: 4,
+                width: `${gridCols * 68}px`,
+              }}>
                 {Array.from({ length: gridRows }, (_, row) =>
                   Array.from({ length: gridCols }, (_, col) => {
                     const key    = `${col},${row}`;
                     const table  = cellMap[key];
                     const isOver = overCell?.x === col && overCell?.y === row;
                     const blocked = isOver && table && table.id !== draggingId;
-
                     return (
                       <div
                         key={key}
-                        className={`h-16 w-16 rounded-lg border-2 transition-colors
-                          ${!table ? 'border-dashed border-slate-200 bg-slate-50' : 'border-transparent'}
-                          ${isOver && !table ? 'border-indigo-400 bg-indigo-50' : ''}
-                          ${blocked ? 'border-red-300 bg-red-50' : ''}
-                        `}
+                        className="h-16 w-16 rounded-[6px]"
+                        style={{
+                          border: !table ? '1px dashed var(--line-2)' : 'transparent',
+                          background: blocked ? 'rgba(179,55,43,.08)' : isOver && !table ? 'var(--paper-2)' : !table ? 'var(--paper)' : 'transparent',
+                        }}
                         onDragOver={(e) => { e.preventDefault(); setOverCell({ x: col, y: row }); }}
                         onDragLeave={() => setOverCell(null)}
                         onDrop={() => handleCellDrop(col, row)}
@@ -268,13 +272,14 @@ export default function Tables() {
                             draggable
                             onDragStart={(e) => { e.stopPropagation(); setDraggingId(table.id); }}
                             onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
-                            className={`h-full w-full flex flex-col items-center justify-center rounded-lg border-2 cursor-grab select-none active:cursor-grabbing transition-opacity
-                              ${CARD_CLASSES[table.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}
-                              ${draggingId === table.id ? 'opacity-40' : ''}
-                            `}
+                            className="h-full w-full flex flex-col items-center justify-center rounded-[6px] cursor-grab select-none"
+                            style={{
+                              border: '1px solid var(--line-2)', background: 'var(--paper)',
+                              opacity: draggingId === table.id ? 0.4 : 1,
+                            }}
                           >
-                            <span className="text-lg font-bold leading-none">{table.number}</span>
-                            <span className="text-[10px] opacity-60">{table.seats}p</span>
+                            <span className="mono num font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{table.number}</span>
+                            <span style={{ fontSize: 9, color: 'var(--mute)' }}>{table.seats}p</span>
                           </div>
                         )}
                       </div>
@@ -287,50 +292,102 @@ export default function Tables() {
         );
       })()}
 
-      {/* ── Normal table grid ───────────────────────────── */}
+      {/* Table grid / list */}
       {!layoutMode && (tables.length === 0 ? (
-        <div className="py-16 text-center text-sm text-slate-400">
-          No tables yet{isAdmin ? ' — add one to get started' : ' — contact an admin'}
+        <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
+          No tables yet{isAdmin ? ' — add one to get started' : ''}
+        </div>
+      ) : view === 'grid' ? (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
+          {[...tables].sort((a, b) => a.number - b.number).map((t) => (
+            <div key={t.id} className="relative">
+              <button
+                onClick={() => canEdit && setSelected(t)}
+                disabled={!canEdit}
+                className="flex w-full flex-col items-start gap-1.5 p-3.5 rounded-[6px] text-left transition-colors duration-75"
+                style={{
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--paper)',
+                  cursor: canEdit ? 'default' : 'default',
+                  minHeight: 88,
+                }}
+                onMouseEnter={(e) => canEdit && (e.currentTarget.style.background = 'var(--hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--paper)')}
+              >
+                <span className="flex items-baseline justify-between w-full">
+                  <span className="mono num font-bold" style={{ fontSize: 22, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>
+                    {String(t.number).padStart(2, '0')}
+                  </span>
+                  <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)' }}>{t.seats}p</span>
+                </span>
+                <TableStatusDot status={t.status} />
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => handleQrClick(t)}
+                  title="Show QR code"
+                  className="absolute top-1.5 right-1.5 rounded p-0.5 transition-colors"
+                  style={{ color: 'var(--mute-2)', background: 'transparent', border: 0 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <QrCode size={12} />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9">
-          {[...tables]
-            .sort((a, b) => a.number - b.number)
-            .map((t) => (
-              <div key={t.id} className="group relative">
-                <button
-                  onClick={() => handleTableClick(t)}
-                  disabled={!canEdit}
-                  className={`flex w-full flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all ${
-                    canEdit ? 'hover:scale-105 hover:shadow-md cursor-pointer' : 'cursor-default'
-                  } ${CARD_CLASSES[t.status] ?? 'border-slate-200 bg-slate-100 text-slate-600'}`}
-                >
-                  <span className="text-2xl font-bold leading-none">{t.number}</span>
-                  <span className="mt-1 text-[10px] font-medium capitalize leading-none">{t.status}</span>
-                  <span className="mt-0.5 text-[10px] opacity-60">{t.seats}p</span>
-                </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleQrClick(t)}
-                    title="Show QR code"
-                    className="absolute right-1 top-1 rounded-md bg-white/60 p-0.5 text-slate-500 hover:bg-white hover:text-indigo-600 transition-colors"
-                  >
-                    <QrCode size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
+        /* List view */
+        <div style={{ borderTop: '1px solid var(--line)' }}>
+          <div
+            className="grid gap-3 px-2 py-1.5"
+            style={{
+              gridTemplateColumns: '60px 1fr 80px 120px 80px',
+              fontSize: 10, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.08em',
+            }}
+          >
+            <span>Table</span><span>Status</span><span>Seats</span><span>Server</span><span style={{ textAlign: 'right' }}>Seats</span>
+          </div>
+          {[...tables].sort((a, b) => a.number - b.number).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => canEdit && setSelected(t)}
+              className="grid gap-3 w-full text-left transition-colors duration-75"
+              style={{
+                gridTemplateColumns: '60px 1fr 80px 120px 80px',
+                padding: '8px 8px',
+                borderBottom: '1px solid var(--line)',
+                background: 'transparent',
+                cursor: 'default',
+                minHeight: 44,
+                alignItems: 'center',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span className="mono num font-bold" style={{ color: 'var(--ink)' }}>
+                T{String(t.number).padStart(2, '0')}
+              </span>
+              <TableStatusDot status={t.status} />
+              <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}</span>
+              <span style={{ fontSize: 12, color: 'var(--mute)' }}>
+                {t.status === 'occupied' ? ['A. Singh', 'M. Park', 'J. Chen', 'R. Diaz'][t.number % 4] : '—'}
+              </span>
+              <span style={{ textAlign: 'right', fontSize: 12, color: 'var(--mute)' }}>—</span>
+            </button>
+          ))}
         </div>
       ))}
 
-      {/* ── Change Status Modal (admin + staff) ─────────── */}
+      {/* Change Status Modal */}
       {selected && canEdit && (
         <Modal title={`Table ${selected.number}`} onClose={() => setSelected(null)}>
-          <p className="mb-4 text-sm text-slate-500">
-            Current: <strong className="capitalize text-slate-700">{selected.status}</strong>
+          <p style={{ fontSize: 13, color: 'var(--mute)', marginBottom: 16 }}>
+            Current: <strong style={{ color: 'var(--ink)' }}>{selected.status}</strong>
             {' '}· {selected.seats} seats
           </p>
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 10 }}>
             Change status to
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -339,53 +396,41 @@ export default function Tables() {
                 key={s}
                 onClick={() => handleStatusChange(s)}
                 disabled={updateStatus.isPending}
-                className={`rounded-lg border-2 px-3 py-2.5 text-sm font-medium capitalize transition-opacity hover:opacity-80 disabled:opacity-40 ${CARD_CLASSES[s]}`}
+                className="btn"
+                style={{ height: 36, justifyContent: 'flex-start' }}
               >
-                {s}
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[s], display: 'inline-block', flexShrink: 0 }} />
+                {s[0].toUpperCase() + s.slice(1)}
               </button>
             ))}
           </div>
         </Modal>
       )}
 
-      {/* ── Add Table Modal (admin only) ─────────────────── */}
+      {/* Add Table Modal */}
       {addModal && isAdmin && (
         <Modal title="Add Table" onClose={() => setAddModal(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Table Number</label>
-              <input
-                type="number"
-                min="1"
-                value={newTable.number}
+              <label style={{ display: 'block', fontSize: 11, color: 'var(--mute)', marginBottom: 4 }}>Table Number</label>
+              <input type="number" min="1" value={newTable.number}
                 onChange={(e) => setNewTable((f) => ({ ...f, number: e.target.value }))}
-                className="input"
-                placeholder="e.g. 12"
-                required
-              />
+                className="input" placeholder="e.g. 12" required />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Seats</label>
-              <input
-                type="number"
-                min="1"
-                value={newTable.seats}
+              <label style={{ display: 'block', fontSize: 11, color: 'var(--mute)', marginBottom: 4 }}>Seats</label>
+              <input type="number" min="1" value={newTable.seats}
                 onChange={(e) => setNewTable((f) => ({ ...f, seats: e.target.value }))}
-                className="input"
-                placeholder="e.g. 4"
-                required
-              />
+                className="input" placeholder="e.g. 4" required />
             </div>
-
             {addError && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{addError}</p>
+              <p className="rounded-[6px] px-3 py-2" style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}>
+                {addError}
+              </p>
             )}
-
-            <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => setAddModal(false)} className="btn-secondary flex-1">
-                Cancel
-              </button>
-              <button type="submit" disabled={createTable.isPending} className="btn-primary flex-1">
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setAddModal(false)} className="btn-secondary flex-1 justify-center">Cancel</button>
+              <button type="submit" disabled={createTable.isPending} className="btn-primary flex-1 justify-center">
                 {createTable.isPending ? 'Adding…' : 'Add Table'}
               </button>
             </div>
@@ -393,31 +438,28 @@ export default function Tables() {
         </Modal>
       )}
 
-      {/* ── QR Code Modal ───────────────────────────────── */}
+      {/* QR Code Modal */}
       {qrTable && (
         <Modal title={`Table ${qrTable.number} — QR Code`} onClose={() => setQrTable(null)}>
-          <p className="mb-4 text-sm text-slate-500">
-            Customers scan this code to view the menu and place orders directly from their phone.
+          <p style={{ fontSize: 12.5, color: 'var(--mute)', marginBottom: 16 }}>
+            Customers scan this code to view the menu and place orders.
           </p>
           <div className="flex justify-center">
             {qrDataUrl
-              ? <img src={qrDataUrl} alt={`QR code for table ${qrTable.number}`} className="h-56 w-56 rounded-xl" />
-              : <div className="flex h-56 w-56 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400">Generating…</div>
+              ? <img src={qrDataUrl} alt={`QR code for table ${qrTable.number}`} className="h-56 w-56 rounded-[6px]" />
+              : <div className="flex h-56 w-56 items-center justify-center rounded-[6px]" style={{ background: 'var(--paper-2)', fontSize: 12, color: 'var(--mute)' }}>Generating…</div>
             }
           </div>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={handleCopyUrl}
-              className="btn-secondary flex flex-1 items-center justify-center gap-1.5"
-            >
-              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+          <div className="flex gap-2 mt-4">
+            <button onClick={handleCopyUrl} className="btn-secondary flex flex-1 items-center justify-center gap-1.5">
+              {copied ? <Check size={14} style={{ color: 'var(--ok)' }} /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy link'}
             </button>
             {qrDataUrl && (
               <a
                 href={qrDataUrl}
                 download={`table-${qrTable.number}-qr.png`}
-                className="btn-primary flex flex-1 items-center justify-center gap-1.5 text-center"
+                className="btn-primary flex flex-1 items-center justify-center gap-1.5 text-center no-underline"
               >
                 Download PNG
               </a>

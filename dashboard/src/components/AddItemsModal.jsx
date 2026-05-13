@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, Plus, Minus, ShoppingBag, ChevronRight, ChevronDown, Star, CheckCircle, SlidersHorizontal } from 'lucide-react';
+import { X, Plus, Minus, ChevronRight, ChevronDown, Star, CheckCircle, SlidersHorizontal } from 'lucide-react';
 import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useAddItems } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
@@ -7,27 +7,36 @@ import CustomizationPicker from './CustomizationPicker';
 
 function MenuRow({ item, qty, hasGroups, onAdd, onRemove, format }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100">
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 transition-colors"
+      style={{ borderBottom: '1px solid var(--line)' }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-          {hasGroups && <SlidersHorizontal size={11} className="shrink-0 text-violet-400" />}
+          <p className="truncate font-medium" style={{ fontSize: 13, color: 'var(--ink)' }}>{item.name}</p>
+          {hasGroups && <SlidersHorizontal size={11} style={{ flexShrink: 0, color: 'var(--mute)' }} />}
         </div>
-        <p className="text-xs text-slate-400">{format(item.price)}</p>
+        <p className="mono num" style={{ fontSize: 11.5, color: 'var(--mute)' }}>{format(item.price)}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {qty > 0 && (
           <button onClick={onRemove}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors">
-            <Minus size={14} />
+            className="flex h-7 w-7 items-center justify-center rounded-[6px]"
+            style={{ border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            <Minus size={13} />
           </button>
         )}
         {qty > 0 && (
-          <span className="w-5 text-center text-sm font-semibold text-slate-800">{qty}</span>
+          <span className="mono num font-semibold" style={{ width: 20, textAlign: 'center', fontSize: 13, color: 'var(--ink)' }}>
+            {qty}
+          </span>
         )}
         <button onClick={onAdd}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-          <Plus size={14} />
+          className="flex h-7 w-7 items-center justify-center rounded-[6px]"
+          style={{ background: qty > 0 ? 'var(--ink)' : 'transparent', border: '1px solid var(--line-2)', color: qty > 0 ? 'var(--accent-on)' : 'var(--mute)' }}>
+          <Plus size={13} />
         </button>
       </div>
     </div>
@@ -48,14 +57,12 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
   const [mobileTab,      setMobileTab]  = useState('menu');
 
   const grouped = useMemo(() =>
-    menuItems
-      .filter((m) => m.available)
-      .reduce((acc, item) => {
-        const cat = item.category || 'Other';
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(item);
-        return acc;
-      }, {}),
+    menuItems.filter((m) => m.available).reduce((acc, item) => {
+      const cat = item.category || 'Other';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(item);
+      return acc;
+    }, {}),
     [menuItems],
   );
 
@@ -74,14 +81,11 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
 
   function handleAdd(item) {
     const groups = item.customization_groups || [];
-    if (groups.length > 0 && !cart[item.id]) {
-      setPickerItem(item);
-    } else {
-      setCart((prev) => {
-        const cur = prev[item.id] || { quantity: 0, customizations: {}, notes: '', priceAdd: 0 };
-        return { ...prev, [item.id]: { ...cur, quantity: cur.quantity + 1 } };
-      });
-    }
+    if (groups.length > 0 && !cart[item.id]) { setPickerItem(item); return; }
+    setCart((prev) => {
+      const cur = prev[item.id] || { quantity: 0, customizations: {}, notes: '', priceAdd: 0 };
+      return { ...prev, [item.id]: { ...cur, quantity: cur.quantity + 1 } };
+    });
   }
 
   function handleRemove(id) {
@@ -105,12 +109,7 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
     if (cartItems.length === 0) { setError('Add at least one item.'); return; }
     const items = cartItems.map((m) => {
       const entry = cart[m.id];
-      return {
-        menuItemId:     m.id,
-        quantity:       entry.quantity,
-        notes:          entry.notes || undefined,
-        customizations: entry.customizations || undefined,
-      };
+      return { menuItemId: m.id, quantity: entry.quantity, notes: entry.notes || undefined, customizations: entry.customizations || undefined };
     });
     try {
       await addItems.mutateAsync({ orderId: order.id, items });
@@ -125,70 +124,65 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
   return (
     <>
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      className="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4"
+      style={{ background: 'rgba(10,10,10,.32)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex w-full flex-col bg-white shadow-xl
-        h-[100dvh] rounded-none
-        sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-xl">
-
+      <div
+        className="flex w-full flex-col h-[100dvh] rounded-none sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-[8px]"
+        style={{ background: 'var(--paper)' }}
+      >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between px-5 h-12"
+          style={{ borderBottom: '1px solid var(--line)' }}>
           <div>
-            <h2 className="text-base font-semibold text-slate-800">Add Items</h2>
-            <p className="text-xs text-slate-400">{orderTitle}</p>
+            <span className="font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>Add Items</span>
+            <span className="ml-2" style={{ fontSize: 12, color: 'var(--mute)' }}>{orderTitle}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-200 text-xs font-medium overflow-hidden sm:hidden">
+            <div className="flex rounded-[6px] overflow-hidden sm:hidden" style={{ border: '1px solid var(--line-2)' }}>
               <button onClick={() => setMobileTab('menu')}
-                className={`px-3 py-1.5 transition-colors ${mobileTab === 'menu' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}>
+                style={{ fontSize: 11.5, padding: '4px 10px', background: mobileTab === 'menu' ? 'var(--ink)' : 'transparent', color: mobileTab === 'menu' ? 'var(--accent-on)' : 'var(--mute)', border: 0 }}>
                 Menu
               </button>
               <button onClick={() => setMobileTab('cart')}
-                className={`relative px-3 py-1.5 transition-colors ${mobileTab === 'cart' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}>
-                Cart
-                {cartCount > 0 && (
-                  <span className="ml-1 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{cartCount}</span>
-                )}
+                style={{ fontSize: 11.5, padding: '4px 10px', background: mobileTab === 'cart' ? 'var(--ink)' : 'transparent', color: mobileTab === 'cart' ? 'var(--accent-on)' : 'var(--mute)', border: 0 }}>
+                Cart {cartCount > 0 && `(${cartCount})`}
               </button>
             </div>
-            <button onClick={onClose}
-              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-              <X size={18} />
-            </button>
+            <button onClick={onClose} className="btn btn-sm btn-ghost"><X size={14} /></button>
           </div>
         </div>
 
         {done ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-            <CheckCircle size={40} className="text-emerald-500" />
-            <p className="text-base font-semibold text-slate-800">Items sent to kitchen</p>
-            <p className="text-sm text-slate-400">Order status reset to Received</p>
-            <button onClick={onClose} className="btn-primary mt-2 px-8">Done</button>
+            <CheckCircle size={36} style={{ color: 'var(--ok)' }} />
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Items sent to kitchen</p>
+            <p style={{ fontSize: 13, color: 'var(--mute)' }}>Order status reset to Received</p>
+            <button onClick={onClose} className="btn-primary mt-2" style={{ padding: '0 32px' }}>Done</button>
           </div>
         ) : (
           <>
-            {/* Body */}
             <div className="flex min-h-0 flex-1 overflow-hidden">
               {/* Menu */}
-              <div className={`flex-1 overflow-y-auto px-4 py-4 sm:px-6 ${mobileTab === 'cart' ? 'hidden sm:block' : ''}`}>
+              <div className={`flex-1 overflow-y-auto px-5 py-4 ${mobileTab === 'cart' ? 'hidden sm:block' : ''}`}>
                 {Object.keys(grouped).length === 0 ? (
-                  <p className="text-sm text-slate-400">No menu items available</p>
+                  <p style={{ fontSize: 13, color: 'var(--mute)' }}>No menu items available</p>
                 ) : (
                   <>
                     {popular.length > 0 && (
                       <div className="mb-5">
-                        <div className="mb-2 flex items-center gap-1.5">
-                          <Star size={12} className="fill-amber-400 text-amber-400" />
-                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Best Sellers</p>
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <Star size={12} style={{ color: 'var(--warn)', fill: 'var(--warn)' }} />
+                          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
+                            Best Sellers
+                          </p>
                         </div>
-                        <div className="space-y-1">
-                          {popular.map((item) => (
-                            <MenuRow key={item.id} item={item} qty={cart[item.id]?.quantity ?? 0}
-                              hasGroups={(item.customization_groups?.length ?? 0) > 0}
-                              onAdd={() => handleAdd(item)} onRemove={() => handleRemove(item.id)} format={format} />
-                          ))}
-                        </div>
+                        {popular.map((item) => (
+                          <MenuRow key={item.id} item={item} qty={cart[item.id]?.quantity ?? 0}
+                            hasGroups={(item.customization_groups?.length ?? 0) > 0}
+                            onAdd={() => handleAdd(item)} onRemove={() => handleRemove(item.id)} format={format} />
+                        ))}
                       </div>
                     )}
                     {Object.entries(grouped).map(([category, items]) => {
@@ -196,27 +190,22 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
                       return (
                         <div key={category} className="mb-2">
                           <button
-                            onClick={() => setOpenCats((prev) => {
-                              const next = new Set(prev);
-                              isOpen ? next.delete(category) : next.add(category);
-                              return next;
-                            })}
-                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors"
+                            onClick={() => setOpenCats((prev) => { const next = new Set(prev); isOpen ? next.delete(category) : next.add(category); return next; })}
+                            className="flex w-full items-center justify-between py-2"
+                            style={{ background: 'transparent', border: 0 }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                              {category} <span className="font-normal normal-case text-slate-400">({items.length})</span>
+                            <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
+                              {category} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>({items.length})</span>
                             </p>
-                            <ChevronDown size={14} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={14} style={{ color: 'var(--mute)', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
                           </button>
-                          {isOpen && (
-                            <div className="mt-0.5 space-y-1">
-                              {items.map((item) => (
-                                <MenuRow key={item.id} item={item} qty={cart[item.id]?.quantity ?? 0}
-                                  hasGroups={(item.customization_groups?.length ?? 0) > 0}
-                                  onAdd={() => handleAdd(item)} onRemove={() => handleRemove(item.id)} format={format} />
-                              ))}
-                            </div>
-                          )}
+                          {isOpen && items.map((item) => (
+                            <MenuRow key={item.id} item={item} qty={cart[item.id]?.quantity ?? 0}
+                              hasGroups={(item.customization_groups?.length ?? 0) > 0}
+                              onAdd={() => handleAdd(item)} onRemove={() => handleRemove(item.id)} format={format} />
+                          ))}
                         </div>
                       );
                     })}
@@ -225,38 +214,37 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
               </div>
 
               {/* Cart */}
-              <div className={`overflow-y-auto border-slate-100 bg-slate-50 px-4 py-4
-                w-full border-t sm:w-64 sm:shrink-0 sm:border-l sm:border-t-0
-                ${mobileTab === 'menu' ? 'hidden sm:block' : ''}`}>
-                <div className="mb-3 flex items-center gap-2">
-                  <ShoppingBag size={14} className="text-slate-400" />
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div
+                className={`overflow-y-auto px-4 py-4 w-full sm:w-64 sm:shrink-0 ${mobileTab === 'menu' ? 'hidden sm:block' : ''}`}
+                style={{ borderLeft: '1px solid var(--line)', background: 'var(--paper)' }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
                     New items ({cartItems.length})
                   </p>
                 </div>
                 {cartItems.length === 0 ? (
-                  <p className="text-xs text-slate-400">No items yet — add from the menu</p>
+                  <p style={{ fontSize: 12, color: 'var(--mute)' }}>No items yet</p>
                 ) : (
                   <ul className="space-y-3">
                     {cartItems.map((item) => {
                       const entry = cart[item.id];
-                      const custLabels = Object.entries(entry.customizations || {})
-                        .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
+                      const custLabels = Object.entries(entry.customizations || {}).flatMap(([, v]) => Array.isArray(v) ? v : [v]);
                       return (
-                        <li key={item.id} className="text-sm">
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-slate-700">
+                        <li key={item.id}>
+                          <div className="flex items-start justify-between gap-2" style={{ fontSize: 13 }}>
+                            <span style={{ color: 'var(--ink)' }}>
                               <span className="font-medium">{entry.quantity}×</span> {item.name}
                             </span>
-                            <span className="shrink-0 text-slate-500">
+                            <span className="mono num shrink-0" style={{ color: 'var(--mute)', fontSize: 12 }}>
                               {format((item.price + (entry.priceAdd || 0)) * entry.quantity)}
                             </span>
                           </div>
                           {custLabels.length > 0 && (
-                            <p className="mt-0.5 text-xs text-violet-600">{custLabels.join(', ')}</p>
+                            <p className="mt-0.5 mono" style={{ fontSize: 11, color: 'var(--mute)' }}>{custLabels.join(', ')}</p>
                           )}
                           {entry.notes && (
-                            <p className="mt-0.5 text-xs italic text-slate-400">{entry.notes}</p>
+                            <p className="mt-0.5 italic" style={{ fontSize: 11, color: 'var(--mute)' }}>{entry.notes}</p>
                           )}
                         </li>
                       );
@@ -264,10 +252,10 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
                   </ul>
                 )}
                 {cartItems.length > 0 && (
-                  <div className="mt-4 border-t border-slate-200 pt-3">
-                    <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
+                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+                    <div className="flex items-center justify-between font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>
                       <span>New items total</span>
-                      <span>{format(total)}</span>
+                      <span className="mono num">{format(total)}</span>
                     </div>
                   </div>
                 )}
@@ -275,13 +263,16 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 border-t border-slate-100 px-4 py-4 sm:px-6">
-              {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+            <div className="shrink-0 px-5 py-4" style={{ borderTop: '1px solid var(--line)' }}>
+              {error && (
+                <p className="rounded-[6px] px-3 py-2 mb-3" style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}>
+                  {error}
+                </p>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <button onClick={onClose} className="btn-secondary">Cancel</button>
-                <button onClick={handleSubmit} disabled={addItems.isPending || cartItems.length === 0}
-                  className="btn-primary flex items-center gap-1.5 disabled:opacity-50">
-                  <ChevronRight size={15} />
+                <button onClick={handleSubmit} disabled={addItems.isPending || cartItems.length === 0} className="btn-primary">
+                  <ChevronRight size={14} />
                   {addItems.isPending ? 'Sending…' : `Send to Kitchen${cartCount > 0 ? ` (${cartCount})` : ''}`}
                 </button>
               </div>

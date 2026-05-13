@@ -28,14 +28,14 @@ function exportCsv(logs) {
   URL.revokeObjectURL(url);
 }
 
-const ACTION_COLORS = {
-  create:      'text-emerald-600',
-  update:      'text-blue-600',
-  delete:      'text-red-500',
-  payment:     'text-violet-600',
-  login:       'text-slate-500',
-  export:      'text-amber-600',
-  login_failed:'text-red-400',
+const ACTION_COLOR = {
+  create:       'var(--ok)',
+  update:       'var(--info)',
+  delete:       'var(--bad)',
+  payment:      'var(--mute)',
+  login:        'var(--mute)',
+  export:       'var(--warn)',
+  login_failed: 'var(--bad)',
 };
 
 const RESOURCE_LABELS = {
@@ -51,17 +51,13 @@ const RESOURCE_LABELS = {
 
 const RESOURCE_TYPES = Object.keys(RESOURCE_LABELS);
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
+function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 function shiftDate(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-
-// ── Password confirmation modal ───────────────────────────────────────────────
 
 function PasswordModal({ context, onConfirm, onCancel }) {
   const [password, setPassword] = useState('');
@@ -86,19 +82,24 @@ function PasswordModal({ context, onConfirm, onCancel }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50">
-            <Lock size={16} className="text-amber-500" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-800">Confirm your identity</p>
-            <p className="text-xs text-slate-400">Enter your password to export audit logs</p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(10,10,10,.4)' }}
+    >
+      <div style={{ width: '100%', maxWidth: 360, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8 }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <div className="flex items-center gap-3">
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(179,120,31,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Lock size={14} style={{ color: 'var(--warn)' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Confirm your identity</p>
+              <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>Enter your password to export audit logs</p>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
           <input
             ref={inputRef}
             type="password"
@@ -106,27 +107,13 @@ function PasswordModal({ context, onConfirm, onCancel }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Your password"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
+            className="input w-full"
             required
           />
-
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !password}
-              className="flex-1 rounded-lg bg-violet-600 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
-            >
+          {error && <p style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={onCancel} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={loading || !password} className="btn-primary flex-1 disabled:opacity-50">
               {loading ? 'Verifying…' : 'Export'}
             </button>
           </div>
@@ -136,29 +123,25 @@ function PasswordModal({ context, onConfirm, onCancel }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function AuditLogs() {
   const t = todayStr();
-  const [restaurantId,  setRestaurantId]  = useState('');
-  const [from,          setFrom]          = useState(shiftDate(t, -6));
-  const [to,            setTo]            = useState(t);
-  const [resourceType,  setResourceType]  = useState('');
-  const [limit,         setLimit]         = useState(500);
-  const [showPwModal,   setShowPwModal]   = useState(false);
+  const [restaurantId, setRestaurantId] = useState('');
+  const [from,         setFrom]         = useState(shiftDate(t, -6));
+  const [to,           setTo]           = useState(t);
+  const [resourceType, setResourceType] = useState('');
+  const [limit,        setLimit]        = useState(500);
+  const [showPwModal,  setShowPwModal]  = useState(false);
 
   const { data: restaurants = [] } = useRestaurants();
   const { data: logs = [], isLoading, isError, refetch } = useAuditLogs({
     restaurantId: restaurantId || undefined,
-    from,
-    to,
+    from, to,
     resourceType: resourceType || undefined,
     limit,
   });
 
   const atCap = logs.length >= limit;
 
-  // Human-readable context string sent to backend so it gets logged
   const exportContext = useMemo(() => {
     const parts = [];
     if (from || to) parts.push(`${from} → ${to}`);
@@ -175,8 +158,30 @@ export default function AuditLogs() {
     exportCsv(logs);
   }
 
+  const selectStyle = {
+    border: '1px solid var(--line-2)',
+    borderRadius: 6,
+    padding: '6px 11px',
+    fontSize: 13,
+    background: 'var(--paper)',
+    color: 'var(--ink)',
+    outline: 'none',
+    fontFamily: 'inherit',
+  };
+
+  const inputStyle = {
+    border: '1px solid var(--line-2)',
+    borderRadius: 6,
+    padding: '6px 11px',
+    fontSize: 13,
+    background: 'var(--paper)',
+    color: 'var(--ink)',
+    outline: 'none',
+    fontFamily: 'inherit',
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {showPwModal && (
         <PasswordModal
           context={exportContext}
@@ -186,107 +191,96 @@ export default function AuditLogs() {
       )}
 
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Audit Logs</h1>
-        <p className="text-sm text-slate-400 mt-0.5">Every mutation across all restaurants</p>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>Audit Logs</h1>
+        <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>Every mutation across all restaurants</p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end rounded-xl border border-slate-200 bg-white p-4">
+      <div
+        className="flex flex-wrap gap-3 items-end p-4 rounded-[8px]"
+        style={{ border: '1px solid var(--line-2)', background: 'var(--paper)' }}
+      >
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Restaurant</label>
-          <select
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-violet-400 focus:outline-none bg-white"
-            value={restaurantId}
-            onChange={(e) => setRestaurantId(e.target.value)}
-          >
+          <label className="block mb-1" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Restaurant</label>
+          <select style={selectStyle} value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)}>
             <option value="">All restaurants</option>
-            {restaurants.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
+            {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
-          <input
-            type="date"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
-            value={from}
-            max={to}
-            onChange={(e) => setFrom(e.target.value)}
-          />
+          <label className="block mb-1" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>From</label>
+          <input type="date" style={inputStyle} value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
-          <input
-            type="date"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-violet-400 focus:outline-none"
-            value={to}
-            min={from}
-            max={t}
-            onChange={(e) => setTo(e.target.value)}
-          />
+          <label className="block mb-1" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>To</label>
+          <input type="date" style={inputStyle} value={to} min={from} max={t} onChange={(e) => setTo(e.target.value)} />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Resource</label>
-          <select
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-violet-400 focus:outline-none bg-white"
-            value={resourceType}
-            onChange={(e) => setResourceType(e.target.value)}
-          >
+          <label className="block mb-1" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Resource</label>
+          <select style={selectStyle} value={resourceType} onChange={(e) => setResourceType(e.target.value)}>
             <option value="">All types</option>
-            {RESOURCE_TYPES.map((rt) => (
-              <option key={rt} value={rt}>{RESOURCE_LABELS[rt]}</option>
-            ))}
+            {RESOURCE_TYPES.map((rt) => <option key={rt} value={rt}>{RESOURCE_LABELS[rt]}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Show</label>
-          <select
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-violet-400 focus:outline-none bg-white"
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-          >
-            {[100, 250, 500, 1000, 2000].map((n) => (
-              <option key={n} value={n}>{n} records</option>
-            ))}
+          <label className="block mb-1" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Show</label>
+          <select style={selectStyle} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
+            {[100, 250, 500, 1000, 2000].map((n) => <option key={n} value={n}>{n} records</option>)}
           </select>
         </div>
 
         <button
           onClick={() => refetch()}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+          className="btn btn-sm"
+          style={{ padding: '7px 12px', fontSize: 13 }}
         >
           Refresh
         </button>
 
-        <span className="text-xs text-slate-400 self-end pb-2">
+        <span style={{ fontSize: 12, color: 'var(--mute)', alignSelf: 'flex-end', paddingBottom: 4 }}>
           {logs.length} event{logs.length !== 1 ? 's' : ''}
         </span>
 
         <button
           onClick={() => setShowPwModal(true)}
           disabled={logs.length === 0}
-          className="ml-auto flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="ml-auto flex items-center gap-1.5 btn btn-sm disabled:opacity-40"
+          style={{ padding: '7px 12px', fontSize: 13 }}
         >
-          <Download size={14} />
+          <Download size={13} />
           Export CSV
         </button>
       </div>
 
       {atCap && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
-          <TriangleAlert size={15} className="shrink-0" />
-          Showing the first {limit} records — results may be truncated. Increase the limit or narrow your filters to see all events.
+        <div
+          className="flex items-center gap-2.5 rounded-[6px] px-4 py-2.5"
+          style={{ fontSize: 13, color: 'var(--warn)', background: 'rgba(179,120,31,.06)', border: '1px solid rgba(179,120,31,.2)' }}
+        >
+          <TriangleAlert size={14} style={{ flexShrink: 0 }} />
+          Showing the first {limit} records — results may be truncated. Increase the limit or narrow your filters.
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-        <div className="grid grid-cols-[160px_180px_140px_100px_1fr] gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400 min-w-[700px]">
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', overflowX: 'auto' }}>
+        <div
+          className="grid gap-3 px-4 py-2.5 min-w-[700px]"
+          style={{
+            gridTemplateColumns: '160px 180px 140px 100px 1fr',
+            borderBottom: '1px solid var(--line)',
+            background: 'var(--paper-2)',
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '.07em',
+            color: 'var(--mute)',
+          }}
+        >
           <span>Time</span>
           <span>Actor</span>
           <span>Restaurant</span>
@@ -294,30 +288,33 @@ export default function AuditLogs() {
           <span>Event</span>
         </div>
 
-        {isLoading && (
-          <p className="p-8 text-center text-sm text-slate-400">Loading…</p>
-        )}
-        {isError && (
-          <p className="p-8 text-center text-sm text-red-500">Failed to load audit logs.</p>
-        )}
+        {isLoading && <p className="p-8 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</p>}
+        {isError   && <p className="p-8 text-center" style={{ fontSize: 13, color: 'var(--bad)' }}>Failed to load audit logs.</p>}
         {!isLoading && !isError && logs.length === 0 && (
-          <p className="p-8 text-center text-sm text-slate-400">No events in this period.</p>
+          <p className="p-8 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>No events in this period.</p>
         )}
 
         {!isLoading && logs.map((log) => (
           <div
             key={log.id}
-            className="grid grid-cols-[160px_180px_140px_100px_1fr] gap-3 px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors text-sm min-w-[700px]"
+            className="grid gap-3 px-4 py-2.5 min-w-[700px]"
+            style={{
+              gridTemplateColumns: '160px 180px 140px 100px 1fr',
+              borderBottom: '1px solid var(--line)',
+              fontSize: 12,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <span className="text-xs text-slate-400 font-mono tabular-nums">
+            <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)' }}>
               {new Date(log.created_at).toLocaleString('en-US', {
                 month: 'short', day: 'numeric',
                 hour: '2-digit', minute: '2-digit', second: '2-digit',
               })}
             </span>
 
-            <span className="text-slate-600 truncate" title={log.actor_email || log.actor_id}>
-              <span className="text-xs font-mono text-slate-400 mr-1">
+            <span className="truncate" style={{ color: 'var(--ink)' }} title={log.actor_email || log.actor_id}>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--mute)', marginRight: 4 }}>
                 {log.actor_type === 'super_admin' ? '★' : '·'}
               </span>
               {log.actor_email || log.actor_id?.slice(0, 8)}
@@ -325,27 +322,27 @@ export default function AuditLogs() {
 
             <span className="flex flex-col min-w-0" title={log.restaurant_id || ''}>
               {log.restaurant_name
-                ? <span className="text-slate-600 text-xs truncate">{log.restaurant_name}</span>
+                ? <span style={{ fontSize: 11.5, color: 'var(--ink)' }} className="truncate">{log.restaurant_name}</span>
                 : log.restaurant_id
-                  ? <span className="italic text-slate-300 text-xs">deleted</span>
+                  ? <span style={{ fontSize: 11, color: 'var(--mute)', fontStyle: 'italic' }}>deleted</span>
                   : null
               }
               {log.restaurant_id && (
-                <span className="font-mono text-[10px] text-slate-300 truncate">
+                <span className="mono truncate" style={{ fontSize: 10, color: 'var(--mute-2)' }}>
                   {log.restaurant_id}
                 </span>
               )}
             </span>
 
-            <span className="text-xs">
-              <span className={`font-semibold ${ACTION_COLORS[log.action] ?? 'text-slate-500'}`}>
+            <span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: ACTION_COLOR[log.action] ?? 'var(--mute)' }}>
                 {log.action}
               </span>
               {' '}
-              <span className="text-slate-400">{RESOURCE_LABELS[log.resource_type] ?? log.resource_type}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>{RESOURCE_LABELS[log.resource_type] ?? log.resource_type}</span>
             </span>
 
-            <span className="text-slate-700 text-xs">{log.description}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--ink)' }}>{log.description}</span>
           </div>
         ))}
       </div>

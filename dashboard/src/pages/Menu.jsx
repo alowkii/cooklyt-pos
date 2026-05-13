@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal } from 'lucide-react';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -10,8 +10,8 @@ import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import { useCurrency } from '../context/CurrencyContext';
 
-const CATEGORIES = ['all', 'starters', 'mains', 'desserts', 'drinks', 'sides'];
-const EMPTY_FORM  = { name: '', price: '', category: 'mains', available: true, sku: '', customizationGroups: [] };
+const FORM_CATEGORIES = ['starters', 'mains', 'desserts', 'drinks', 'sides', 'other'];
+const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', customizationGroups: [] };
 
 function newGroup() {
   return { name: '', type: 'single', required: false, options: [{ label: '', priceAdd: 0 }] };
@@ -29,89 +29,118 @@ function CustomizationGroupsEditor({ groups, onChange }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Customization Options</p>
-        <button type="button"
+        <div className="flex items-center gap-1.5">
+          <SlidersHorizontal size={11} style={{ color: 'var(--mute)' }} />
+          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
+            Customizations
+          </p>
+        </div>
+        <button
+          type="button"
           onClick={() => onChange([...groups, newGroup()])}
-          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
-          <Plus size={12} /> Add group
+          style={{ fontSize: 12, color: 'var(--ink)', border: 0, background: 'transparent', cursor: 'pointer' }}
+        >
+          + Add group
         </button>
       </div>
 
       {groups.length === 0 && (
-        <p className="text-xs text-slate-400 italic">No customizations — customers will only see a notes field.</p>
+        <p style={{ fontSize: 12, color: 'var(--mute)', fontStyle: 'italic' }}>
+          No customizations — customers will only see a notes field.
+        </p>
       )}
 
       {groups.map((group, gi) => (
-        <div key={gi} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-          {/* Group header */}
+        <div key={gi} className="space-y-2 rounded-[6px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
           <div className="flex items-center gap-2">
             <input
               value={group.name}
               onChange={(e) => setGroup(gi, { name: e.target.value })}
               placeholder="Group name (e.g. Spice Level)"
-              className="input flex-1 text-sm"
+              className="input flex-1"
             />
-            <button type="button"
+            <button
+              type="button"
               onClick={() => onChange(groups.filter((_, idx) => idx !== gi))}
-              className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500 transition-colors">
+              className="shrink-0 rounded p-1 transition-colors"
+              style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+            >
               <X size={14} />
             </button>
           </div>
 
-          {/* Type + required toggles */}
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex rounded border border-slate-200 overflow-hidden">
+          <div className="flex items-center gap-3">
+            <div className="flex rounded-[6px] overflow-hidden" style={{ border: '1px solid var(--line-2)' }}>
               {['single', 'multi'].map((t) => (
-                <button key={t} type="button"
+                <button
+                  key={t}
+                  type="button"
                   onClick={() => setGroup(gi, { type: t })}
-                  className={`px-2.5 py-1 capitalize transition-colors ${
-                    group.type === t
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  }`}>
+                  style={{
+                    fontSize: 11.5,
+                    padding: '3px 10px',
+                    background: group.type === t ? 'var(--ink)' : 'transparent',
+                    color: group.type === t ? 'var(--accent-on)' : 'var(--mute)',
+                    border: 0,
+                    cursor: 'pointer',
+                  }}
+                >
                   {t === 'single' ? 'Pick one' : 'Pick many'}
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer text-slate-500">
-              <input type="checkbox" checked={group.required}
+            <label className="flex items-center gap-1.5 cursor-pointer" style={{ fontSize: 12, color: 'var(--mute)' }}>
+              <input
+                type="checkbox"
+                checked={group.required}
                 onChange={(e) => setGroup(gi, { required: e.target.checked })}
-                className="rounded" />
+                className="rounded"
+              />
               Required
             </label>
           </div>
 
-          {/* Options */}
           <div className="space-y-1.5">
             {group.options.map((opt, oi) => (
               <div key={oi} className="flex items-center gap-2">
                 <input
                   value={opt.label}
                   onChange={(e) => setOption(gi, oi, { label: e.target.value })}
-                  placeholder="Option label (e.g. Spicy)"
-                  className="input flex-1 text-sm"
+                  placeholder="Option label"
+                  className="input flex-1"
                 />
                 <div className="relative shrink-0 w-24">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">+</span>
-                  <input type="number" min="0" step="0.01"
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2" style={{ fontSize: 11, color: 'var(--mute)' }}>+</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={opt.priceAdd || ''}
                     onChange={(e) => setOption(gi, oi, { priceAdd: parseFloat(e.target.value) || 0 })}
                     placeholder="0.00"
-                    className="input pl-5 text-sm w-full"
-                    title="Extra charge for this option"
+                    className="input pl-5 w-full"
                   />
                 </div>
-                <button type="button"
+                <button
+                  type="button"
                   onClick={() => setGroup(gi, { options: group.options.filter((_, idx) => idx !== oi) })}
                   disabled={group.options.length <= 1}
-                  className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30">
+                  className="shrink-0 rounded p-1 transition-colors disabled:opacity-30"
+                  style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                >
                   <X size={13} />
                 </button>
               </div>
             ))}
-            <button type="button"
+            <button
+              type="button"
               onClick={() => setGroup(gi, { options: [...group.options, { label: '', priceAdd: 0 }] })}
-              className="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+              style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+            >
               + Add option
             </button>
           </div>
@@ -123,32 +152,47 @@ function CustomizationGroupsEditor({ groups, onChange }) {
 
 export default function Menu() {
   const { data: items = [], isLoading } = useMenuItems();
-  const { isAdmin } = useAuth();
+  const { isAdmin }  = useAuth();
   const { format, currency } = useCurrency();
   const createItem = useCreateMenuItem();
   const updateItem = useUpdateMenuItem();
   const deleteItem = useDeleteMenuItem();
 
-  const [search, setSearch]           = useState('');
-  const [category, setCategory]       = useState('all');
-  const [modal, setModal]             = useState(null);   // null | 'add' | <item>
-  const [form, setForm]               = useState(EMPTY_FORM);
+  const [search,        setSearch]        = useState('');
+  const [category,      setCategory]      = useState('all');
+  const [modal,         setModal]         = useState(null);
+  const [form,          setForm]          = useState(EMPTY_FORM);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // ── Filtering ────────────────────────────────────────
+  // Derive categories dynamically from items, preserving natural order
+  const categories = useMemo(() => {
+    const seen = new Set();
+    const ordered = [];
+    for (const item of items) {
+      const cat = item.category?.toLowerCase() || 'other';
+      if (!seen.has(cat)) { seen.add(cat); ordered.push(cat); }
+    }
+    return ordered;
+  }, [items]);
+
+  // Count per category (for tab badges)
+  const countByCategory = useMemo(() => {
+    const map = { all: items.length };
+    for (const item of items) {
+      const cat = item.category?.toLowerCase() || 'other';
+      map[cat] = (map[cat] || 0) + 1;
+    }
+    return map;
+  }, [items]);
+
   const filtered = items.filter((item) => {
-    const matchCat    = category === 'all' || item.category?.toLowerCase() === category;
+    const matchCat    = category === 'all' || (item.category?.toLowerCase() || 'other') === category;
     const q           = search.toLowerCase();
-    const matchSearch = item.name.toLowerCase().includes(q) || item.sku?.toLowerCase().includes(q);
+    const matchSearch = !q || item.name.toLowerCase().includes(q) || item.sku?.toLowerCase().includes(q);
     return matchCat && matchSearch;
   });
 
-  // ── Modal helpers ─────────────────────────────────────
-  function openAdd() {
-    setForm(EMPTY_FORM);
-    setModal('add');
-  }
-
+  function openAdd()   { setForm(EMPTY_FORM); setModal('add'); }
   function openEdit(item) {
     setForm({
       name:                item.name,
@@ -163,16 +207,9 @@ export default function Menu() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = {
-      ...form,
-      price: parseFloat(form.price) / currency.rate,
-      sku: form.sku.trim() || undefined,
-    };
-    if (modal === 'add') {
-      await createItem.mutateAsync(payload);
-    } else {
-      await updateItem.mutateAsync({ id: modal.id, ...payload });
-    }
+    const payload = { ...form, price: parseFloat(form.price) / currency.rate, sku: form.sku.trim() || undefined };
+    if (modal === 'add') { await createItem.mutateAsync(payload); }
+    else                 { await updateItem.mutateAsync({ id: modal.id, ...payload }); }
     setModal(null);
   }
 
@@ -185,139 +222,219 @@ export default function Menu() {
 
   return (
     <div className="space-y-5">
-      {/* ── Toolbar ─────────────────────────────────── */}
-      <div className="space-y-3">
-        {/* Row 1: search + add button */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Menu</h1>
+          <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>{items.length} items</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {/* Search */}
+          <div
+            className="flex items-center gap-1.5 rounded-[6px] px-2.5"
+            style={{ border: '1px solid var(--line-2)', height: 32, width: 210, background: 'var(--paper)' }}
+          >
+            <Search size={12} style={{ color: 'var(--mute)', flexShrink: 0 }} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search items…"
-              className="input pl-9"
+              style={{ flex: 1, border: 0, background: 'transparent', outline: 0, fontSize: 12.5, color: 'var(--ink)', fontFamily: 'inherit' }}
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', padding: 0 }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+              >
+                <X size={11} />
+              </button>
+            )}
           </div>
           {isAdmin && (
-            <button
-              onClick={openAdd}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
-            >
-              <Plus size={15} />
-              <span>Add Item</span>
+            <button onClick={openAdd} className="btn-primary">
+              <Plus size={13} /> Add item
             </button>
           )}
         </div>
+      </div>
 
-        {/* Row 2: category pills — full width, scrollable */}
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {CATEGORIES.map((c) => (
+      {/* Category tabs */}
+      {!isLoading && items.length > 0 && (
+        <div className="flex gap-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
+          {['all', ...categories].map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                category === c
-                  ? 'bg-indigo-600 text-white'
-                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
+              className="flex items-center gap-1.5 shrink-0 capitalize transition-colors"
+              style={{
+                height: 34,
+                padding: '0 14px',
+                marginBottom: -1,
+                background: 'transparent',
+                border: 0,
+                borderBottom: category === c ? '2px solid var(--ink)' : '2px solid transparent',
+                color: category === c ? 'var(--ink)' : 'var(--mute)',
+                fontWeight: category === c ? 600 : 400,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
             >
               {c}
+              <span
+                className="mono num"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 500,
+                  padding: '1px 5px',
+                  borderRadius: 10,
+                  background: category === c ? 'var(--ink)' : 'var(--paper-2)',
+                  color: category === c ? 'var(--accent-on)' : 'var(--mute)',
+                }}
+              >
+                {countByCategory[c] ?? 0}
+              </span>
             </button>
           ))}
         </div>
-      </div>
+      )}
 
-      {/* ── Grid ────────────────────────────────────── */}
+      {/* Items list */}
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-slate-400">Loading menu…</div>
+        <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading menu…</div>
+      ) : items.length === 0 ? (
+        <div
+          className="py-16 text-center rounded-[8px]"
+          style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}
+        >
+          No menu items yet{isAdmin ? ' — add one to get started' : ''}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center text-sm text-slate-400">No items found</div>
+        <div className="py-12 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
+          No items match "{search}"
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
+          {/* Column header */}
+          <div
+            className="grid items-center px-4 py-2"
+            style={{
+              gridTemplateColumns: isAdmin ? '1fr 90px 90px auto' : '1fr 90px 90px',
+              fontSize: 10, fontWeight: 600, color: 'var(--mute)',
+              textTransform: 'uppercase', letterSpacing: '.07em',
+              background: 'var(--paper-2)',
+              borderBottom: '1px solid var(--line)',
+            }}
+          >
+            <span>Item</span>
+            <span className="mono">Price</span>
+            <span>Status</span>
+            {isAdmin && <span style={{ textAlign: 'right' }}>Actions</span>}
+          </div>
+
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col rounded-xl bg-white p-4 shadow-sm"
+              className="grid items-center px-4"
+              style={{
+                gridTemplateColumns: isAdmin ? '1fr 90px 90px auto' : '1fr 90px 90px',
+                minHeight: 46,
+                borderBottom: '1px solid var(--line)',
+                background: 'transparent',
+                transition: 'background .1s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-800">{item.name}</p>
-                  <p className="text-lg font-bold text-indigo-600">
-                    {format(item.price)}
-                  </p>
+              {/* Name + tags */}
+              <div className="min-w-0 py-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }} className="truncate">
+                    {item.name}
+                  </span>
+                  {item.sku && (
+                    <span
+                      className="mono shrink-0 rounded px-1.5 py-0.5"
+                      style={{ fontSize: 10, background: 'var(--paper-2)', color: 'var(--mute)', border: '1px solid var(--line)' }}
+                    >
+                      {item.sku}
+                    </span>
+                  )}
+                  {item.customization_groups?.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 shrink-0"
+                      style={{ fontSize: 10, color: 'var(--mute)' }}
+                    >
+                      <SlidersHorizontal size={9} />
+                      {item.customization_groups.length}
+                    </span>
+                  )}
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    item.available
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {item.available ? 'Available' : 'Off menu'}
-                </span>
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-1.5">
                 {item.category && (
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-500">
+                  <p className="mt-0.5 capitalize" style={{ fontSize: 10.5, color: 'var(--mute)' }}>
                     {item.category}
-                  </span>
-                )}
-                {item.sku && (
-                  <span className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-xs text-indigo-500">
-                    {item.sku}
-                  </span>
-                )}
-                {item.customization_groups?.length > 0 && (
-                  <span className="rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-600">
-                    {item.customization_groups.length} option{item.customization_groups.length !== 1 ? 's' : ''}
-                  </span>
+                  </p>
                 )}
               </div>
 
+              {/* Price */}
+              <span className="mono num" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                {format(item.price)}
+              </span>
+
+              {/* Status */}
+              <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, color: 'var(--mute)' }}>
+                <span
+                  style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: item.available ? 'var(--ok)' : 'var(--mute-2)',
+                  }}
+                />
+                {item.available ? 'Available' : 'Off menu'}
+              </span>
+
+              {/* Actions */}
               {isAdmin && (
-              <div className="mt-auto flex gap-2 border-t border-slate-100 pt-3">
-                <button
-                  onClick={() => openEdit(item)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  <Pencil size={12} /> Edit
-                </button>
-                <button
-                  onClick={() =>
-                    updateItem.mutate({ id: item.id, available: !item.available })
-                  }
-                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  {item.available ? 'Disable' : 'Enable'}
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(item)}
-                  className="flex items-center justify-center rounded-lg border border-red-100 p-1.5 text-red-400 hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
+                <div className="flex items-center gap-1 justify-end">
+                  <button
+                    onClick={() => openEdit(item)}
+                    className="btn btn-sm btn-ghost"
+                    style={{ gap: 4, fontSize: 12 }}
+                    title="Edit"
+                  >
+                    <Pencil size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => updateItem.mutate({ id: item.id, available: !item.available })}
+                    className="btn btn-sm btn-ghost"
+                    style={{ fontSize: 12 }}
+                    title={item.available ? 'Take off menu' : 'Make available'}
+                  >
+                    {item.available ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(item)}
+                    className="btn btn-sm btn-ghost"
+                    style={{ color: 'var(--bad)' }}
+                    title="Delete"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               )}
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Add / Edit Modal ────────────────────────── */}
+      {/* Add / Edit Modal */}
       {modal !== null && (
-        <Modal
-          title={modal === 'add' ? 'Add Menu Item' : 'Edit Menu Item'}
-          onClose={() => setModal(null)}
-        >
+        <Modal title={modal === 'add' ? 'Add Menu Item' : 'Edit Menu Item'} onClose={() => setModal(null)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                Name
-              </label>
+              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Name</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -328,20 +445,20 @@ export default function Menu() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                SKU <span className="font-normal text-slate-400">(optional)</span>
+              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
+                SKU <span style={{ fontWeight: 400, color: 'var(--mute-2)' }}>(optional)</span>
               </label>
               <input
                 value={form.sku}
                 onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                className="input font-mono"
+                className="input mono"
                 placeholder="e.g. SALMN-001"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
+                <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
                   Price ({currency.code})
                 </label>
                 <input
@@ -356,57 +473,39 @@ export default function Menu() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Category
-                </label>
+                <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Category</label>
                 <select
                   value={form.category}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, category: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                   className="input"
                 >
-                  {CATEGORIES.filter((c) => c !== 'all').map((c) => (
-                    <option key={c} value={c} className="capitalize">
-                      {c}
-                    </option>
+                  {FORM_CATEGORIES.map((c) => (
+                    <option key={c} value={c} className="capitalize">{c}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+            <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 13, color: 'var(--ink)' }}>
               <input
                 type="checkbox"
                 checked={form.available}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, available: e.target.checked }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, available: e.target.checked }))}
                 className="rounded"
               />
               Available to order
             </label>
 
-            <div className="border-t border-slate-100 pt-3">
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
               <CustomizationGroupsEditor
                 groups={form.customizationGroups}
                 onChange={(groups) => setForm((f) => ({ ...f, customizationGroups: groups }))}
               />
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="btn-primary flex-1"
-              >
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setModal(null)} className="btn-secondary flex-1 justify-center">Cancel</button>
+              <button type="submit" disabled={isSaving} className="btn-primary flex-1 justify-center">
                 {isSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -414,24 +513,19 @@ export default function Menu() {
         </Modal>
       )}
 
-      {/* ── Confirm Delete Modal ─────────────────────── */}
+      {/* Confirm Delete Modal */}
       {confirmDelete && (
         <Modal title="Delete Item" onClose={() => setConfirmDelete(null)}>
-          <p className="mb-5 text-sm text-slate-600">
-            Remove <strong>{confirmDelete.name}</strong> from the menu? This
-            cannot be undone.
+          <p style={{ fontSize: 13, color: 'var(--mute)', marginBottom: 20 }}>
+            Remove <strong style={{ color: 'var(--ink)' }}>{confirmDelete.name}</strong> from the menu? This cannot be undone.
           </p>
           <div className="flex gap-2">
-            <button
-              onClick={() => setConfirmDelete(null)}
-              className="btn-secondary flex-1"
-            >
-              Cancel
-            </button>
+            <button onClick={() => setConfirmDelete(null)} className="btn-secondary flex-1 justify-center">Cancel</button>
             <button
               onClick={() => handleDelete(confirmDelete.id)}
               disabled={deleteItem.isPending}
-              className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+              className="btn-primary flex-1 justify-center disabled:opacity-50"
+              style={{ background: 'var(--bad)', borderColor: 'var(--bad)' }}
             >
               {deleteItem.isPending ? 'Deleting…' : 'Delete'}
             </button>

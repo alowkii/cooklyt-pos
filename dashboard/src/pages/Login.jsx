@@ -30,16 +30,25 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg sm:p-8">
+    <div
+      className="flex min-h-screen items-center justify-center px-4 py-8"
+      style={{ background: 'var(--paper-2)' }}
+    >
+      <div
+        className="w-full max-w-sm p-6 sm:p-8"
+        style={{ background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8 }}
+      >
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">Cooklyt</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to your dashboard</p>
+          <div className="flex items-center gap-2 mb-1">
+            <div style={{ width: 18, height: 18, background: 'var(--ink)', borderRadius: 4, flexShrink: 0 }} />
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Cooklyt</h1>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--mute)', marginTop: 4 }}>Sign in to your dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
               Email
             </label>
             <input
@@ -54,7 +63,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
               Password
             </label>
             <input
@@ -69,16 +78,15 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            <p
+              className="rounded-[6px] px-3 py-2"
+              style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}
+            >
               {error}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full py-2.5"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

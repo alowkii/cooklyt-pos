@@ -24,21 +24,30 @@ export default function Setup() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
+    <div
+      className="flex min-h-screen items-center justify-center px-4 py-8"
+      style={{ background: 'var(--paper-2)' }}
+    >
+      <div
+        className="w-full max-w-sm p-8"
+        style={{ background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8 }}
+      >
         <div className="mb-6">
-          <span className="inline-block rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 mb-3">
+          <span
+            className="inline-block rounded-full px-3 py-1 mb-3"
+            style={{ fontSize: 11, fontWeight: 600, background: 'var(--paper-2)', color: 'var(--mute)', border: '1px solid var(--line-2)' }}
+          >
             First-run setup
           </span>
-          <h1 className="text-2xl font-bold text-slate-800">Create operator account</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Create operator account</h1>
+          <p style={{ fontSize: 13, color: 'var(--mute)' }}>
             This page is only available once. Store these credentials safely.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Email</label>
             <input
               type="email"
               value={form.email}
@@ -49,7 +58,7 @@ export default function Setup() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Password</label>
+            <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Password</label>
             <input
               type="password"
               value={form.password}
@@ -61,7 +70,9 @@ export default function Setup() {
             />
           </div>
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <p className="rounded-[6px] px-3 py-2" style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}>
+              {error}
+            </p>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
             {loading ? 'Creating…' : 'Create operator account'}

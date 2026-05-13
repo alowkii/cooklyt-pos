@@ -38,7 +38,6 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
     return group.type === 'multi' ? sel.includes(optLabel) : sel === optLabel;
   }
 
-  // Extra price from selected options (in base currency)
   const priceAdd = groups.reduce((total, g) => {
     const sel = selections[g.name];
     if (!sel) return total;
@@ -62,19 +61,32 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="w-full max-w-sm rounded-t-2xl bg-white shadow-xl sm:rounded-xl">
-
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
+      style={{ background: 'rgba(10,10,10,.4)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        className="w-full max-w-sm rounded-t-[8px] sm:rounded-[8px]"
+        style={{ background: 'var(--paper)', border: '1px solid var(--line-2)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ borderBottom: '1px solid var(--line)' }}
+        >
           <div>
-            <p className="font-semibold text-slate-800">{item.name}</p>
-            <p className="text-xs text-slate-400">{format(item.price + priceAdd)}</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.name}</p>
+            <p className="mono num" style={{ fontSize: 11.5, color: 'var(--mute)' }}>{format(item.price + priceAdd)}</p>
           </div>
-          <button onClick={onCancel}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-            <X size={18} />
+          <button
+            onClick={onCancel}
+            className="rounded-md p-1 transition-colors"
+            style={{ color: 'var(--mute)', background: 'transparent', border: 0 }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+          >
+            <X size={16} />
           </button>
         </div>
 
@@ -83,26 +95,35 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
           {groups.map((group) => (
             <div key={group.name}>
               <div className="mb-2 flex items-baseline gap-1.5">
-                <p className="text-sm font-semibold text-slate-700">{group.name}</p>
-                <span className="text-xs text-slate-400">
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{group.name}</p>
+                <span style={{ fontSize: 11, color: 'var(--mute)' }}>
                   {group.type === 'multi' ? '(pick any)' : '(pick one)'}
-                  {group.required && <span className="ml-1 text-red-400">*</span>}
+                  {group.required && <span style={{ marginLeft: 4, color: 'var(--bad)' }}>*</span>}
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {group.options.map((opt) => {
                   const sel = isSelected(group, opt.label);
                   return (
-                    <button key={opt.label} type="button"
+                    <button
+                      key={opt.label}
+                      type="button"
                       onClick={() => toggleOption(group, opt.label)}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        sel
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                      }`}>
+                      className="rounded-full transition-colors"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        padding: '5px 12px',
+                        border: sel ? '1.5px solid var(--ink)' : '1px solid var(--line-2)',
+                        background: sel ? 'var(--ink)' : 'transparent',
+                        color: sel ? 'var(--accent-on)' : 'var(--ink)',
+                      }}
+                    >
                       {opt.label}
                       {opt.priceAdd > 0 && (
-                        <span className="ml-1 text-xs font-normal opacity-70">+{format(opt.priceAdd)}</span>
+                        <span className="mono num" style={{ marginLeft: 4, fontSize: 11, opacity: 0.7 }}>
+                          +{format(opt.priceAdd)}
+                        </span>
                       )}
                     </button>
                   );
@@ -113,21 +134,27 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
 
           {/* Notes */}
           <div>
-            <p className="mb-1.5 text-sm font-semibold text-slate-700">Notes <span className="font-normal text-slate-400">(optional)</span></p>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+              Notes <span style={{ fontWeight: 400, color: 'var(--mute)' }}>(optional)</span>
+            </p>
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
               placeholder="Any special requests…"
-              className="input w-full text-sm" />
+              className="input w-full"
+            />
           </div>
         </div>
 
         {error && (
-          <p className="px-4 pb-1 text-xs text-red-500">{error}</p>
+          <p className="px-4 pb-1" style={{ fontSize: 11.5, color: 'var(--bad)' }}>{error}</p>
         )}
 
         {/* Footer */}
-        <div className="border-t border-slate-100 px-4 py-3 flex gap-2">
-          <button onClick={onCancel} className="btn-secondary flex-1 text-sm">Cancel</button>
-          <button onClick={handleConfirm} className="btn-primary flex-1 text-sm">
+        <div className="px-4 py-3 flex gap-2" style={{ borderTop: '1px solid var(--line)' }}>
+          <button onClick={onCancel} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={handleConfirm} className="btn-primary flex-1">
             Add to order{priceAdd > 0 ? ` (+${format(priceAdd)})` : ''}
           </button>
         </div>

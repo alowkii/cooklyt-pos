@@ -14,21 +14,18 @@ export default function Settings() {
   const [tzSearch,  setTzSearch] = useState('');
   const [saveError, setSaveError] = useState('');
 
-  // Business settings local state
-  const [taxRate,        setTaxRate]        = useState('');
-  const [serviceCharge,  setServiceCharge]  = useState('');
-  const [packagingFee,   setPackagingFee]   = useState('');
-  const [bizSaving,      setBizSaving]      = useState(false);
-  const [bizError,       setBizError]       = useState('');
-  const [bizSaved,       setBizSaved]       = useState(false);
+  const [taxRate,       setTaxRate]       = useState('');
+  const [serviceCharge, setServiceCharge] = useState('');
+  const [packagingFee,  setPackagingFee]  = useState('');
+  const [bizSaving,     setBizSaving]     = useState(false);
+  const [bizError,      setBizError]      = useState('');
+  const [bizSaved,      setBizSaved]      = useState(false);
 
-  // Sync business fields when settings load from DB
   useEffect(() => {
     if (!settings) return;
     if (settings.tax_rate       !== undefined) setTaxRate(settings.tax_rate);
     if (settings.service_charge !== undefined) setServiceCharge(settings.service_charge);
     if (settings.packaging_fee  !== undefined) {
-      // Convert from base (USD) to display currency so the user sees ₹50 not $0.60
       const display = parseFloat(settings.packaging_fee || '0') * currency.rate;
       setPackagingFee(display ? display.toFixed(currency.decimals ?? 2) : '');
     }
@@ -41,7 +38,6 @@ export default function Settings() {
     try {
       await updateSetting.mutateAsync({ key: 'tax_rate',       value: taxRate       || '0' });
       await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
-      // Convert from display currency back to base (USD) before storing
       const pkgBase = (parseFloat(packagingFee || '0') / currency.rate).toFixed(4);
       await updateSetting.mutateAsync({ key: 'packaging_fee', value: pkgBase });
       setBizSaved(true);
@@ -82,38 +78,44 @@ export default function Settings() {
     <div className="max-w-3xl space-y-6">
 
       {saveError && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-          <AlertCircle size={15} className="shrink-0" />
+        <div
+          className="flex items-center gap-2 rounded-[6px] px-4 py-3"
+          style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)', border: '1px solid rgba(179,55,43,.15)' }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0 }} />
           {saveError}
         </div>
       )}
 
-      {/* ── Currency ── */}
+      {/* Currency */}
       <div>
         <div className="mb-1 flex items-center gap-2">
-          <Globe size={16} className="text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Display Currency</h2>
+          <Globe size={14} style={{ color: 'var(--mute)' }} />
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Display Currency</h2>
         </div>
-        <p className="text-xs text-slate-400">
+        <p style={{ fontSize: 12, color: 'var(--mute)' }}>
           All monetary values across the dashboard are stored in USD and converted for
           display using the rates below. Select the currency your restaurant operates in.
         </p>
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl bg-indigo-50 px-5 py-4">
-        <div className="text-2xl font-bold text-indigo-700">
+      <div
+        className="flex items-center gap-3 rounded-[8px] px-5 py-4"
+        style={{ background: 'var(--paper-2)', border: '1px solid var(--line-2)' }}
+      >
+        <span className="mono num" style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>
           {currencies[code]?.symbol}
-        </div>
+        </span>
         <div>
-          <p className="text-sm font-semibold text-indigo-800">
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
             {currencies[code]?.name} ({code})
           </p>
-          <p className="text-xs text-indigo-500">
-            Example: {format(1)} · {format(100)} · {format(1000)}
+          <p className="mono num" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+            {format(1)} · {format(100)} · {format(1000)}
           </p>
         </div>
         {updateSetting.isPending && (
-          <span className="ml-auto text-xs text-slate-400">Saving…</span>
+          <span className="ml-auto" style={{ fontSize: 11.5, color: 'var(--mute)' }}>Saving…</span>
         )}
       </div>
 
@@ -133,58 +135,63 @@ export default function Settings() {
               key={c.code}
               onClick={() => handleCurrencyChange(c.code)}
               disabled={updateSetting.isPending}
-              className={`flex flex-col gap-1 rounded-xl border-2 p-4 text-left transition-all disabled:opacity-60
-                ${selected
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                }`}
+              className="flex flex-col gap-1 p-4 text-left transition-all disabled:opacity-60"
+              style={{
+                borderRadius: 8,
+                border: selected ? '1.5px solid var(--ink)' : '1px solid var(--line-2)',
+                background: selected ? 'var(--paper-2)' : 'var(--paper)',
+              }}
             >
               <div className="flex items-center justify-between">
-                <span className={`text-xl font-bold leading-none ${selected ? 'text-indigo-700' : 'text-slate-700'}`}>
+                <span className="mono num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
                   {c.symbol}
                 </span>
-                {selected && <Check size={14} className="shrink-0 text-indigo-600" />}
+                {selected && <Check size={13} style={{ color: 'var(--ok)', flexShrink: 0 }} />}
               </div>
-              <p className={`text-xs font-semibold ${selected ? 'text-indigo-700' : 'text-slate-700'}`}>
-                {c.code}
-              </p>
-              <p className="text-[11px] leading-tight text-slate-400">{c.name}</p>
-              <p className="text-[10px] text-slate-300">1 USD = {c.rate} {c.code}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{c.code}</p>
+              <p style={{ fontSize: 11, color: 'var(--mute)', lineHeight: 1.3 }}>{c.name}</p>
+              <p className="mono num" style={{ fontSize: 10, color: 'var(--line-2)' }}>1 USD = {c.rate} {c.code}</p>
             </button>
           );
         })}
       </div>
 
-      <p className="text-[11px] text-slate-300">
+      <p style={{ fontSize: 11, color: 'var(--mute)' }}>
         Rates are approximate. To update them, edit{' '}
-        <code className="rounded bg-slate-100 px-1 py-0.5 text-slate-400">
+        <code
+          className="rounded px-1 py-0.5"
+          style={{ fontSize: 11, background: 'var(--hover)', color: 'var(--ink)' }}
+        >
           shared/settings-options.json
         </code>.
       </p>
 
-      {/* ── Timezone ── */}
-      <div className="border-t border-slate-100 pt-6">
+      {/* Timezone */}
+      <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="mb-1 flex items-center gap-2">
-          <Clock size={16} className="text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Timezone</h2>
+          <Clock size={14} style={{ color: 'var(--mute)' }} />
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Timezone</h2>
         </div>
-        <p className="text-xs text-slate-400">
+        <p style={{ fontSize: 12, color: 'var(--mute)' }}>
           Reports and hourly charts use this timezone for date grouping and hour extraction.
         </p>
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl bg-indigo-50 px-5 py-4">
-        <Clock size={20} className="shrink-0 text-indigo-500" />
+      <div
+        className="flex items-center gap-3 rounded-[8px] px-5 py-4"
+        style={{ background: 'var(--paper-2)', border: '1px solid var(--line-2)' }}
+      >
+        <Clock size={18} style={{ flexShrink: 0, color: 'var(--mute)' }} />
         <div>
-          <p className="text-sm font-semibold text-indigo-800">
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
             {timezones.find((t) => t.iana === iana)?.label ?? iana}
           </p>
-          <p className="text-xs text-indigo-500">
+          <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>
             {iana} · {timezones.find((t) => t.iana === iana)?.offset}
           </p>
         </div>
         {updateSetting.isPending && (
-          <span className="ml-auto text-xs text-slate-400">Saving…</span>
+          <span className="ml-auto" style={{ fontSize: 11.5, color: 'var(--mute)' }}>Saving…</span>
         )}
       </div>
 
@@ -209,121 +216,89 @@ export default function Settings() {
                 key={t.iana}
                 onClick={() => handleTimezoneChange(t.iana)}
                 disabled={updateSetting.isPending}
-                className={`flex items-center justify-between rounded-xl border-2 px-4 py-3 text-left transition-all disabled:opacity-60
-                  ${selected
-                    ? 'border-indigo-500 bg-indigo-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                  }`}
+                className="flex items-center justify-between px-4 py-3 text-left transition-all disabled:opacity-60"
+                style={{
+                  borderRadius: 8,
+                  border: selected ? '1.5px solid var(--ink)' : '1px solid var(--line-2)',
+                  background: selected ? 'var(--paper-2)' : 'var(--paper)',
+                }}
               >
                 <div className="min-w-0">
-                  <p className={`truncate text-xs font-semibold ${selected ? 'text-indigo-700' : 'text-slate-700'}`}>
-                    {t.label}
-                  </p>
-                  <p className="truncate text-[11px] text-slate-400">{t.iana}</p>
+                  <p className="truncate" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{t.label}</p>
+                  <p className="truncate" style={{ fontSize: 11, color: 'var(--mute)' }}>{t.iana}</p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-1.5">
-                  <span className={`text-[11px] font-medium ${selected ? 'text-indigo-500' : 'text-slate-400'}`}>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 500, color: selected ? 'var(--ink)' : 'var(--mute)' }}>
                     {t.offset}
                   </span>
-                  {selected && <Check size={13} className="text-indigo-600" />}
+                  {selected && <Check size={12} style={{ color: 'var(--ok)' }} />}
                 </div>
               </button>
             );
           })}
       </div>
 
-      {/* ── Business ── */}
-      <div className="border-t border-slate-100 pt-6">
+      {/* Business Settings */}
+      <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="mb-1 flex items-center gap-2">
-          <Percent size={16} className="text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Business Settings</h2>
+          <Percent size={14} style={{ color: 'var(--mute)' }} />
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Business Settings</h2>
         </div>
-        <p className="text-xs text-slate-400">
+        <p style={{ fontSize: 12, color: 'var(--mute)' }}>
           Applied automatically when collecting payment. Set to 0 to disable.
         </p>
       </div>
 
       {bizError && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-          <AlertCircle size={15} className="shrink-0" />
+        <div
+          className="flex items-center gap-2 rounded-[6px] px-4 py-3"
+          style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)', border: '1px solid rgba(179,55,43,.15)' }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0 }} />
           {bizError}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Tax Rate (%)</label>
-          <p className="mb-3 text-[11px] text-slate-400">
-            e.g. 8 for GST, 5 for VAT
-          </p>
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
+          <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>Tax Rate (%)</label>
+          <p style={{ fontSize: 11, color: 'var(--mute)', marginBottom: 12 }}>e.g. 8 for GST, 5 for VAT</p>
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
-              className="input w-28"
-              placeholder="0"
-            />
-            <span className="text-sm text-slate-400">%</span>
+            <input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} className="input w-28" placeholder="0" />
+            <span style={{ fontSize: 13, color: 'var(--mute)' }}>%</span>
           </div>
         </div>
 
-        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Service Charge (%)</label>
-          <p className="mb-3 text-[11px] text-slate-400">
-            e.g. 10 for a standard service charge
-          </p>
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
+          <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>Service Charge (%)</label>
+          <p style={{ fontSize: 11, color: 'var(--mute)', marginBottom: 12 }}>e.g. 10 for a standard service charge</p>
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={serviceCharge}
-              onChange={(e) => setServiceCharge(e.target.value)}
-              className="input w-28"
-              placeholder="0"
-            />
-            <span className="text-sm text-slate-400">%</span>
+            <input type="number" min="0" max="100" step="0.01" value={serviceCharge} onChange={(e) => setServiceCharge(e.target.value)} className="input w-28" placeholder="0" />
+            <span style={{ fontSize: 13, color: 'var(--mute)' }}>%</span>
           </div>
         </div>
 
-        <div className="rounded-xl border-2 border-slate-200 bg-white p-5">
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
           <div className="mb-1 flex items-center gap-1.5">
-            <Package size={13} className="text-slate-400" />
-            <label className="block text-xs font-semibold text-slate-600">Packaging Fee</label>
+            <Package size={12} style={{ color: 'var(--mute)' }} />
+            <label className="block" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>Packaging Fee</label>
           </div>
-          <p className="mb-3 text-[11px] text-slate-400">
+          <p style={{ fontSize: 11, color: 'var(--mute)', marginBottom: 12 }}>
             Flat amount added to takeaway &amp; delivery orders.
           </p>
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={packagingFee}
-              onChange={(e) => setPackagingFee(e.target.value)}
-              className="input w-28"
-              placeholder="0"
-            />
-            <span className="text-sm text-slate-400">{currencies[code]?.symbol ?? '$'}</span>
+            <input type="number" min="0" step="0.01" value={packagingFee} onChange={(e) => setPackagingFee(e.target.value)} className="input w-28" placeholder="0" />
+            <span style={{ fontSize: 13, color: 'var(--mute)' }}>{currencies[code]?.symbol ?? '$'}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={handleBizSave}
-          disabled={bizSaving}
-          className="btn-primary disabled:opacity-50"
-        >
+        <button onClick={handleBizSave} disabled={bizSaving} className="btn-primary disabled:opacity-50">
           {bizSaving ? 'Saving…' : 'Save Business Settings'}
         </button>
         {bizSaved && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600">
+          <span className="flex items-center gap-1" style={{ fontSize: 12, color: 'var(--ok)' }}>
             <Check size={13} /> Saved
           </span>
         )}

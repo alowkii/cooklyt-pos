@@ -10,21 +10,20 @@ import {
   useUpdateSetting,
 } from '../hooks/useAdmin';
 
-const ROLE_COLORS = {
-  admin:   'bg-violet-100 text-violet-700',
-  staff:   'bg-blue-100 text-blue-700',
-  kitchen: 'bg-amber-100 text-amber-700',
+const ROLE_DOT = {
+  admin:   'var(--info)',
+  staff:   'var(--mute)',
+  kitchen: 'var(--warn)',
 };
 
 const { timezones: TIMEZONES, currencies: CURRENCIES } = settingsOptions;
 
-
 function SettingsCard({ restaurantId, settings }) {
   const updateSetting = useUpdateSetting(restaurantId);
-  const [tz,  setTz]  = useState(settings.timezone        || 'UTC');
-  const [cur, setCur] = useState(settings.currency        || 'USD');
-  const [tax, setTax] = useState(settings.tax_rate        || '0');
-  const [svc, setSvc] = useState(settings.service_charge  || '0');
+  const [tz,    setTz]    = useState(settings.timezone       || 'UTC');
+  const [cur,   setCur]   = useState(settings.currency       || 'USD');
+  const [tax,   setTax]   = useState(settings.tax_rate       || '0');
+  const [svc,   setSvc]   = useState(settings.service_charge || '0');
   const [saved, setSaved] = useState(false);
 
   async function handleSave() {
@@ -39,55 +38,50 @@ function SettingsCard({ restaurantId, settings }) {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-700">Settings</h2>
+    <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', padding: 20 }} className="space-y-4">
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Settings</p>
+
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Timezone</label>
+        <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Timezone</label>
         <select className="input" value={tz} onChange={(e) => setTz(e.target.value)}>
           {TIMEZONES.map((zone) => (
             <option key={zone.iana} value={zone.iana}>{zone.label} ({zone.offset})</option>
           ))}
         </select>
       </div>
+
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Currency</label>
+        <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Currency</label>
         <select className="input" value={cur} onChange={(e) => setCur(e.target.value)}>
           {CURRENCIES.map(({ code, name }) => (
             <option key={code} value={code}>{code} — {name}</option>
           ))}
         </select>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Tax rate (%)</label>
-          <input
-            type="number"
-            min="0" max="100" step="0.01"
-            className="input"
-            value={tax}
-            onChange={(e) => setTax(e.target.value)}
-            placeholder="0"
-          />
+          <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Tax rate (%)</label>
+          <input type="number" min="0" max="100" step="0.01" className="input" value={tax}
+            onChange={(e) => setTax(e.target.value)} placeholder="0" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Service charge (%)</label>
-          <input
-            type="number"
-            min="0" max="100" step="0.01"
-            className="input"
-            value={svc}
-            onChange={(e) => setSvc(e.target.value)}
-            placeholder="0"
-          />
+          <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Service charge (%)</label>
+          <input type="number" min="0" max="100" step="0.01" className="input" value={svc}
+            onChange={(e) => setSvc(e.target.value)} placeholder="0" />
         </div>
       </div>
-      <button
-        onClick={handleSave}
-        disabled={updateSetting.isPending}
-        className="btn-primary w-full"
-      >
-        {saved ? 'Saved!' : updateSetting.isPending ? 'Saving…' : 'Save settings'}
-      </button>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={updateSetting.isPending}
+          className="btn-primary w-full disabled:opacity-50"
+        >
+          {saved ? 'Saved!' : updateSetting.isPending ? 'Saving…' : 'Save settings'}
+        </button>
+        {saved && <Check size={14} style={{ color: 'var(--ok)', flexShrink: 0 }} />}
+      </div>
     </div>
   );
 }
@@ -109,37 +103,20 @@ function AddUserForm({ restaurantId, onClose }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-slate-100 pt-4 mt-4 space-y-3">
-      <p className="text-xs font-semibold text-slate-600">Add user</p>
+    <form onSubmit={handleSubmit} className="pt-4 mt-4 space-y-3" style={{ borderTop: '1px solid var(--line)' }}>
+      <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>Add user</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <input
-          className="input"
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          required
-        />
-        <input
-          className="input"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          minLength={6}
-          required
-        />
+        <input className="input" type="email" placeholder="Email"
+          value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
+        <input className="input" type="password" placeholder="Password"
+          value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} minLength={6} required />
       </div>
-      <select
-        className="input"
-        value={form.role}
-        onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-      >
+      <select className="input" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
         <option value="admin">Admin</option>
         <option value="staff">Staff</option>
         <option value="kitchen">Kitchen</option>
       </select>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={createUser.isPending} className="btn-primary">
           {createUser.isPending ? 'Adding…' : 'Add user'}
@@ -151,14 +128,14 @@ function AddUserForm({ restaurantId, onClose }) {
 }
 
 export default function RestaurantDetail() {
-  const { id } = useParams();
+  const { id }   = useParams();
   const navigate = useNavigate();
   const { data, isLoading } = useRestaurant(id);
   const updateRestaurant = useUpdateRestaurant(id);
   const deleteUser = useDeleteUser(id);
 
-  const [editing, setEditing]   = useState(false);
-  const [nameVal, setNameVal]   = useState('');
+  const [editing,     setEditing]     = useState(false);
+  const [nameVal,     setNameVal]     = useState('');
   const [showAddUser, setShowAddUser] = useState(false);
 
   function startEdit() {
@@ -177,17 +154,20 @@ export default function RestaurantDetail() {
     await deleteUser.mutateAsync(userId);
   }
 
-  if (isLoading) return <div className="text-sm text-slate-400 p-8">Loading…</div>;
-  if (!data) return <div className="text-sm text-red-500 p-8">Restaurant not found.</div>;
+  if (isLoading) return <div className="p-8" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>;
+  if (!data)     return <div className="p-8" style={{ fontSize: 13, color: 'var(--bad)' }}>Restaurant not found.</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-5">
       {/* Breadcrumb */}
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+        className="flex items-center gap-1.5 transition-colors"
+        style={{ fontSize: 13, color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
       >
-        <ArrowLeft size={15} /> Restaurants
+        <ArrowLeft size={14} /> Restaurants
       </button>
 
       {/* Name heading */}
@@ -195,29 +175,35 @@ export default function RestaurantDetail() {
         {editing ? (
           <>
             <input
-              className="input text-xl font-bold"
+              className="input"
+              style={{ fontSize: 18, fontWeight: 700, maxWidth: 320 }}
               value={nameVal}
               onChange={(e) => setNameVal(e.target.value)}
               autoFocus
             />
-            <button onClick={saveName} className="text-violet-600 hover:text-violet-800">
-              <Check size={20} />
+            <button onClick={saveName} className="btn btn-sm btn-ghost" style={{ color: 'var(--ok)' }}>
+              <Check size={18} />
             </button>
-            <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600">
-              <X size={20} />
+            <button onClick={() => setEditing(false)} className="btn btn-sm btn-ghost">
+              <X size={18} />
             </button>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-slate-800">{data.name}</h1>
-            <button onClick={startEdit} className="text-slate-400 hover:text-violet-600 transition-colors">
-              <Pencil size={16} />
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{data.name}</h1>
+            <button
+              onClick={startEdit}
+              className="btn btn-sm btn-ghost"
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+            >
+              <Pencil size={14} />
             </button>
           </>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Settings */}
         <div className="lg:col-span-1">
           <SettingsCard restaurantId={id} settings={data.settings} />
@@ -225,56 +211,67 @@ export default function RestaurantDetail() {
 
         {/* Users */}
         <div className="lg:col-span-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', padding: 20 }}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-700">
-                Users <span className="ml-1 text-slate-400 font-normal">({data.users.length})</span>
-              </h2>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+                Users
+                <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--mute)' }}>({data.users.length})</span>
+              </p>
               <button
                 onClick={() => setShowAddUser((v) => !v)}
-                className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
+                className="flex items-center gap-1.5 transition-colors"
+                style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
               >
-                <UserPlus size={14} /> Add user
+                <UserPlus size={13} /> Add user
               </button>
             </div>
 
             {data.users.length === 0 ? (
-              <p className="text-sm text-slate-400">No users yet.</p>
+              <p style={{ fontSize: 13, color: 'var(--mute)' }}>No users yet.</p>
             ) : (
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[400px] text-sm">
-                <thead className="border-b border-slate-100">
-                  <tr>
-                    <th className="pb-2 text-left text-xs font-semibold text-slate-500">Email</th>
-                    <th className="pb-2 text-left text-xs font-semibold text-slate-500">Role</th>
-                    <th className="pb-2 text-left text-xs font-semibold text-slate-500">Joined</th>
-                    <th className="pb-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {data.users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50">
-                      <td className="py-2.5 text-slate-700">{u.email}</td>
-                      <td className="py-2.5">
-                        <span className={`badge ${ROLE_COLORS[u.role] || 'bg-slate-100 text-slate-600'}`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-slate-400 text-xs">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <button
-                          onClick={() => handleDeleteUser(u.id, u.email)}
-                          className="btn-danger"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                <table className="w-full" style={{ minWidth: 400, fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      <th className="pb-2 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Email</th>
+                      <th className="pb-2 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Role</th>
+                      <th className="pb-2 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Joined</th>
+                      <th className="pb-2" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.users.map((u) => (
+                      <tr
+                        key={u.id}
+                        style={{ borderBottom: '1px solid var(--line)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <td className="py-2.5" style={{ color: 'var(--ink)' }}>{u.email}</td>
+                        <td className="py-2.5">
+                          <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', textTransform: 'capitalize' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: ROLE_DOT[u.role] ?? 'var(--mute)' }} />
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="py-2.5" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            className="btn btn-sm btn-ghost"
+                            style={{ color: 'var(--bad)' }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 

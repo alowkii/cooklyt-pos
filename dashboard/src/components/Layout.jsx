@@ -36,13 +36,12 @@ const ALL_NAV = [
 export default function Layout() {
   useWebSocket();
 
-  const [sidebarOpen,    setSidebarOpen]    = useState(false);
-  const [showChangePwd,  setShowChangePwd]  = useState(false);
-  const navigate      = useNavigate();
-  const location      = useLocation();
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { user, restaurant, isAdmin } = useAuth();
 
-  // Close sidebar on route change (mobile nav tap)
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
@@ -64,99 +63,160 @@ export default function Layout() {
     navigate('/login');
   }
 
+  const initials = (user?.email ?? 'CK').slice(0, 2).toUpperCase();
+
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen" style={{ background: 'var(--paper)' }}>
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* ── Sidebar ─────────────────────────────────────── */}
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col bg-slate-800 text-white
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 shrink-0 flex-col
           transition-transform duration-200 ease-in-out
-          lg:relative lg:w-56 lg:translate-x-0
+          lg:relative lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'var(--paper)', borderRight: '1px solid var(--line)' }}
       >
-        <div className="flex h-16 items-center justify-between px-5 border-b border-slate-700">
-          <div className="min-w-0">
-            <p className="text-sm font-bold tracking-tight leading-tight">Cooklyt</p>
-            {restaurant?.name && (
-              <p className="text-xs text-slate-400 truncate max-w-[160px]">{restaurant.name}</p>
-            )}
-          </div>
+        {/* Brand */}
+        <div
+          className="flex h-12 items-center gap-2.5 px-4 shrink-0"
+          style={{ borderBottom: '1px solid var(--line)' }}
+        >
+          <span
+            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[11px] font-bold"
+            style={{ background: 'var(--accent)', color: 'var(--accent-on)' }}
+          >
+            C
+          </span>
+          <span className="truncate text-[12px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.005em' }}>
+            {restaurant?.name || 'Cooklyt'}
+          </span>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="ml-2 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-700 transition-colors lg:hidden"
+            className="ml-auto rounded-md p-1 lg:hidden"
+            style={{ color: 'var(--mute)' }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-3 py-3">
+        {/* Nav */}
+        <nav className="flex flex-1 flex-col gap-px px-2 py-3 overflow-y-auto">
           {nav.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                `flex items-center gap-2.5 rounded-[6px] px-2.5 text-[12.5px] font-medium transition-colors duration-75 ${
+                  isActive ? 'nav-active' : 'nav-default'
                 }`
               }
+              style={({ isActive }) => ({
+                height: 36,
+                background: isActive ? 'var(--paper-2)' : 'transparent',
+                color: isActive ? 'var(--ink)' : 'var(--mute)',
+              })}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.classList.contains('nav-active')) {
+                  e.currentTarget.style.background = 'var(--hover)';
+                  e.currentTarget.style.color = 'var(--ink)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                const isActive = location.pathname.startsWith(to) ||
+                  (end && location.pathname === to);
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--mute)';
+                }
+              }}
             >
-              <Icon size={17} />
+              <Icon size={16} />
               {label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-slate-700 px-4 py-4 space-y-1">
-          <div className="px-3 pb-1">
-            <p className="truncate text-xs text-slate-400">{user.email}</p>
-            <p className="text-xs capitalize text-slate-500">{user.role}</p>
-          </div>
+        {/* Footer */}
+        <div className="shrink-0 px-2 pb-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
           <button
             onClick={() => setShowChangePwd(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
+            style={{ height: 36, color: 'var(--mute)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
           >
             <KeyRound size={15} />
             Change Password
           </button>
           <button
             onClick={logout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
+            style={{ height: 36, color: 'var(--mute)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
           >
             <LogOut size={15} />
             Sign out
           </button>
+
+          <div className="mt-2 flex items-center gap-2 px-2.5">
+            <span
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold"
+              style={{ background: 'var(--paper-2)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+            >
+              {initials}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[11.5px] font-medium" style={{ color: 'var(--ink)' }}>
+                {user?.email}
+              </p>
+              <p className="text-[10.5px] capitalize" style={{ color: 'var(--mute)' }}>
+                {user?.role}
+              </p>
+            </div>
+          </div>
         </div>
       </aside>
 
-      {/* ── Main area ────────────────────────────────────── */}
+      {/* ── Main area ───────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
 
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
+        {/* Topbar */}
+        <header
+          className="flex h-12 shrink-0 items-center gap-3 px-5"
+          style={{ borderBottom: '1px solid var(--line)', background: 'var(--paper)' }}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 transition-colors lg:hidden"
+            className="rounded-md p-1.5 lg:hidden"
+            style={{ color: 'var(--mute)' }}
             aria-label="Open menu"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
-          <h1 className="text-sm font-semibold text-slate-700">{pageLabel}</h1>
-          <div className="ml-auto">
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>
+            {pageLabel}
+          </span>
+          {restaurant?.name && (
+            <span className="hidden text-[12px] sm:block" style={{ color: 'var(--mute)' }}>
+              · {restaurant.name}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-3">
             <SyncBadge />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-5 lg:p-6">
           <Outlet />
         </main>
       </div>

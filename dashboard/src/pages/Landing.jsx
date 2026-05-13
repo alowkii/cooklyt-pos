@@ -1,343 +1,555 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  UtensilsCrossed, Wifi, BarChart2, Users,
-  Grid3X3, ShieldCheck, Mail, CheckCircle2, ArrowRight,
+  Grid3X3, UtensilsCrossed, Wifi, BarChart2, Users, ShieldCheck,
+  Mail, Check, ArrowRight,
+  LayoutDashboard, ReceiptText, LayoutGrid, AlignLeft,
+  ShoppingCart, Truck,
 } from 'lucide-react';
 
 const DEMO_EMAIL  = 'krishensazawal@cooklyt.in';
-const MAILTO_HREF = `mailto:${DEMO_EMAIL}?subject=${encodeURIComponent('Cooklyt POS – Demo Request')}&body=${encodeURIComponent('Hi,\n\nI\'m interested in a live demo of Cooklyt POS for my restaurant.\n\nName:\nRestaurant name:\nNumber of locations:\nBest time to reach me:\n\nThanks,')}`;
+const MAILTO_HREF = `mailto:${DEMO_EMAIL}?subject=${encodeURIComponent('CookLyt POS – Demo Request')}&body=${encodeURIComponent('Hi,\n\nI\'m interested in a live demo of CookLyt POS for my restaurant.\n\nName:\nRestaurant name:\nNumber of locations:\nBest time to reach me:\n\nThanks,')}`;
 
-// ── POS Preview card ─────────────────────────────────────────────────────────
-const TABLES = [
-  { id: 'T1', label: '3/4',  state: 'occupied' },
-  { id: 'T2', label: 'Open', state: 'open'     },
-  { id: 'T3', label: '2/2',  state: 'full'     },
-  { id: 'T4', label: 'Bill', state: 'bill'     },
-  { id: 'T5', label: 'Open', state: 'open'     },
-  { id: 'T6', label: '4/6',  state: 'occupied' },
+const FEATURES = [
+  { Icon: Grid3X3,         title: 'Table management',   body: 'Visual floor plan, live seat counts, drag-to-arrange. Open, transfer, and close tables in one tap.' },
+  { Icon: UtensilsCrossed, title: 'Menu builder',        body: 'Categories, prices, modifiers, 86-button availability. Edits land on the kitchen screen instantly.' },
+  { Icon: Wifi,            title: 'Live kitchen sync',   body: "Orders reach the kitchen the moment they're placed. Offline-tolerant, with a sync badge that never lies." },
+  { Icon: BarChart2,       title: 'Reports & analytics', body: 'End-of-day revenue, top sellers, payment breakdowns, hourly heatmap — in one clean, exportable view.' },
+  { Icon: Users,           title: 'Multi-role access',   body: 'Scoped logins for admins, floor staff, and kitchen crew. Every action is audit-logged.' },
+  { Icon: ShieldCheck,     title: 'Operator console',    body: 'Super-admin panel for multi-location chains: restaurants, users, settings, and full audit trails.' },
 ];
 
-const TABLE_STYLE = {
-  open:     'bg-emerald-50 border-emerald-200 text-emerald-700',
-  occupied: 'bg-amber-50   border-amber-200   text-amber-700',
-  full:     'bg-red-50     border-red-200     text-red-600',
-  bill:     'bg-violet-50  border-violet-200  text-violet-700',
+const STATUS_DOT = {
+  preparing: 'var(--warn)',
+  ready:     'var(--info)',
+  received:  'var(--mute-2)',
+  served:    'var(--ok)',
 };
 
-function POSPreview() {
+const ELAPSED_STYLE = {
+  warn: { color: 'var(--warn)', fontWeight: 600 },
+  bad:  { color: 'var(--bad)',  fontWeight: 600 },
+  mute: { color: 'var(--mute)' },
+};
+
+// Device preview rows
+const ROWS = [
+  { key: 'T03', label: 'T03',        status: 'preparing', elapsed: '4m',       elStyle: 'mute', amount: '$104.00' },
+  { key: 'T06', label: 'T06',        status: 'ready',     elapsed: '12m',      elStyle: 'warn', amount: '$226.00' },
+  { key: '#042',label: null,         status: 'received',  elapsed: 'just now', elStyle: 'mute', amount: '$59.00',  icon: 'cart',     sub: 'Maya K. · #042' },
+  { key: 'T14', label: 'T14',        status: 'served',    elapsed: '22m',      elStyle: 'bad',  amount: '$71.00' },
+  { key: 'dlv', label: null,         status: 'preparing', elapsed: '8m',       elStyle: 'mute', amount: '$49.00',  icon: 'delivery', sub: '#DLV-7741', last: true },
+];
+
+function DevicePreview() {
+  const COL = '11px repeat(5, 1fr) 11px';
+  const rowBase = {
+    display: 'grid',
+    gridTemplateColumns: COL,
+    gap: 6,
+    padding: '7px 0',
+    borderBottom: '1px solid var(--line)',
+    fontSize: 12,
+    alignItems: 'center',
+  };
+
   return (
-    // pb-8 pr-8 so the absolutely-positioned chip is never clipped
-    <div className="relative mx-auto w-full max-w-sm pb-8 pr-8 select-none">
-      <div className="rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/30 overflow-hidden">
+    <div style={{ position: 'relative' }}>
+      {/* Browser chrome */}
+      <div style={{
+        border: '1px solid var(--line-2)',
+        background: 'var(--paper)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        boxShadow: '0 1px 0 rgba(255,255,255,.6) inset, 0 24px 64px -28px rgba(10,10,10,.18)',
+      }}>
         {/* Title bar */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
-          <div>
-            <p className="text-xs font-semibold text-slate-700">Table Overview</p>
-            <p className="mt-0.5 text-[10px] text-slate-400">Dinner service · 6 tables</p>
+        <div style={{
+          height: 36, borderBottom: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px',
+        }}>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {[0,1,2].map((i) => (
+              <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--line-2)', display: 'inline-block' }} />
+            ))}
           </div>
-          <div className="flex gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-            <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
-          </div>
+          <span style={{ fontFamily: '"Geist Mono", monospace', fontSize: 11, color: 'var(--mute)', marginLeft: 8 }}>
+            cooklyt.app · Orders
+          </span>
+          <span style={{ marginLeft: 'auto', fontFamily: '"Geist Mono", monospace', fontSize: 10, color: 'var(--mute)', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ok)', display: 'inline-block' }} />
+            Live · 3 in kitchen
+          </span>
         </div>
 
-        {/* Table grid */}
-        <div className="grid grid-cols-3 gap-3 p-5">
-          {TABLES.map((t) => (
-            <div key={t.id}
-              className={`rounded-xl border p-3 text-center ${TABLE_STYLE[t.state]}`}
-            >
-              <p className="text-xs font-bold text-slate-700">{t.id}</p>
-              <p className={`mt-0.5 text-[10px] font-semibold ${TABLE_STYLE[t.state].split(' ')[2]}`}>
-                {t.label}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Live orders */}
-        <div className="border-t border-slate-100 px-5 py-3.5">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Live orders
-          </p>
-          <div className="space-y-1.5">
+        {/* Body: rail + main */}
+        <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr', minHeight: 380 }}>
+          {/* Sidebar rail */}
+          <div style={{ borderRight: '1px solid var(--line)', padding: '10px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[
-              { table: 'T1', item: 'Butter Chicken × 2', time: 'Just now'  },
-              { table: 'T6', item: 'Garlic Naan × 4',    time: '3 min ago' },
-            ].map((o) => (
-              <div key={o.item} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="shrink-0 rounded-md bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">
-                    {o.table}
-                  </span>
-                  <span className="truncate text-[11px] text-slate-600">{o.item}</span>
-                </div>
-                <span className="ml-2 shrink-0 text-[9px] text-slate-400">{o.time}</span>
+              { Icon: LayoutDashboard, active: false },
+              { Icon: ReceiptText,     active: true  },
+              { Icon: LayoutGrid,      active: false },
+              { Icon: AlignLeft,       active: false },
+              { Icon: BarChart2,       active: false },
+            ].map(({ Icon, active }, i) => (
+              <span key={i} style={{
+                width: 32, height: 32, borderRadius: 6,
+                display: 'grid', placeItems: 'center',
+                background: active ? 'var(--paper-2)' : 'transparent',
+                color: active ? 'var(--ink)' : 'var(--mute)',
+              }}>
+                <Icon size={14} />
+              </span>
+            ))}
+          </div>
+
+          {/* Main content */}
+          <div style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, letterSpacing: '-.01em' }}>Orders</h3>
+              <span style={{ fontSize: 11, color: 'var(--mute)' }}>3 in kitchen · 7 total today</span>
+            </div>
+
+            {/* Column headers */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: COL, gap: 6,
+              paddingBottom: 6, borderBottom: '1px solid var(--line)', marginBottom: 6,
+              fontFamily: '"Geist Mono", monospace', fontSize: 10, color: 'var(--mute)',
+              textTransform: 'uppercase', letterSpacing: '.08em',
+            }}>
+              <span />
+              <span>Order</span>
+              <span>Status</span>
+              <span>Elapsed</span>
+              <span style={{ textAlign: 'right' }}>Total</span>
+              <span />
+            </div>
+
+            {/* Rows */}
+            {ROWS.map((row) => (
+              <div key={row.key} style={{ ...rowBase, borderBottom: row.last ? 0 : '1px solid var(--line)' }}>
+                <span />
+                <span style={{ fontFamily: '"Geist Mono", monospace', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {row.icon === 'cart'     && <ShoppingCart size={12} style={{ color: 'var(--mute)' }} />}
+                  {row.icon === 'delivery' && <Truck        size={12} style={{ color: 'var(--mute)' }} />}
+                  {row.sub
+                    ? <span style={{ fontSize: 11.5, fontWeight: 400, fontFamily: 'inherit' }}>{row.sub}</span>
+                    : row.label}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--ink-2)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[row.status], flexShrink: 0 }} />
+                  {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                </span>
+                <span style={{ fontFamily: '"Geist Mono", monospace', fontSize: 11, ...ELAPSED_STYLE[row.elStyle] }}>
+                  {row.elapsed}
+                </span>
+                <span style={{ fontFamily: '"Geist Mono", monospace', fontSize: 12, textAlign: 'right' }}>
+                  {row.amount}
+                </span>
+                <span />
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Floating chip — positioned inside the padded wrapper so it's never clipped */}
-      <div className="absolute bottom-0 right-0 rounded-xl bg-indigo-600 px-4 py-2.5 shadow-xl shadow-indigo-900/40">
-        <p className="text-[11px] font-semibold text-white">Kitchen notified</p>
-        <p className="text-[10px] text-indigo-200">T3 · Paneer Tikka × 1</p>
+      {/* Floating notification */}
+      <div style={{
+        position: 'absolute', right: -16, bottom: -16,
+        padding: '12px 14px',
+        background: 'var(--ink)', color: 'var(--accent-on)',
+        borderRadius: 8,
+        boxShadow: '0 14px 30px -10px rgba(10,10,10,.4)',
+        minWidth: 180,
+      }}>
+        <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10, letterSpacing: '.12em', opacity: .55, textTransform: 'uppercase' }}>
+          Kitchen notified
+        </div>
+        <div style={{ fontSize: 13, marginTop: 6 }}>Paneer Tikka × 1</div>
+        <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10.5, color: 'rgba(250,250,248,.5)', marginTop: 4 }}>
+          T03 · 2s ago
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Features ──────────────────────────────────────────────────────────────────
-const FEATURES = [
-  { Icon: Grid3X3,         title: 'Table Management',    body: 'Visual floor plan with live seat counts. Open, transfer, and close tables in a tap.' },
-  { Icon: UtensilsCrossed, title: 'Menu Builder',        body: 'Organise items by category, set prices, and mark dishes unavailable instantly.' },
-  { Icon: Wifi,            title: 'Live Kitchen Sync',   body: "Orders reach the kitchen the moment they're placed — no tickets, no delays." },
-  { Icon: BarChart2,       title: 'Reports & Analytics', body: 'End-of-day revenue, top sellers, and payment breakdowns in one clean view.' },
-  { Icon: Users,           title: 'Multi-Role Access',   body: 'Separate logins for admins, floor staff, and kitchen crew with scoped permissions.' },
-  { Icon: ShieldCheck,     title: 'Operator Console',    body: 'Super-admin panel to manage restaurants, users, settings, and full audit logs.' },
-];
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function Landing() {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.title = 'Cooklyt POS — Restaurant Point of Sale | Krilok';
-  }, []);
+  const navLinkStyle = {
+    height: 32, padding: '0 12px', borderRadius: 6,
+    fontSize: 13, color: 'var(--mute)',
+    display: 'inline-flex', alignItems: 'center',
+    transition: 'background .08s, color .08s',
+    textDecoration: 'none', border: 0, cursor: 'pointer',
+    background: 'transparent', fontFamily: 'inherit',
+  };
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 antialiased">
+    <div style={{ background: 'var(--paper)', color: 'var(--ink)', minHeight: '100vh' }}>
 
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-slate-950/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-6">
+      {/* ── Nav ──────────────────────────────────────────────────────────── */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 40,
+        background: 'rgba(250,250,248,.78)',
+        backdropFilter: 'blur(14px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+        borderBottom: '1px solid var(--line)',
+      }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', gap: 18 }}>
           {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <span className="text-base font-bold tracking-tight text-white">Krilok</span>
-            <span className="hidden h-4 w-px bg-white/20 sm:block" />
-            <span className="hidden text-sm font-medium text-white/40 sm:block">Cooklyt POS</span>
-          </div>
-          {/* Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 14, letterSpacing: '-.005em', textDecoration: 'none', color: 'var(--ink)' }}>
+            <span style={{ width: 20, height: 20, borderRadius: 4, background: 'var(--ink)', color: 'var(--accent-on)', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700 }}>
+              C
+            </span>
+            <span>Krilos</span>
+            <span style={{ display: 'inline-block', width: 1, height: 13, background: 'var(--line-2)', margin: '0 2px' }} />
+            <span style={{ color: 'var(--mute)', fontWeight: 500 }}>CookLyt</span>
+          </a>
+
+          {/* Nav links */}
+          <nav style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <a
+              href="#how"
+              style={navLinkStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              How it works
+            </a>
+            <a
+              href="#features"
+              style={navLinkStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              Features
+            </a>
             <button
               onClick={() => navigate('/login')}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white transition-colors sm:px-4 sm:py-2 sm:text-sm"
+              style={navLinkStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
             >
               Sign in
             </button>
             <a
-              href={MAILTO_HREF}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-400 transition-colors sm:px-4 sm:py-2 sm:text-sm"
+              href="#cta"
+              style={{
+                ...navLinkStyle,
+                background: 'var(--ink)', color: 'var(--accent-on)',
+                padding: '0 14px', height: 34, gap: 6,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; }}
             >
-              <Mail size={12} className="sm:hidden" />
-              <Mail size={13} className="hidden sm:block" />
-              <span className="hidden xs:inline">Request Demo</span>
-              <span className="xs:hidden">Demo</span>
+              <Mail size={13} />
+              Request a demo
             </a>
-          </div>
+          </nav>
         </div>
       </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-slate-950 pb-20 pt-14 sm:pb-24 sm:pt-20">
-        {/* Subtle grid */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        {/* Radial glow */}
-        <div className="pointer-events-none absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-indigo-600/20 blur-3xl" />
-
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-center lg:gap-16">
-
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section id="top" style={{ padding: '80px 0 110px' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: 64, alignItems: 'center' }}
+            className="hero-grid">
             {/* Left — copy */}
-            <div className="flex-1 text-center lg:text-left">
-              <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
-                A product by Krilok
+            <div>
+              {/* Pill badge */}
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                height: 26, padding: '0 12px',
+                border: '1px solid var(--line-2)', borderRadius: 999,
+                fontSize: 11.5, color: 'var(--ink-2)',
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ink)', display: 'inline-block' }} />
+                <span className="mono" style={{ letterSpacing: '.06em' }}>CookLyt · 01</span>
+                <span>A product by Krilos</span>
               </span>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-[3.25rem]">
-                The POS your restaurant{' '}
-                <span className="text-indigo-400">actually deserves.</span>
+
+              <h1 style={{
+                fontSize: 'clamp(48px, 7.5vw, 88px)',
+                lineHeight: .98, letterSpacing: '-.035em',
+                fontWeight: 600, margin: '16px 0 24px',
+              }}>
+                The POS your<br />
+                restaurant{' '}
+                <em style={{
+                  fontStyle: 'italic', fontWeight: 500, color: 'var(--ink-2)',
+                  backgroundImage: 'linear-gradient(transparent 78%, rgba(10,10,10,.16) 78%, rgba(10,10,10,.16) 88%, transparent 88%)',
+                }}>
+                  actually
+                </em><br />
+                deserves.
               </h1>
-              <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-slate-400 lg:mx-0 lg:max-w-sm">
-                Cooklyt brings your tables, menu, kitchen, and reports into one fast,
-                real-time system — built for restaurants that can't afford downtime.
+
+              <p style={{ fontSize: 17, lineHeight: 1.55, color: 'var(--ink-2)', maxWidth: 480, margin: '0 0 28px' }}>
+                Tables, menu, kitchen, and reports — one quiet, real-time system, built
+                for restaurants that can't afford downtime or busywork.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <a
                   href={MAILTO_HREF}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-400 transition-colors"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    height: 42, padding: '0 18px', borderRadius: 6,
+                    fontSize: 13.5, fontWeight: 500,
+                    background: 'var(--ink)', color: 'var(--accent-on)',
+                    textDecoration: 'none', transition: 'background .08s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-2)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; }}
                 >
-                  <Mail size={15} /> Request a Demo
+                  <Mail size={14} />
+                  Request a demo
                 </a>
                 <button
                   onClick={() => navigate('/login')}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 px-6 py-3.5 text-sm font-medium text-white/60 hover:border-white/20 hover:text-white/80 transition-colors"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    height: 42, padding: '0 18px', borderRadius: 6,
+                    fontSize: 13.5, fontWeight: 500,
+                    border: '1px solid var(--line-2)', color: 'var(--ink)',
+                    background: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'background .08s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  Have access? Sign in <ArrowRight size={14} />
+                  Have access? Sign in
+                  <ArrowRight size={14} />
                 </button>
               </div>
 
-              {/* Trust pills */}
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 lg:justify-start">
-                {['No credit card', 'Full access demo', 'Ready in 24 hrs'].map((t) => (
-                  <span key={t} className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <CheckCircle2 size={12} className="shrink-0 text-indigo-500" /> {t}
+              {/* Trust */}
+              <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 28 }}>
+                {['No credit card', 'Full-access demo', 'Ready in 24 hrs'].map((t) => (
+                  <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--mute)', fontSize: 12.5 }}>
+                    <Check size={13} style={{ opacity: .7 }} />
+                    {t}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Right — product preview */}
-            <div className="w-full max-w-sm flex-shrink-0 lg:max-w-[380px]">
-              <POSPreview />
+            {/* Right — device preview */}
+            <div style={{ paddingBottom: 32, paddingRight: 32 }}>
+              <DevicePreview />
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* ── Stats strip ─────────────────────────────────────────────────── */}
-      <section className="border-y border-slate-100 bg-slate-50 py-8 sm:py-10">
-        <div className="mx-auto grid max-w-4xl grid-cols-3 divide-x divide-slate-200 px-4 text-center sm:px-6">
+      {/* ── Stats strip ──────────────────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'var(--paper)' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}
+          className="stats-grid">
           {[
-            { value: '< 3s',   label: 'Order to kitchen' },
-            { value: '100%',   label: 'Real-time sync'   },
-            { value: '24 hrs', label: 'Demo ready'       },
-          ].map(({ value, label }) => (
-            <div key={label} className="px-3 py-2 sm:px-6">
-              <p className="text-xl font-bold text-slate-900 sm:text-2xl">{value}</p>
-              <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">{label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── How to get access ───────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="mb-10 text-center sm:mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">How to get access</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Cooklyt is invite-only — every demo is a real, working environment.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
-          {[
-            {
-              step: '1',
-              title: 'Send an email',
-              body: `Write to us with your restaurant name and a few details — we'll take it from there.`,
-              cta: (
-                <a href={MAILTO_HREF} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
-                  Open email <ArrowRight size={11} />
-                </a>
-              ),
-            },
-            {
-              step: '2',
-              title: 'We prepare your demo',
-              body: 'Our team provisions a live instance seeded with a real menu, tables, and order history.',
-              cta: null,
-            },
-            {
-              step: '3',
-              title: 'Log in and explore',
-              body: 'Place orders, view kitchen updates, pull reports — exactly as it works in production.',
-              cta: null,
-            },
-          ].map(({ step, title, body, cta }, i) => (
-            <div key={step} className="relative flex gap-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:flex-col sm:gap-0">
-              {/* Connector arrow between steps on mobile */}
-              {i < 2 && (
-                <div className="absolute -bottom-3 left-8 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white sm:hidden">
-                  <ArrowRight size={10} className="rotate-90 text-slate-400" />
-                </div>
-              )}
-              <div className="mb-0 shrink-0 sm:mb-4">
-                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-                  {step}
-                </div>
+            { value: '< 3s',  label: 'Order to kitchen'              },
+            { value: '100%',  label: 'Real-time sync, offline-tolerant' },
+            { value: '24 h',  label: 'From email to working demo'    },
+          ].map(({ value, label }, i) => (
+            <div key={label} style={{
+              padding: '36px 28px',
+              borderRight: i < 2 ? '1px solid var(--line)' : 0,
+            }}>
+              <div className="mono" style={{ fontSize: 38, fontWeight: 500, letterSpacing: '-.02em', lineHeight: 1 }}>
+                {value}
               </div>
-              <div>
-                <h3 className="mb-1.5 text-sm font-semibold text-slate-800">{title}</h3>
-                <p className="text-sm leading-relaxed text-slate-500">{body}</p>
-                {cta}
+              <div style={{ fontSize: 11, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 10 }}>
+                {label}
               </div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* ── Features ────────────────────────────────────────────────────── */}
-      <section className="bg-slate-50 py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-10 text-center sm:mb-12">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Everything included</h2>
-            <p className="mt-2 text-sm text-slate-400">Every demo is the full product — no feature limits.</p>
+      {/* ── How to get access ────────────────────────────────────────────── */}
+      <section id="how" style={{ padding: '80px 0', borderTop: '1px solid var(--line)' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ marginBottom: 48, maxWidth: 680 }}>
+            <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
+              02 — Onboarding
+            </span>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', letterSpacing: '-.025em', lineHeight: 1.05, margin: '8px 0 12px', fontWeight: 600 }}>
+              How to get access.
+            </h2>
+            <p style={{ color: 'var(--mute)', margin: 0, fontSize: 15, lineHeight: 1.55, maxWidth: 520 }}>
+              CookLyt is invite-only. Every demo is a real working environment, seeded with a real menu and a real day's worth of orders. No slideshow.
+            </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ Icon, title, body }) => (
-              <div
-                key={title}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md sm:p-6"
-              >
-                <div className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 transition-colors group-hover:bg-indigo-100">
-                  <Icon size={17} className="text-indigo-600" />
-                </div>
-                <h3 className="mb-1.5 text-sm font-semibold text-slate-800">{title}</h3>
-                <p className="text-sm leading-relaxed text-slate-500">{body}</p>
+        </div>
+
+        <div style={{ maxWidth: 1180, margin: '0 auto', borderTop: '1px solid var(--line)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }} className="process-grid">
+            {[
+              {
+                n: '01', title: 'Send an email',
+                body: "Tell us your restaurant name and a couple of details. We'll take it from there.",
+                cta: true,
+              },
+              {
+                n: '02', title: 'We provision your demo',
+                body: 'Our team spins up a live instance — your menu, your tables, a believable order history.',
+                cta: false,
+              },
+              {
+                n: '03', title: 'Log in & explore',
+                body: 'Place orders, fire the kitchen, pull reports — exactly as it works in production.',
+                cta: false,
+              },
+            ].map(({ n, title, body, cta }, i) => (
+              <div key={n} style={{
+                padding: '32px 28px 36px',
+                borderRight: i < 2 ? '1px solid var(--line)' : 0,
+                borderBottom: '1px solid var(--line)',
+              }}>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--mute)', letterSpacing: '.14em' }}>{n}</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-.01em', margin: '14px 0 8px' }}>{title}</h3>
+                <p style={{ color: 'var(--mute)', margin: 0, fontSize: 14, lineHeight: 1.55 }}>{body}</p>
+                {cta && (
+                  <a
+                    href={MAILTO_HREF}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      marginTop: 14, fontSize: 13, color: 'var(--ink)',
+                      borderBottom: '1px solid var(--line-2)', paddingBottom: 1,
+                      textDecoration: 'none', transition: 'border-color .08s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--ink)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-2)'; }}
+                  >
+                    Open email <ArrowRight size={12} />
+                  </a>
+                )}
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Final CTA ───────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-slate-950 py-16 sm:py-20">
-        <div className="pointer-events-none absolute -bottom-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-indigo-600/20 blur-3xl" />
-        <div className="relative mx-auto max-w-xl px-4 text-center sm:px-6">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">
-            See Cooklyt live in your browser.
-          </h2>
-          <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-slate-400 sm:text-base">
-            No sales call. No slideshow. Just a working demo of your restaurant running on Cooklyt.
-          </p>
-          <a
-            href={MAILTO_HREF}
-            className="mt-8 inline-flex items-center gap-2.5 rounded-xl bg-indigo-500 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-indigo-900/40 hover:bg-indigo-400 transition-colors sm:px-8 sm:py-4 sm:text-base"
-          >
-            <Mail size={16} />
-            <span className="break-all">{DEMO_EMAIL}</span>
-          </a>
-          <p className="mt-4 text-xs text-slate-600">We'll reply within a few hours.</p>
+      {/* ── Features ─────────────────────────────────────────────────────── */}
+      <section id="features" style={{ padding: '80px 0', borderTop: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ marginBottom: 48, maxWidth: 680 }}>
+            <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
+              03 — The product
+            </span>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', letterSpacing: '-.025em', lineHeight: 1.05, margin: '8px 0 12px', fontWeight: 600 }}>
+              Everything included.<br />Nothing extra.
+            </h2>
+            <p style={{ color: 'var(--mute)', margin: 0, fontSize: 15, lineHeight: 1.55, maxWidth: 520 }}>
+              Every demo is the full product. No feature limits, no upgrade prompts, no per-station pricing surprise.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ maxWidth: 1180, margin: '0 auto', borderTop: '1px solid var(--line)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }} className="features-grid">
+            {FEATURES.map(({ Icon, title, body }, i) => (
+              <div key={title} style={{
+                padding: '28px 28px 32px',
+                borderRight: (i + 1) % 3 !== 0 ? '1px solid var(--line)' : 0,
+                borderBottom: '1px solid var(--line)',
+                minHeight: 180,
+              }}>
+                <span style={{ display: 'inline-grid', placeItems: 'center', width: 28, height: 28, color: 'var(--ink)', marginBottom: 14 }}>
+                  <Icon size={22} strokeWidth={1.4} />
+                </span>
+                <h4 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-.005em', margin: '0 0 6px' }}>{title}</h4>
+                <p style={{ color: 'var(--mute)', margin: 0, fontSize: 13.5, lineHeight: 1.55 }}>{body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-6 sm:py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-xs text-slate-600 sm:flex-row sm:px-6">
-          <span className="font-medium text-slate-400">
-            Cooklyt <span className="text-slate-600">by</span> Krilok
+      {/* ── Final CTA ────────────────────────────────────────────────────── */}
+      <section id="cta" style={{ textAlign: 'center', padding: '120px 0', background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
+            04 — Get in touch
           </span>
-          <span>© {new Date().getFullYear()} Krilok. All rights reserved.</span>
+          <h2 style={{ fontSize: 'clamp(36px, 5.5vw, 64px)', letterSpacing: '-.03em', lineHeight: 1, margin: '0 0 16px', fontWeight: 600 }}>
+            See CookLyt live,<br />in your browser.
+          </h2>
+          <p style={{ color: 'var(--mute)', fontSize: 15, maxWidth: 480, margin: '0 auto 32px' }}>
+            No sales call. No slideshow. Just a working demo of your restaurant running on CookLyt.
+          </p>
+
+          <a
+            href={MAILTO_HREF}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              padding: '16px 22px',
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              fontFamily: '"Geist Mono", monospace', fontSize: 14,
+              borderRadius: 8, textDecoration: 'none',
+              transition: 'transform .12s ease, background .12s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ink)'; e.currentTarget.style.transform = 'none'; }}
+          >
+            <Mail size={16} />
+            {DEMO_EMAIL}
+          </a>
+
+          <p style={{ display: 'block', marginTop: 18, color: 'var(--mute-2)', fontSize: 12 }}>
+            We reply within a few hours.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────────────────── */}
+      <footer style={{ padding: '36px 0', borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--mute)' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
+            CookLyt <span style={{ color: 'var(--mute)' }}> by </span> Krilos
+          </span>
+          <span style={{ flex: 1 }} />
+          <span className="mono num" style={{ color: 'var(--mute)' }}>© {new Date().getFullYear()} Krilos. All rights reserved.</span>
+          <span style={{ flex: 1 }} />
           <button
             onClick={() => navigate('/login')}
-            className="text-slate-600 hover:text-slate-400 transition-colors"
+            style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; }}
           >
             Client sign in →
           </button>
         </div>
       </footer>
 
+      {/* Responsive overrides */}
+      <style>{`
+        @media (max-width: 980px) {
+          .hero-grid    { grid-template-columns: 1fr !important; gap: 48px !important; }
+          .process-grid { grid-template-columns: 1fr !important; }
+          .process-grid > div { border-right: 0 !important; }
+        }
+        @media (max-width: 880px) {
+          .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .features-grid > div:nth-child(2n) { border-right: 0 !important; }
+          .features-grid > div:nth-child(3n) { border-right: 1px solid var(--line) !important; }
+          .features-grid > div:nth-child(2n):not(:nth-child(3n)) { border-right: 0 !important; }
+        }
+        @media (max-width: 760px) {
+          .stats-grid { grid-template-columns: 1fr !important; }
+          .stats-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--line); }
+          .stats-grid > div:last-child { border-bottom: 0; }
+        }
+        @media (max-width: 560px) {
+          .features-grid { grid-template-columns: 1fr !important; }
+          .features-grid > div { border-right: 0 !important; }
+        }
+        @media (max-width: 680px) {
+          .hero-grid > div:last-child { padding-right: 16px !important; padding-bottom: 16px !important; }
+        }
+      `}</style>
     </div>
   );
 }

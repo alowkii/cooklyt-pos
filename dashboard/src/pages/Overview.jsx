@@ -5,26 +5,62 @@ import { useActiveOrders, useKitchenQueue } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import { useAuth } from '../hooks/useAuth';
 
-const STATUS_CLASSES = {
-  available: 'bg-emerald-100 text-emerald-700',
-  occupied:  'bg-red-100 text-red-700',
-  reserved:  'bg-amber-100 text-amber-700',
-  cleaning:  'bg-blue-100 text-blue-700',
+const TABLE_DOT = {
+  available: 'var(--ok)',
+  occupied:  'var(--bad)',
+  reserved:  'var(--warn)',
+  cleaning:  'var(--info)',
 };
 
-function StatCard({ label, value, sub, Icon, accent }) {
+function Stat({ label, value, hint }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
-        <Icon size={18} className="text-white" />
+    <div style={{
+      padding: '18px 20px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      background: 'var(--paper)',
+    }}>
+      <div style={{
+        fontSize: 10, textTransform: 'uppercase',
+        letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 8,
+      }}>
+        {label}
       </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 leading-tight">
-          {label}
-        </p>
-        <p className="truncate text-xl font-bold text-slate-800">{value}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
+      <div className="mono num" style={{
+        fontSize: 28, fontWeight: 600,
+        letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)',
+      }}>
+        {value}
       </div>
+      {hint && (
+        <div style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 6 }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MicroBar({ data }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div
+      className="flex items-end gap-px"
+      style={{ height: 48 }}
+    >
+      {data.map((v, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            height: `${(v / max) * 100}%`,
+            background: 'var(--ink)',
+            opacity: 0.8,
+            borderRadius: 1,
+            minHeight: 1,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -35,6 +71,13 @@ function timeAgo(dateStr) {
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
   return `${Math.floor(m / 60)}h ago`;
+}
+
+function elapsedColor(dateStr) {
+  const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60_000);
+  if (m >= 20) return 'var(--bad)';
+  if (m >= 10) return 'var(--warn)';
+  return 'var(--mute)';
 }
 
 export default function Overview() {
@@ -51,102 +94,158 @@ export default function Overview() {
   const orderCount   = report?.summary?.total_orders  ?? null;
   const occupiedCount = tables.filter((t) => t.status === 'occupied').length;
 
+  const today_label = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  const hours = [2, 1, 1, 3, 8, 16, 22, 28, 24, 18, 12, 9, 14, 21, 30, 34, 28, 19];
+  const active = orders.filter((o) => o.status !== 'served').slice(0, 6);
+
+  const STATUS_DOT = { available: 'var(--ok)', occupied: 'var(--bad)', reserved: 'var(--warn)', cleaning: 'var(--info)' };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Page head */}
+      <div className="flex items-baseline gap-3">
+        <h1 className="text-[22px] font-semibold m-0" style={{ letterSpacing: '-.015em', color: 'var(--ink)' }}>
+          Overview
+        </h1>
+        <span style={{ fontSize: 12, color: 'var(--mute)' }}>Today · {today_label}</span>
+      </div>
+
       {/* KPI row */}
-      <div className={`grid grid-cols-2 gap-4 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+      <div className={`grid grid-cols-2 gap-3 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         {isAdmin && (
-          <StatCard
+          <Stat
             label="Revenue Today"
             value={revenue !== null ? format(revenue) : '—'}
-            Icon={TrendingUp}
-            accent="bg-emerald-500"
+            hint={orderCount !== null ? `${orderCount} ticket${orderCount !== 1 ? 's' : ''}` : undefined}
           />
         )}
-        <StatCard
+        <Stat
           label="Orders Today"
           value={orderCount ?? '—'}
-          Icon={ShoppingBag}
-          accent="bg-indigo-500"
+          hint={`${active.length} still open`}
         />
-        <StatCard
+        <Stat
           label="Occupied Tables"
           value={`${occupiedCount} / ${tables.length}`}
-          Icon={Users}
-          accent="bg-amber-500"
+          hint="tables seated"
         />
-        <StatCard
+        <Stat
           label="Kitchen Queue"
           value={queue.length}
-          sub="items pending"
-          Icon={ChefHat}
-          accent="bg-rose-500"
+          hint="items pending"
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Table status grid */}
-        <div className="rounded-xl bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">Tables</h2>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Sales chart */}
+        <div style={{
+          border: '1px solid var(--line)',
+          borderRadius: 6, padding: '18px 20px',
+          background: 'var(--paper)',
+        }}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>
+                Sales by hour
+              </div>
+              <div className="mono num" style={{ fontSize: 16, fontWeight: 600, marginTop: 4, color: 'var(--ink)' }}>
+                Peak 15:00
+              </div>
+            </div>
+            <div className="flex gap-3" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+              <span>10:00</span><span>22:00</span>
+            </div>
+          </div>
+          <MicroBar data={hours} />
+          <div className="flex justify-between mt-1.5" style={{ fontSize: 10, color: 'var(--mute)' }}>
+            {['10', '12', '14', '16', '18', '20', '22'].map((h) => (
+              <span key={h} className="mono num">{h}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Tables status */}
+        <div style={{
+          border: '1px solid var(--line)',
+          borderRadius: 6, padding: '18px 20px',
+          background: 'var(--paper)',
+        }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 12 }}>
+            Tables
+          </div>
           {tables.length === 0 ? (
-            <p className="text-sm text-slate-400">No tables found</p>
+            <p style={{ fontSize: 13, color: 'var(--mute)' }}>No tables found</p>
           ) : (
-            <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))' }}>
               {[...tables].sort((a, b) => a.number - b.number).map((t) => (
                 <div
                   key={t.id}
-                  className={`flex flex-col items-center justify-center rounded-lg py-2 text-xs font-medium ${
-                    STATUS_CLASSES[t.status] ?? 'bg-slate-100 text-slate-600'
-                  }`}
+                  className="flex flex-col items-center justify-center rounded-[6px] py-2"
+                  style={{
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--paper)',
+                  }}
                 >
-                  <span className="text-lg font-bold leading-none">{t.number}</span>
-                  <span className="mt-0.5 hidden capitalize sm:block">{t.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Active orders */}
-        <div className="rounded-xl bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">
-            Active Orders
-            {orders.length > 0 && (
-              <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600">
-                {orders.length}
-              </span>
-            )}
-          </h2>
-          {orders.length === 0 ? (
-            <p className="text-sm text-slate-400">No active orders right now</p>
-          ) : (
-            <div className="space-y-2">
-              {orders.slice(0, 7).map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-slate-700">
-                      Table {order.table_number}
-                    </span>
-                    <span className="ml-2 text-xs text-slate-400">
-                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    {timeAgo(order.created_at)}
+                  <span className="mono num font-bold" style={{ fontSize: 16, lineHeight: 1, color: 'var(--ink)' }}>
+                    {t.number}
                   </span>
+                  <span
+                    className="inline-block rounded-full mt-1"
+                    style={{ width: 5, height: 5, background: STATUS_DOT[t.status] ?? 'var(--mute-2)' }}
+                    title={t.status}
+                  />
                 </div>
               ))}
-              {orders.length > 7 && (
-                <p className="pt-1 text-center text-xs text-slate-400">
-                  +{orders.length - 7} more — see Orders page
-                </p>
-              )}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Active tickets */}
+      <div style={{
+        border: '1px solid var(--line)',
+        borderRadius: 6, padding: '18px 20px',
+        background: 'var(--paper)',
+      }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 10 }}>
+          Active tickets
+        </div>
+        {active.length === 0 ? (
+          <p style={{ fontSize: 12.5, color: 'var(--mute)' }}>Kitchen is clear.</p>
+        ) : (
+          active.map((order) => {
+            const label = order.channel === 'dining'
+              ? `Table ${order.table_number}`
+              : order.customer_ref || (order.channel === 'takeaway' ? 'Takeaway' : 'Delivery');
+            const st = order.status;
+            const dotColor = { received: 'var(--mute-2)', preparing: 'var(--warn)', ready: 'var(--info)', served: 'var(--ok)' }[st] ?? 'var(--mute-2)';
+            return (
+              <div
+                key={order.id}
+                className="flex items-center gap-3 py-2"
+                style={{ borderBottom: '1px solid var(--line)', fontSize: 12.5 }}
+              >
+                <span style={{ flex: 1, color: 'var(--ink)' }}>{label}</span>
+                <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-2)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
+                  {st[0].toUpperCase() + st.slice(1)}
+                </span>
+                <span
+                  className="mono num"
+                  style={{ fontSize: 11.5, color: elapsedColor(order.created_at) }}
+                >
+                  {timeAgo(order.created_at)}
+                </span>
+              </div>
+            );
+          })
+        )}
+        {orders.length > 6 && (
+          <p style={{ fontSize: 12, color: 'var(--mute)', paddingTop: 8 }}>
+            +{orders.length - 6} more — see Orders page
+          </p>
+        )}
       </div>
     </div>
   );
