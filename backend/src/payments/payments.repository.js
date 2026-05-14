@@ -47,8 +47,8 @@ const getReceiptData = (orderId, restaurantId) =>
          SUM(discount_amount)          AS discount_amount,
          SUM(packaging_fee)            AS packaging_fee,
          CASE WHEN COUNT(*) = 1 THEN MAX(method) ELSE 'split' END AS method,
-         json_agg(
-           json_build_object(
+         jsonb_agg(
+           jsonb_build_object(
              'method',  method,
              'amount',  total_charged,
              'tenders', tenders
@@ -78,15 +78,15 @@ const getReceiptData = (orderId, restaurantId) =>
        pa.discount_amount,
        pa.packaging_fee,
        COALESCE(
-         json_agg(
-           json_build_object(
+         jsonb_agg(
+           jsonb_build_object(
              'name',     mi.name,
              'quantity', oi.quantity,
              'price',    mi.price,
              'notes',    oi.notes
            ) ORDER BY mi.name
          ) FILTER (WHERE oi.id IS NOT NULL),
-         '[]'::json
+         '[]'::jsonb
        ) AS items
      FROM orders o
      JOIN restaurants    r  ON r.id  = o.restaurant_id
