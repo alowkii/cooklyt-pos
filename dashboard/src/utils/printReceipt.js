@@ -120,3 +120,95 @@ export function printReceipt(receipt, currency) {
   win.document.write(html);
   win.document.close();
 }
+
+export function printKOT(order) {
+  const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
+  const restaurantName = restaurant.name || 'Kitchen';
+
+  const token    = (order.id || '').slice(-6).toUpperCase();
+  const placed   = new Date(order.created_at);
+  const timeStr  = placed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const dateStr  = placed.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+
+  const location = order.channel === 'dining'
+    ? (order.table_number ? `TABLE ${order.table_number}` : 'DINE-IN')
+    : (order.customer_ref || (order.channel === 'takeaway' ? 'TAKEAWAY' : 'DELIVERY'));
+
+  const liveItems = (order.items || []).filter((i) => i.item_status !== 'cancelled');
+
+  const byCategory = liveItems.reduce((acc, item) => {
+    const cat = item.category || 'Other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(item);
+    return acc;
+  }, {});
+
+  const categoryBlocks = Object.entries(byCategory).map(([cat, items]) => {
+    const rows = items.map((item) => {
+      const custLabels = Object.entries(item.customizations || {})
+        .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
+      return `
+        <tr><td style="font-size:15px;font-weight:700;padding:5px 0 1px;vertical-align:top">
+          ${esc(item.quantity)}&nbsp;&times;&nbsp;${esc(item.name)}
+        </td></tr>
+        ${custLabels.length > 0
+          ? `<tr><td style="font-size:12px;color:#333;padding:0 0 2px 16px">${custLabels.map(esc).join(', ')}</td></tr>`
+          : ''}
+        ${item.notes
+          ? `<tr><td style="font-size:12px;color:#555;padding:0 0 4px 16px;font-style:italic">&#8618; ${esc(item.notes)}</td></tr>`
+          : ''}`;
+    }).join('');
+    return `
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#777;border-bottom:1px solid #bbb;padding-bottom:3px;margin-bottom:4px">${esc(cat)}</div>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KOT #${esc(token)}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
+    .c{text-align:center}
+    hr{border:none;border-top:2px dashed #444;margin:8px 0}
+    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
+  </style>
+</head>
+<body>
+  <div class="c">
+    <div style="font-size:13px">${esc(restaurantName)}</div>
+    <strong style="font-size:20px;letter-spacing:.12em">KITCHEN ORDER</strong>
+  </div>
+  <hr>
+  <table style="width:100%;border-collapse:collapse">
+    <tr>
+      <td style="font-size:11px;color:#555;text-transform:uppercase;padding-bottom:4px">Order</td>
+      <td style="text-align:right;font-size:18px;font-weight:700">#${esc(token)}</td>
+    </tr>
+    <tr>
+      <td style="font-size:11px;color:#555;text-transform:uppercase;padding-bottom:4px">Location</td>
+      <td style="text-align:right;font-size:18px;font-weight:700">${esc(location)}</td>
+    </tr>
+    <tr>
+      <td style="font-size:11px;color:#555;text-transform:uppercase">Time</td>
+      <td style="text-align:right;font-size:12px">${esc(timeStr)} &middot; ${esc(dateStr)}</td>
+    </tr>
+  </table>
+  <hr>
+  ${categoryBlocks}
+  <script>window.onload = function(){ window.focus(); window.print(); };</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=360,height=620,toolbar=no,menubar=no,scrollbars=yes');
+  if (!win) {
+    alert('Please allow pop-ups for this site to print KOTs.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}

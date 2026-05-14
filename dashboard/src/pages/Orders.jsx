@@ -3,6 +3,7 @@ import {
   Clock, ChefHat, ChevronDown, ChevronUp,
   Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer,
 } from 'lucide-react';
+import { printKOT } from '../utils/printReceipt';
 import { useActiveOrders, useUpdateOrderStatus, useUpdateItemStatus, useCancelPendingItems } from '../hooks/useOrders';
 import { useTables } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
@@ -272,7 +273,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <button className="btn btn-sm" style={{ cursor: 'default' }}>
+              <button className="btn btn-sm" onClick={() => printKOT(order)}>
                 <Printer size={12} /> Print KOT
               </button>
               {canOrder && (
