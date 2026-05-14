@@ -199,7 +199,7 @@ export default function Landing() {
             <span style={{ width: 20, height: 20, borderRadius: 4, background: 'var(--ink)', color: 'var(--accent-on)', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700 }}>
               C
             </span>
-            <span>Krilos</span>
+            <span>Krilok</span>
             <span style={{ display: 'inline-block', width: 1, height: 13, background: 'var(--line-2)', margin: '0 2px' }} />
             <span style={{ color: 'var(--mute)', fontWeight: 500 }}>CookLyt</span>
           </a>
@@ -264,7 +264,7 @@ export default function Landing() {
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ink)', display: 'inline-block' }} />
                 <span className="mono" style={{ letterSpacing: '.06em' }}>CookLyt · 01</span>
-                <span>A product by Krilos</span>
+                <span>A product by Krilok</span>
               </span>
 
               <h1 style={{
@@ -495,10 +495,10 @@ export default function Landing() {
       <footer style={{ padding: '36px 0', borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--mute)' }}>
         <div className="lp-container footer-inner" style={{ maxWidth: 1180, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
-            CookLyt <span style={{ color: 'var(--mute)' }}> by </span> Krilos
+            CookLyt <span style={{ color: 'var(--mute)' }}> by </span> Krilok
           </span>
           <span className="mono num" style={{ color: 'var(--mute)' }}>
-            © {new Date().getFullYear()} Krilos. All rights reserved.
+            © {new Date().getFullYear()} Krilok. All rights reserved.
           </span>
           <button
             onClick={() => navigate('/login')}
