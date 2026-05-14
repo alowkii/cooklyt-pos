@@ -63,12 +63,20 @@ function PrintReceiptButton({ orderId, currency }) {
   const [err, setErr] = useState('');
 
   async function handlePrint() {
+    // Open window synchronously while inside the user-gesture call stack.
+    // Browsers block window.open() called after an await (no longer a user gesture).
+    const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
+    if (!win) {
+      alert('Please allow pop-ups for this site to print receipts.');
+      return;
+    }
     setLoading(true);
     setErr('');
     try {
       const { data } = await api.get(`/payments/${orderId}/receipt`);
-      printReceipt(data, currency);
+      printReceipt(data, currency, win);
     } catch {
+      win.close();
       setErr('Failed to load receipt');
     } finally {
       setLoading(false);

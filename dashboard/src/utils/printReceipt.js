@@ -14,7 +14,7 @@ function formatPaymentMethod(receipt) {
   return detail.map((p, i) => `Bill ${i + 1}: ${p.method}`).join('  |  ');
 }
 
-export function printReceipt(receipt, currency) {
+export function printReceipt(receipt, currency, win = null) {
   const { symbol, rate, decimals } = currency;
   const fmt = (v) => `${esc(symbol)}${(parseFloat(v) * rate).toFixed(decimals)}`;
 
@@ -112,10 +112,12 @@ export function printReceipt(receipt, currency) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
   if (!win) {
-    alert('Please allow pop-ups for this site to print receipts.');
-    return;
+    win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
+    if (!win) {
+      alert('Please allow pop-ups for this site to print receipts.');
+      return;
+    }
   }
   win.document.write(html);
   win.document.close();
