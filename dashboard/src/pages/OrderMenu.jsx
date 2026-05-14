@@ -4,13 +4,13 @@ import { ChevronDown, Plus, Minus, ShoppingCart, CheckCircle, AlertCircle } from
 
 export default function OrderMenu() {
   const { tableId } = useParams();
-  const [phase, setPhase] = useState('loading'); // loading | error | menu | cart | submitting | done
+  const [phase, setPhase]         = useState('loading');
   const [tableInfo, setTableInfo] = useState(null);
-  const [items, setItems] = useState([]);
-  const [cart, setCart] = useState({}); // { [itemId]: quantity }
-  const [openCats, setOpenCats] = useState(new Set());
-  const [error, setError] = useState('');
-  const [orderId, setOrderId] = useState('');
+  const [items, setItems]         = useState([]);
+  const [cart, setCart]           = useState({});
+  const [openCats, setOpenCats]   = useState(new Set());
+  const [error, setError]         = useState('');
+  const [orderId, setOrderId]     = useState('');
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
@@ -44,9 +44,9 @@ export default function OrderMenu() {
   }, [tableId]);
 
   const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
-  const cartItems = items.filter((i) => (cart[i.id] || 0) > 0);
-  const cartCount = Object.values(cart).reduce((s, v) => s + v, 0);
-  const cartTotal = cartItems.reduce((s, i) => s + i.price * cart[i.id], 0);
+  const cartItems  = items.filter((i) => (cart[i.id] || 0) > 0);
+  const cartCount  = Object.values(cart).reduce((s, v) => s + v, 0);
+  const cartTotal  = cartItems.reduce((s, i) => s + i.price * cart[i.id], 0);
 
   function changeQty(id, delta) {
     setCart((prev) => {
@@ -91,11 +91,8 @@ export default function OrderMenu() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (phase === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-center text-slate-400">
-          <div className="mb-3 text-4xl">🍽️</div>
-          <p className="text-sm">Loading menu…</p>
-        </div>
+      <div className="flex h-screen items-center justify-center" style={{ background: 'var(--paper-2)' }}>
+        <p style={{ fontSize: 13, color: 'var(--mute)' }}>Loading menu…</p>
       </div>
     );
   }
@@ -103,10 +100,10 @@ export default function OrderMenu() {
   // ── Error ────────────────────────────────────────────────────────────────────
   if (phase === 'error') {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="flex h-screen items-center justify-center p-6" style={{ background: 'var(--paper-2)' }}>
         <div className="text-center">
-          <AlertCircle size={48} className="mx-auto mb-4 text-red-400" />
-          <p className="text-slate-600">{error}</p>
+          <AlertCircle size={40} style={{ color: 'var(--bad)', margin: '0 auto 12px' }} />
+          <p style={{ fontSize: 14, color: 'var(--mute)' }}>{error}</p>
         </div>
       </div>
     );
@@ -115,16 +112,26 @@ export default function OrderMenu() {
   // ── Order confirmed ──────────────────────────────────────────────────────────
   if (phase === 'done') {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-6">
-        <CheckCircle size={64} className="mb-5 text-emerald-500" />
-        <h2 className="mb-1 text-2xl font-bold text-slate-800">Order placed!</h2>
-        {orderId && <p className="mb-2 text-sm text-slate-500">Order #{orderId}</p>}
-        <p className="mb-8 text-center text-sm text-slate-500">
+      <div className="flex h-screen flex-col items-center justify-center p-6" style={{ background: 'var(--paper-2)' }}>
+        <CheckCircle size={56} style={{ color: 'var(--ok)', marginBottom: 20 }} />
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+          Order placed!
+        </h2>
+        {orderId && (
+          <p className="mono num" style={{ fontSize: 13, color: 'var(--mute)', marginBottom: 6 }}>
+            #{orderId}
+          </p>
+        )}
+        <p style={{ fontSize: 13, color: 'var(--mute)', textAlign: 'center', maxWidth: 280, marginBottom: 32, lineHeight: 1.6 }}>
           Your order has been sent to the kitchen. Thank you!
         </p>
         <button
           onClick={() => { setCart({}); setPhase('menu'); }}
-          className="rounded-xl bg-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow"
+          style={{
+            background: 'var(--ink)', color: 'var(--accent-on)',
+            border: 0, borderRadius: 10, padding: '12px 32px',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          }}
         >
           Order more
         </button>
@@ -135,66 +142,110 @@ export default function OrderMenu() {
   // ── Cart review ──────────────────────────────────────────────────────────────
   if (phase === 'cart' || phase === 'submitting') {
     return (
-      <div className="flex h-screen flex-col bg-slate-50">
-        <div className="bg-white px-4 pb-3 pt-4 shadow-sm">
+      <div className="flex h-screen flex-col" style={{ background: 'var(--paper-2)' }}>
+        {/* Header */}
+        <div style={{ background: 'var(--paper)', padding: '16px 16px 12px', borderBottom: '1px solid var(--line)' }}>
           <button
             onClick={() => setPhase('menu')}
-            className="mb-2 text-sm font-medium text-indigo-600"
+            style={{
+              display: 'block', marginBottom: 8,
+              fontSize: 13, fontWeight: 500, color: 'var(--ink)',
+              background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+            }}
           >
             ← Back to menu
           </button>
-          <h2 className="text-lg font-bold text-slate-800">Your Order</h2>
-          <p className="text-xs text-slate-500">
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Your Order</h2>
+          <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
             {tableInfo?.restaurant_name} · Table {tableInfo?.table_number}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        {/* Items */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: 14 }}>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-600">
-              <AlertCircle size={14} className="shrink-0" /> {error}
+            <div className="flex items-center gap-2" style={{
+              borderRadius: 8, background: 'rgba(179,55,43,.07)',
+              padding: '10px 12px', marginBottom: 12,
+              fontSize: 13, color: 'var(--bad)',
+              border: '1px solid rgba(179,55,43,.15)',
+            }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} /> {error}
             </div>
           )}
-          {cartItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
-                <p className="text-xs text-slate-400">{fmt(item.price)} each</p>
+          <div className="space-y-2">
+            {cartItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-3" style={{
+                background: 'var(--paper)',
+                border: '1px solid var(--line)',
+                borderRadius: 10,
+                padding: 12,
+              }}>
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }} className="truncate">
+                    {item.name}
+                  </p>
+                  <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1 }}>
+                    {fmt(item.price)} each
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => changeQty(item.id, -1)}
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      border: '1px solid var(--line-2)',
+                      background: 'var(--paper)', color: 'var(--ink)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <span style={{ width: 20, textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                    {cart[item.id]}
+                  </span>
+                  <button
+                    onClick={() => changeQty(item.id, 1)}
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
+                <div className="mono num" style={{ width: 64, textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                  {fmt(item.price * cart[item.id])}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => changeQty(item.id, -1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 active:bg-slate-100"
-                >
-                  <Minus size={13} />
-                </button>
-                <span className="w-5 text-center text-sm font-bold">{cart[item.id]}</span>
-                <button
-                  onClick={() => changeQty(item.id, 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white active:bg-indigo-700"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-              <div className="w-16 text-right text-sm font-semibold text-slate-800">
-                {fmt(item.price * cart[item.id])}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="border-t bg-white p-4">
-          <div className="mb-1 flex justify-between text-sm">
-            <span className="font-semibold text-slate-700">Subtotal</span>
-            <span className="font-bold text-slate-900">{fmt(cartTotal)}</span>
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid var(--line)', background: 'var(--paper)', padding: 16 }}>
+          <div className="flex justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Subtotal</span>
+            <span className="mono num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+              {fmt(cartTotal)}
+            </span>
           </div>
-          <p className="mb-4 text-xs text-slate-400">
+          <p style={{ fontSize: 11.5, color: 'var(--mute)', marginBottom: 16, lineHeight: 1.5 }}>
             Taxes and service charges will be applied by staff at checkout.
           </p>
           <button
             onClick={placeOrder}
             disabled={phase === 'submitting' || cartCount === 0}
-            className="w-full rounded-xl bg-indigo-600 py-4 text-sm font-bold text-white shadow-md active:bg-indigo-700 disabled:opacity-60"
+            style={{
+              width: '100%', borderRadius: 10, padding: '14px 0',
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              border: 0, fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              opacity: (phase === 'submitting' || cartCount === 0) ? 0.55 : 1,
+            }}
           >
             {phase === 'submitting' ? 'Placing order…' : `Place Order · ${fmt(cartTotal)}`}
           </button>
@@ -205,58 +256,98 @@ export default function OrderMenu() {
 
   // ── Menu ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen flex-col bg-slate-50">
-      <div className="bg-indigo-700 px-4 py-5 text-white">
-        <h1 className="text-lg font-bold leading-tight">{tableInfo?.restaurant_name}</h1>
-        <p className="text-sm text-indigo-200">Table {tableInfo?.table_number}</p>
+    <div className="flex h-screen flex-col" style={{ background: 'var(--paper-2)' }}>
+      {/* Header */}
+      <div style={{ background: 'var(--ink)', padding: '20px 16px 18px' }}>
+        <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--accent-on)', lineHeight: 1.2, margin: 0 }}>
+          {tableInfo?.restaurant_name}
+        </h1>
+        <p style={{ fontSize: 13, color: 'rgba(250,250,248,.55)', marginTop: 3 }}>
+          Table {tableInfo?.table_number}
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-28">
+      {/* Category accordion */}
+      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 96 }}>
         {categories.map((cat) => {
           const catItems = items.filter((i) => i.category === cat);
-          const isOpen = openCats.has(cat);
+          const isOpen   = openCats.has(cat);
           return (
-            <div key={cat} className="border-b border-slate-200 bg-white">
+            <div key={cat} style={{ borderBottom: '1px solid var(--line)', background: 'var(--paper)' }}>
               <button
-                className="flex w-full items-center justify-between px-4 py-3 text-left"
+                className="flex w-full items-center justify-between text-left"
                 onClick={() => toggleCat(cat)}
+                style={{
+                  padding: '12px 16px',
+                  background: 'transparent', border: 0, cursor: 'pointer',
+                }}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                <span style={{
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '.09em', color: 'var(--mute)',
+                }}>
                   {cat}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">{catItems.length} items</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--mute-2)' }}>{catItems.length} items</span>
                   <ChevronDown
-                    size={16}
-                    className={`text-slate-400 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
+                    size={15}
+                    style={{
+                      color: 'var(--mute-2)',
+                      transition: 'transform 150ms',
+                      transform: isOpen ? 'rotate(180deg)' : 'none',
+                    }}
                   />
                 </div>
               </button>
+
               {isOpen && (
-                <div className="px-4 pb-3 space-y-2">
+                <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {catItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+                      className="flex items-center gap-3"
+                      style={{
+                        background: 'var(--paper-2)',
+                        border: '1px solid var(--line)',
+                        borderRadius: 10,
+                        padding: 12,
+                      }}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 leading-tight">{item.name}</p>
-                        <p className="mt-0.5 text-xs font-medium text-indigo-600">{fmt(item.price)}</p>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>
+                          {item.name}
+                        </p>
+                        <p className="mono num" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', marginTop: 3 }}>
+                          {fmt(item.price)}
+                        </p>
                       </div>
+
                       {(cart[item.id] || 0) > 0 ? (
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => changeQty(item.id, -1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 active:bg-slate-100"
+                            style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              border: '1px solid var(--line-2)',
+                              background: 'var(--paper)', color: 'var(--ink)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}
                           >
                             <Minus size={14} />
                           </button>
-                          <span className="w-6 text-center text-sm font-bold text-slate-800">
+                          <span style={{ width: 24, textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
                             {cart[item.id]}
                           </span>
                           <button
                             onClick={() => changeQty(item.id, 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white active:bg-indigo-700"
+                            style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}
                           >
                             <Plus size={14} />
                           </button>
@@ -264,7 +355,12 @@ export default function OrderMenu() {
                       ) : (
                         <button
                           onClick={() => changeQty(item.id, 1)}
-                          className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm active:bg-indigo-700"
+                          style={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', flexShrink: 0,
+                          }}
                         >
                           <Plus size={18} />
                         </button>
@@ -276,25 +372,38 @@ export default function OrderMenu() {
             </div>
           );
         })}
+
         {items.length === 0 && phase === 'menu' && (
-          <div className="py-16 text-center text-sm text-slate-400">
+          <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
             Menu is empty. Please ask staff for assistance.
           </div>
         )}
       </div>
 
+      {/* Cart FAB */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4">
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 14 }}>
           <button
             onClick={() => { setError(''); setPhase('cart'); }}
-            className="flex w-full items-center gap-3 rounded-2xl bg-indigo-600 px-5 py-4 text-white shadow-xl active:bg-indigo-700"
+            className="flex w-full items-center gap-3"
+            style={{
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              border: 0, borderRadius: 14, padding: '14px 18px',
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 8px 32px -8px rgba(10,10,10,.45)',
+            }}
           >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+            <span style={{
+              width: 24, height: 24, borderRadius: '50%',
+              background: 'rgba(250,250,248,.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11.5, fontWeight: 700, flexShrink: 0,
+            }}>
               {cartCount}
-            </div>
-            <span className="flex-1 text-left text-sm font-semibold">View Order</span>
-            <span className="text-sm font-bold">{fmt(cartTotal)}</span>
-            <ShoppingCart size={18} />
+            </span>
+            <span style={{ flex: 1, textAlign: 'left', fontSize: 14, fontWeight: 600 }}>View Order</span>
+            <span className="mono num" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(cartTotal)}</span>
+            <ShoppingCart size={17} />
           </button>
         </div>
       )}
