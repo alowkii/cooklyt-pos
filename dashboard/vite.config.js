@@ -22,8 +22,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Cache API GET responses — network-first, 5s timeout, fall back to cache
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            // Only cache GET responses — POST/PATCH/DELETE must never be intercepted
+            urlPattern: ({ url, request }) =>
+              url.pathname.startsWith('/api/') && request.method === 'GET',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -38,14 +39,10 @@ export default defineConfig({
         name: 'Cooklyt — Dashboard',
         short_name: 'POS Dashboard',
         description: 'Restaurant POS management dashboard',
-        theme_color: '#1e293b',
-        background_color: '#f8fafc',
+        theme_color: '#0A0A0A',
+        background_color: '#FAFAF8',
         display: 'standalone',
         start_url: '/',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
       },
     }),
   ],
