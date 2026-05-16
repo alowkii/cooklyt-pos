@@ -336,8 +336,8 @@ export default function Orders() {
   const { data: tables = [] }            = useTables();
   const { isAdmin, user }                = useAuth();
 
-  const canCancel = isAdmin || user?.role === 'staff';
-  const canOrder  = isAdmin || user?.role === 'staff';
+  const canCancel = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canOrder  = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
 
   const [expanded,      setExpanded]      = useState(null);
   const [showNewOrder,  setShowNewOrder]  = useState(false);

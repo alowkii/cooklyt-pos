@@ -35,15 +35,22 @@ const ALL_NAV = [
   { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
 ];
 
-const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED']);
+const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);
 
 export default function Layout() {
   const { notifications, unreadCount, add, markAllRead, clearAll } = useNotifications();
+  const { user, restaurant, isAdmin, isCashier } = useAuth();
 
   useWebSocket({
     onEvent(event, payload) {
       if (!NOTIFIABLE.has(event)) return;
-      const token = payload?.orderId ? payload.orderId.slice(-6).toUpperCase() : null;
+      if (event === 'BILL_REQUESTED' && !isAdmin && !isCashier) return;
+      let token = null;
+      if (event === 'BILL_REQUESTED') {
+        token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
+      } else {
+        token = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
+      }
       add(event, token);
     },
   });
@@ -52,7 +59,6 @@ export default function Layout() {
   const [showChangePwd, setShowChangePwd] = useState(false);
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user, restaurant, isAdmin } = useAuth();
 
   useEffect(() => {
     setSidebarOpen(false);

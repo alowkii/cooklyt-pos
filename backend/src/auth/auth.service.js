@@ -77,7 +77,7 @@ async function deleteUser(targetId, requestingUserId, restaurantId) {
   return repo.deleteUser(targetId, restaurantId);
 }
 
-const VALID_ROLES = ['admin', 'staff', 'kitchen'];
+const VALID_ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
 
 async function updateUserRole(targetId, role, requestingUserId, restaurantId) {
   if (targetId === requestingUserId)

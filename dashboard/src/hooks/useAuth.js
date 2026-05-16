@@ -3,5 +3,6 @@ export function useAuth() {
   const user       = JSON.parse(localStorage.getItem('pos_user')       || '{}');
   const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
   const isAdmin    = user?.role === 'admin';
-  return { user, restaurant, isAdmin };
+  const isCashier  = user?.role === 'cashier';
+  return { user, restaurant, isAdmin, isCashier };
 }

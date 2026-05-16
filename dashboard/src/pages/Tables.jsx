@@ -36,7 +36,7 @@ export default function Tables() {
   const updatePosition = useUpdateTablePosition();
   const createTable    = useCreateTable();
   const { isAdmin, user } = useAuth();
-  const canEdit = isAdmin || user?.role === 'staff';
+  const canEdit = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
 
   const [view,     setView]     = useState('grid');
   const [selected, setSelected] = useState(null);

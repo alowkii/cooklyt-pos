@@ -1,20 +1,22 @@
 import { useState } from 'react';
-import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Check, X } from 'lucide-react';
+import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X } from 'lucide-react';
 import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 
-const ROLES = ['admin', 'staff', 'kitchen'];
+const ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
 
 const ROLE_DOT = {
   admin:   'var(--info)',
   staff:   'var(--mute)',
+  cashier: 'var(--ok)',
   kitchen: 'var(--warn)',
 };
 
 const ROLE_ICON = {
   admin:   ShieldCheck,
   staff:   User,
+  cashier: Banknote,
   kitchen: ChefHat,
 };
 
@@ -256,6 +258,7 @@ export default function Users() {
               <p style={{ marginTop: 6, fontSize: 11.5, color: 'var(--mute)' }}>
                 <strong>admin</strong> — full access ·{' '}
                 <strong>staff</strong> — orders &amp; tables ·{' '}
+                <strong>cashier</strong> — orders &amp; tables + bill alerts ·{' '}
                 <strong>kitchen</strong> — kitchen queue only
               </p>
             </div>

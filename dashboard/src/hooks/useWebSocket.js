@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Falls back to the vite proxy target in development
-const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}/ws`;
+const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export function useWebSocket({ onEvent } = {}) {
   const qc = useQueryClient();
@@ -14,6 +14,8 @@ export function useWebSocket({ onEvent } = {}) {
 
   useEffect(() => {
     if (!localStorage.getItem('pos_token')) return;
+
+    let mounted = true;
 
     function connect() {
       const ws = new WebSocket(WS_URL);
@@ -48,7 +50,8 @@ export function useWebSocket({ onEvent } = {}) {
       };
 
       ws.onclose = () => {
-        // Reconnect after 5 s if still authenticated
+        // Skip reconnect if this effect instance was already cleaned up
+        if (!mounted) return;
         timerRef.current = setTimeout(() => {
           if (localStorage.getItem('pos_token')) connect();
         }, 5000);
@@ -60,6 +63,7 @@ export function useWebSocket({ onEvent } = {}) {
     connect();
 
     return () => {
+      mounted = false;
       clearTimeout(timerRef.current);
       wsRef.current?.close();
     };

@@ -3,6 +3,7 @@ const cors = require('cors');
 const db = require('../shared/db');
 const menuRepo = require('../menu/menu.repository');
 const ordersService = require('../orders/orders.service');
+const ws = require('../shared/websocket');
 const { currencies } = require('../../../shared/settings-options.json');
 
 const router = express.Router();
@@ -148,6 +149,28 @@ router.post('/orders/:orderId/cancel', async (req, res, next) => {
     }
 
     await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/public/request-bill
+// Customer requests the bill; broadcasts a WS notification to staff
+router.post('/request-bill', async (req, res, next) => {
+  try {
+    const { tableId } = req.body;
+    if (!tableId || !UUID_RE.test(tableId)) {
+      return res.status(400).json({ error: 'tableId is required' });
+    }
+
+    const { rows } = await db.query(
+      'SELECT t.id, t.number, t.restaurant_id FROM tables t WHERE t.id = $1',
+      [tableId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
+
+    const { number: tableNumber, restaurant_id: restaurantId } = rows[0];
+    ws.broadcast('BILL_REQUESTED', { tableId, tableNumber }, restaurantId);
+
     res.json({ success: true });
   } catch (err) { next(err); }
 });

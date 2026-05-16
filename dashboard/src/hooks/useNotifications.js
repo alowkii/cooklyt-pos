@@ -6,10 +6,17 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState([]);
 
   const add = useCallback((event, token) => {
-    setNotifications((prev) => [
-      { id: Date.now() + Math.random(), event, token: token ?? null, ts: Date.now(), read: false },
-      ...prev,
-    ].slice(0, MAX));
+    setNotifications((prev) => {
+      // Deduplicate: same event + token arriving within 2 s = stale duplicate connection
+      const isDuplicate = prev.some(
+        (n) => n.event === event && n.token === token && Date.now() - n.ts < 2000,
+      );
+      if (isDuplicate) return prev;
+      return [
+        { id: Date.now() + Math.random(), event, token: token ?? null, ts: Date.now(), read: false },
+        ...prev,
+      ].slice(0, MAX);
+    });
   }, []);
 
   const markAllRead = useCallback(() => {

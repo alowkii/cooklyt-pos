@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Plus, Minus, ShoppingCart, CheckCircle, AlertCircle,
-  X, ClipboardList, Utensils,
+  X, ClipboardList, Utensils, Receipt,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -24,10 +24,23 @@ export default function OrderMenu() {
   const [showCart,     setShowCart]     = useState(false);
   const [submitting,   setSubmitting]   = useState(false);
   const [toast,        setToast]        = useState('');
-  const [activeOrders, setActiveOrders] = useState([]);
-  const [cancelling,   setCancelling]   = useState(null);
+  const [activeOrders,    setActiveOrders]    = useState([]);
+  const [cancelling,      setCancelling]      = useState(null);
+  const [billRequesting,  setBillRequesting]  = useState(false);
+  const BILL_COOLDOWN_MS = 5 * 60 * 1000;
+  const billKey = `bill_requested_at_${tableId}`;
+  const storedAt = parseInt(localStorage.getItem(billKey) || '0', 10);
+  const remaining = BILL_COOLDOWN_MS - (Date.now() - storedAt);
+  const [billDone, setBillDone] = useState(remaining > 0);
 
   const catRefs = useRef({});
+
+  // Restore bill cooldown across page refreshes
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const t = setTimeout(() => { localStorage.removeItem(billKey); setBillDone(false); }, remaining);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
@@ -125,6 +138,26 @@ export default function OrderMenu() {
       showToast(e.message);
     } finally {
       setCancelling(null);
+    }
+  }
+
+  async function requestBill() {
+    setBillRequesting(true);
+    try {
+      const res = await fetch('/api/public/request-bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId }),
+      });
+      if (!res.ok) throw new Error();
+      localStorage.setItem(billKey, String(Date.now()));
+      setBillDone(true);
+      showToast('Staff has been notified. Your bill is on the way!');
+      setTimeout(() => { localStorage.removeItem(billKey); setBillDone(false); }, BILL_COOLDOWN_MS);
+    } catch {
+      showToast('Could not send request. Please ask staff directly.');
+    } finally {
+      setBillRequesting(false);
     }
   }
 
@@ -258,7 +291,7 @@ export default function OrderMenu() {
 
   // ── Orders tab ───────────────────────────────────────────────────────────────
   const OrdersTab = (
-    <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px' }}>
+    <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px', paddingBottom: 24 }}>
       {activeOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <ClipboardList size={36} style={{ color: 'var(--mute-2)', marginBottom: 12 }} />
@@ -337,6 +370,44 @@ export default function OrderMenu() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Request Bill */}
+      {activeOrders.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{
+            borderRadius: 10,
+            border: '1px solid var(--line-2)',
+            background: 'var(--paper)',
+            padding: '14px 16px',
+          }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '0 0 4px' }}>
+              Ready to pay?
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--mute)', margin: '0 0 12px', lineHeight: 1.5 }}>
+              Notify staff to bring your bill. Taxes &amp; charges will be applied at checkout.
+            </p>
+            <button
+              onClick={requestBill}
+              disabled={billRequesting || billDone}
+              style={{
+                width: '100%', borderRadius: 8, padding: '12px 0',
+                border: billDone ? '1.5px solid var(--ok)' : '1.5px solid var(--ink)',
+                background: billDone ? 'rgba(31,138,91,.06)' : 'transparent',
+                color: billDone ? 'var(--ok)' : 'var(--ink)',
+                fontSize: 14, fontWeight: 600,
+                cursor: billRequesting || billDone ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: billRequesting ? 0.6 : 1,
+                transition: 'all .15s',
+              }}
+            >
+              <Receipt size={16} />
+              {billRequesting ? 'Requesting…' : billDone ? 'Bill requested ✓' : 'Request Bill'}
+            </button>
+          </div>
         </div>
       )}
     </div>

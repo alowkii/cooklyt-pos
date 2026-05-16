@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ClipboardList, CheckCircle2, CreditCard } from 'lucide-react';
+import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt } from 'lucide-react';
 
 const EVENT_CONFIG = {
   NEW_ORDER:         { label: 'New order',        Icon: ClipboardList, color: 'var(--info)' },
   ORDER_READY:       { label: 'Ready to serve',   Icon: CheckCircle2,  color: 'var(--ok)'   },
   PAYMENT_COMPLETED: { label: 'Payment received', Icon: CreditCard,    color: 'var(--ok)'   },
+  BILL_REQUESTED:    { label: 'Bill requested',   Icon: Receipt,       color: 'var(--warn)'  },
 };
 
 function timeAgo(ts) {
@@ -125,7 +126,7 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
                         {label}
                         {n.token && (
                           <span style={{ marginLeft: 5, fontSize: 11, color: 'var(--mute-2)', fontFamily: '"Geist Mono", monospace' }}>
-                            #{n.token}
+                            {n.token}
                           </span>
                         )}
                       </p>
