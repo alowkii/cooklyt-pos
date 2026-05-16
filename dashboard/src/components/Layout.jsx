@@ -28,7 +28,7 @@ const ALL_NAV = [
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,               adminOnly: false },
   { to: '/reports',  label: 'Reports',  Icon: BarChart2,   adminOnly: true },
   { to: '/history',  label: 'History',  Icon: ScrollText,  adminOnly: true },
-  { to: '/shift',    label: 'Shift',    Icon: Wallet,      adminOnly: false },
+  { to: '/shift',    label: 'Shift',    Icon: Wallet,      adminOnly: false, staffOnly: true },
   { to: '/users',    label: 'Users',    Icon: Users,       adminOnly: true },
   { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
 ];
@@ -46,7 +46,8 @@ export default function Layout() {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  const nav = ALL_NAV.filter((n) => !n.adminOnly || isAdmin);
+  const isKitchen = user?.role === 'kitchen';
+  const nav = ALL_NAV.filter((n) => (!n.adminOnly || isAdmin) && (!n.staffOnly || !isKitchen));
 
   const pageLabel = nav.find((n) =>
     n.end ? location.pathname === n.to : location.pathname.startsWith(n.to),

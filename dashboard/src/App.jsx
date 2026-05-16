@@ -29,6 +29,12 @@ function RequireAdmin({ children }) {
   return children;
 }
 
+function RequireNotKitchen({ children }) {
+  const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
+  if (user?.role === 'kitchen') return <Navigate to="/orders" replace />;
+  return children;
+}
+
 function getTokenClaims() {
   const token = localStorage.getItem('pos_token');
   if (!token) return null;
@@ -92,7 +98,7 @@ export default function App() {
           <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
           <Route path="/history"  element={<RequireAdmin><OrderHistory /></RequireAdmin>} />
-          <Route path="/shift"    element={<ShiftCount />} />
+          <Route path="/shift"    element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
