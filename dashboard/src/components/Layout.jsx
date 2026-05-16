@@ -14,6 +14,11 @@ import {
   X,
   KeyRound,
   Wallet,
+  FlaskConical,
+  BookOpen,
+  Package,
+  Trash2,
+  TrendingUp,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
@@ -24,15 +29,20 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 
 const ALL_NAV = [
-  { to: '/overview', label: 'Overview', Icon: LayoutDashboard, end: true,  adminOnly: false },
-  { to: '/menu',     label: 'Menu',     Icon: UtensilsCrossed,             adminOnly: false },
-  { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                     adminOnly: false },
-  { to: '/orders',   label: 'Orders',   Icon: ClipboardList,               adminOnly: false },
-  { to: '/reports',  label: 'Reports',  Icon: BarChart2,   adminOnly: true },
-  { to: '/history',  label: 'History',  Icon: ScrollText,  adminOnly: true },
-  { to: '/shift',    label: 'Shift',    Icon: Wallet,      adminOnly: false, staffOnly: true },
-  { to: '/users',    label: 'Users',    Icon: Users,       adminOnly: true },
-  { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
+  { to: '/overview',     label: 'Overview',     Icon: LayoutDashboard, end: true, adminOnly: false },
+  { to: '/menu',         label: 'Menu',         Icon: UtensilsCrossed,            adminOnly: false },
+  { to: '/tables',       label: 'Tables',       Icon: Grid3X3,                    adminOnly: false },
+  { to: '/orders',       label: 'Orders',       Icon: ClipboardList,              adminOnly: false },
+  { to: '/reports',      label: 'Reports',      Icon: BarChart2,                  adminOnly: true  },
+  { to: '/history',      label: 'History',      Icon: ScrollText,                 adminOnly: true  },
+  { to: '/shift',        label: 'Shift',        Icon: Wallet,                     adminOnly: false, staffOnly: true },
+  { to: '/ingredients',  label: 'Ingredients',  Icon: FlaskConical,               adminOnly: true  },
+  { to: '/recipes',      label: 'Recipes',      Icon: BookOpen,                   adminOnly: true  },
+  { to: '/combos',       label: 'Combos',       Icon: Package,                    adminOnly: true  },
+  { to: '/waste',        label: 'Waste Log',    Icon: Trash2,                     adminOnly: true  },
+  { to: '/costing',      label: 'Costing',      Icon: TrendingUp,                 adminOnly: true  },
+  { to: '/users',        label: 'Users',        Icon: Users,                      adminOnly: true  },
+  { to: '/settings',     label: 'Settings',     Icon: Settings,                   adminOnly: true  },
 ];
 
 const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);

@@ -29,7 +29,7 @@ const create = ({ name, price, category, sku, restaurantId, customizationGroups 
     )
     .then((r) => r.rows[0]);
 
-const update = (id, { name, price, category, available, sku, customizationGroups }, restaurantId) =>
+const update = (id, { name, price, category, available, sku, customizationGroups, recipeId }, restaurantId) =>
   db
     .query(
       `UPDATE menu_items
@@ -38,11 +38,13 @@ const update = (id, { name, price, category, available, sku, customizationGroups
            category             = COALESCE($3, category),
            available            = COALESCE($4, available),
            sku                  = COALESCE($5, sku),
-           customization_groups = COALESCE($6, customization_groups)
-       WHERE id = $7 AND restaurant_id = $8
+           customization_groups = COALESCE($6, customization_groups),
+           recipe_id            = CASE WHEN $7::boolean THEN $8::uuid ELSE recipe_id END
+       WHERE id = $9 AND restaurant_id = $10
        RETURNING *`,
       [name, price, category, available, sku || null,
        customizationGroups !== undefined ? JSON.stringify(customizationGroups) : null,
+       recipeId !== undefined, recipeId || null,
        id, restaurantId],
     )
     .then((r) => r.rows[0]);

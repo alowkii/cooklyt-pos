@@ -1,0 +1,27 @@
+const db = require('../shared/db');
+
+const getAll = (restaurantId, { from, to } = {}) =>
+  db
+    .query(
+      `SELECT wl.*, i.name AS ingredient_name, i.unit AS ingredient_unit
+       FROM waste_logs wl
+       JOIN ingredients i ON i.id = wl.ingredient_id
+       WHERE wl.restaurant_id = $1
+         AND ($2::date IS NULL OR wl.logged_at::date >= $2::date)
+         AND ($3::date IS NULL OR wl.logged_at::date <= $3::date)
+       ORDER BY wl.logged_at DESC`,
+      [restaurantId, from || null, to || null],
+    )
+    .then((r) => r.rows);
+
+const create = ({ restaurantId, ingredientId, quantity, unit, reason, costAtTime, totalCost, loggedBy, notes }) =>
+  db
+    .query(
+      `INSERT INTO waste_logs
+         (restaurant_id, ingredient_id, quantity, unit, reason, cost_at_time, total_cost, logged_by, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [restaurantId, ingredientId, quantity, unit, reason, costAtTime, totalCost, loggedBy || null, notes || null],
+    )
+    .then((r) => r.rows[0]);
+
+module.exports = { getAll, create };

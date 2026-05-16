@@ -9,14 +9,19 @@ import Login          from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Landing  from './pages/Landing';
 import Overview from './pages/Overview';
-import Menu     from './pages/Menu';
-import Tables   from './pages/Tables';
-import Orders   from './pages/Orders';
-import Reports  from './pages/Reports';
-import Users    from './pages/Users';
-import Settings from './pages/Settings';
-import OrderHistory from './pages/OrderHistory';
-import ShiftCount   from './pages/ShiftCount';
+import Menu           from './pages/Menu';
+import Tables          from './pages/Tables';
+import Orders          from './pages/Orders';
+import Reports         from './pages/Reports';
+import Users           from './pages/Users';
+import Settings        from './pages/Settings';
+import OrderHistory    from './pages/OrderHistory';
+import ShiftCount      from './pages/ShiftCount';
+import Ingredients     from './pages/Ingredients';
+import Recipes         from './pages/Recipes';
+import Combos          from './pages/Combos';
+import WasteLog        from './pages/WasteLog';
+import CostingReports  from './pages/CostingReports';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
@@ -98,7 +103,12 @@ export default function App() {
           <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
           <Route path="/history"  element={<RequireAdmin><OrderHistory /></RequireAdmin>} />
-          <Route path="/shift"    element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
+          <Route path="/shift"       element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
+          <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
+          <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />
+          <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
+          <Route path="/waste"       element={<RequireAdmin><WasteLog /></RequireAdmin>} />
+          <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

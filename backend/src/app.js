@@ -48,9 +48,15 @@ app.use('/api/tables',      require('./tables/tables.router'));
 app.use('/api/orders',      require('./orders/orders.router'));
 app.use('/api/payments',    require('./payments/payments.router'));
 app.use('/api/kitchen',     require('./kitchen/kitchen.router'));
-app.use('/api/reports',     require('./reports/reports.router'));
-app.use('/api/settings',    require('./settings/settings.router'));
-app.use('/api/shift',       require('./shift/shift.router'));
+app.use('/api/reports',      require('./reports/reports.router'));
+app.use('/api/settings',     require('./settings/settings.router'));
+app.use('/api/shift',        require('./shift/shift.router'));
+app.use('/api/ingredients',  require('./ingredients/ingredients.router'));
+app.use('/api/recipes',      require('./recipes/recipes.router'));
+app.use('/api/combos',       require('./combos/combos.router'));
+app.use('/api/modifiers',    require('./modifiers/modifiers.router'));
+app.use('/api/waste',        require('./waste/waste.router'));
+app.use('/api/inventory',    require('./inventory/inventory.router'));
 
 // 404
 app.use((req, res) => {
