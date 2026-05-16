@@ -322,7 +322,7 @@ export default function Tables() {
                 </span>
                 <TableStatusDot status={t.status} />
               </button>
-              {isAdmin && (
+              {canEdit && (
                 <button
                   onClick={() => handleQrClick(t)}
                   title="Show QR code"
