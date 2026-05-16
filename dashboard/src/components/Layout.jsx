@@ -19,6 +19,8 @@ import {
   Package,
   Trash2,
   TrendingUp,
+  ChefHat,
+  ChevronDown,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
@@ -28,21 +30,28 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 
+const RMS_PATHS = ['/ingredients', '/recipes', '/combos', '/waste', '/costing'];
+
 const ALL_NAV = [
-  { to: '/overview',     label: 'Overview',     Icon: LayoutDashboard, end: true, adminOnly: false },
-  { to: '/menu',         label: 'Menu',         Icon: UtensilsCrossed,            adminOnly: false },
-  { to: '/tables',       label: 'Tables',       Icon: Grid3X3,                    adminOnly: false },
-  { to: '/orders',       label: 'Orders',       Icon: ClipboardList,              adminOnly: false },
-  { to: '/reports',      label: 'Reports',      Icon: BarChart2,                  adminOnly: true  },
-  { to: '/history',      label: 'History',      Icon: ScrollText,                 adminOnly: true  },
-  { to: '/shift',        label: 'Shift',        Icon: Wallet,                     adminOnly: false, staffOnly: true },
-  { to: '/ingredients',  label: 'Ingredients',  Icon: FlaskConical,               adminOnly: true  },
-  { to: '/recipes',      label: 'Recipes',      Icon: BookOpen,                   adminOnly: true  },
-  { to: '/combos',       label: 'Combos',       Icon: Package,                    adminOnly: true  },
-  { to: '/waste',        label: 'Waste Log',    Icon: Trash2,                     adminOnly: true  },
-  { to: '/costing',      label: 'Costing',      Icon: TrendingUp,                 adminOnly: true  },
-  { to: '/users',        label: 'Users',        Icon: Users,                      adminOnly: true  },
-  { to: '/settings',     label: 'Settings',     Icon: Settings,                   adminOnly: true  },
+  { to: '/overview', label: 'Overview', Icon: LayoutDashboard, end: true, adminOnly: false },
+  { to: '/menu',     label: 'Menu',     Icon: UtensilsCrossed,            adminOnly: false },
+  { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                    adminOnly: false },
+  { to: '/orders',   label: 'Orders',   Icon: ClipboardList,              adminOnly: false },
+  { to: '/reports',  label: 'Reports',  Icon: BarChart2,                  adminOnly: true  },
+  { to: '/history',  label: 'History',  Icon: ScrollText,                 adminOnly: true  },
+  { to: '/shift',    label: 'Shift',    Icon: Wallet,                     adminOnly: false, staffOnly: true },
+  {
+    type: 'group', label: 'Recipe Mgmt', Icon: ChefHat, adminOnly: true,
+    children: [
+      { to: '/ingredients', label: 'Ingredients', Icon: FlaskConical },
+      { to: '/recipes',     label: 'Recipes',     Icon: BookOpen     },
+      { to: '/combos',      label: 'Combos',      Icon: Package      },
+      { to: '/waste',       label: 'Waste Log',   Icon: Trash2       },
+      { to: '/costing',     label: 'Costing',     Icon: TrendingUp   },
+    ],
+  },
+  { to: '/users',    label: 'Users',    Icon: Users,                      adminOnly: true  },
+  { to: '/settings', label: 'Settings', Icon: Settings,                   adminOnly: true  },
 ];
 
 const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);
@@ -65,21 +74,36 @@ export default function Layout() {
     },
   });
 
-  const [sidebarOpen,   setSidebarOpen]   = useState(false);
-  const [showChangePwd, setShowChangePwd] = useState(false);
   const navigate  = useNavigate();
   const location  = useLocation();
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [rmsOpen,       setRmsOpen]       = useState(() =>
+    RMS_PATHS.some(p => location.pathname.startsWith(p)),
+  );
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (RMS_PATHS.some(p => location.pathname.startsWith(p))) setRmsOpen(true);
+  }, [location.pathname]);
+
   const isKitchen = user?.role === 'kitchen';
   const nav = ALL_NAV.filter((n) => (!n.adminOnly || isAdmin) && (!n.staffOnly || !isKitchen));
 
-  const pageLabel = nav.find((n) =>
-    n.end ? location.pathname === n.to : location.pathname.startsWith(n.to),
-  )?.label ?? '';
+  const pageLabel = (() => {
+    for (const n of nav) {
+      if (n.type === 'group') {
+        const child = n.children.find(c => location.pathname.startsWith(c.to));
+        if (child) return child.label;
+      } else if (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)) {
+        return n.label;
+      }
+    }
+    return '';
+  })();
 
   useEffect(() => {
     document.title = pageLabel ? `${pageLabel} — Cooklyt` : 'Cooklyt';
@@ -137,40 +161,104 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex flex-1 flex-col gap-px px-2 py-3 overflow-y-auto">
-          {nav.map(({ to, label, Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-[6px] px-2.5 text-[12.5px] font-medium transition-colors duration-75 ${
-                  isActive ? 'nav-active' : 'nav-default'
-                }`
-              }
-              style={({ isActive }) => ({
-                height: 36,
-                background: isActive ? 'var(--paper-2)' : 'transparent',
-                color: isActive ? 'var(--ink)' : 'var(--mute)',
-              })}
-              onMouseEnter={(e) => {
-                if (!e.currentTarget.classList.contains('nav-active')) {
-                  e.currentTarget.style.background = 'var(--hover)';
-                  e.currentTarget.style.color = 'var(--ink)';
+          {nav.map((item) => {
+            if (item.type === 'group') {
+              const GroupIcon = item.Icon;
+              const groupActive = item.children.some(c => location.pathname.startsWith(c.to));
+              return (
+                <div key="rms-group">
+                  <button
+                    onClick={() => setRmsOpen(o => !o)}
+                    className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12.5px] font-medium transition-colors duration-75"
+                    style={{ height: 36, background: groupActive ? 'var(--paper-2)' : 'transparent', color: groupActive ? 'var(--ink)' : 'var(--mute)' }}
+                    onMouseEnter={(e) => { if (!groupActive) { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; } }}
+                    onMouseLeave={(e) => { if (!groupActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; } }}
+                  >
+                    <GroupIcon size={16} />
+                    {item.label}
+                    <ChevronDown
+                      size={12}
+                      className="ml-auto shrink-0"
+                      style={{ transform: rmsOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+                    />
+                  </button>
+                  {rmsOpen && (
+                    <div
+                      className="mt-px flex flex-col gap-px pb-px"
+                      style={{ borderLeft: '1px solid var(--line)', marginLeft: 14, paddingLeft: 6 }}
+                    >
+                      {item.children.map(({ to, label, Icon }) => (
+                        <NavLink
+                          key={to}
+                          to={to}
+                          className={({ isActive }) =>
+                            `flex items-center gap-2 rounded-[6px] px-2.5 text-[12px] font-medium transition-colors duration-75 ${
+                              isActive ? 'nav-active' : 'nav-default'
+                            }`
+                          }
+                          style={({ isActive }) => ({
+                            height: 32,
+                            background: isActive ? 'var(--paper-2)' : 'transparent',
+                            color: isActive ? 'var(--ink)' : 'var(--mute)',
+                          })}
+                          onMouseEnter={(e) => {
+                            if (!e.currentTarget.classList.contains('nav-active')) {
+                              e.currentTarget.style.background = 'var(--hover)';
+                              e.currentTarget.style.color = 'var(--ink)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!location.pathname.startsWith(to)) {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.color = 'var(--mute)';
+                            }
+                          }}
+                        >
+                          <Icon size={13} />
+                          {label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const { to, label, Icon, end } = item;
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 rounded-[6px] px-2.5 text-[12.5px] font-medium transition-colors duration-75 ${
+                    isActive ? 'nav-active' : 'nav-default'
+                  }`
                 }
-              }}
-              onMouseLeave={(e) => {
-                const isActive = location.pathname.startsWith(to) ||
-                  (end && location.pathname === to);
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--mute)';
-                }
-              }}
-            >
-              <Icon size={16} />
-              {label}
-            </NavLink>
-          ))}
+                style={({ isActive }) => ({
+                  height: 36,
+                  background: isActive ? 'var(--paper-2)' : 'transparent',
+                  color: isActive ? 'var(--ink)' : 'var(--mute)',
+                })}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.classList.contains('nav-active')) {
+                    e.currentTarget.style.background = 'var(--hover)';
+                    e.currentTarget.style.color = 'var(--ink)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const active = location.pathname.startsWith(to) || (end && location.pathname === to);
+                  if (!active) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--mute)';
+                  }
+                }}
+              >
+                <Icon size={16} />
+                {label}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* Footer */}
