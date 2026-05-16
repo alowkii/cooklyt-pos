@@ -36,7 +36,7 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
 }
 
 // Returns bill for the full order, or for specific order_item IDs (split preview)
-async function getBill(orderId, restaurantId, orderItemIds = null) {
+async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceCharge = false) {
   const order = await ordersInterface.getOrderById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
 
@@ -46,7 +46,7 @@ async function getBill(orderId, restaurantId, orderItemIds = null) {
   ]);
 
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
-  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const serviceChargeRate = waiveServiceCharge ? 0 : parseFloat(settings.service_charge || '0') / 100;
   const packagingFeeTotal = order.channel !== 'dining'
     ? parseFloat(settings.packaging_fee || '0')
     : 0;
@@ -75,7 +75,7 @@ async function getBill(orderId, restaurantId, orderItemIds = null) {
   return { ...bill, items: allItems };
 }
 
-async function processPayment(orderId, { method, tenders: tendersInput, amountTendered }, restaurantId) {
+async function processPayment(orderId, { method, tenders: tendersInput, amountTendered, waiveServiceCharge = false }, restaurantId) {
   let effectiveMethod;
   let effectiveTenders = null;
 
@@ -100,7 +100,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
 
   const settings          = await settingsRepo.getAll(restaurantId);
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
-  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const serviceChargeRate = waiveServiceCharge ? 0 : parseFloat(settings.service_charge || '0') / 100;
   const packagingFee      = order.channel !== 'dining'
     ? parseFloat(settings.packaging_fee || '0')
     : 0;
@@ -148,7 +148,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
 // Split bill by items — each split has its own tender(s); order marked paid atomically.
 // Each split.items entry is { orderItemId, quantity } — quantities may be partial
 // (e.g. 2 of 5 burgers on one split, 3 on the other).
-async function processSplitPayment(orderId, { splits }, restaurantId) {
+async function processSplitPayment(orderId, { splits, waiveServiceCharge = false }, restaurantId) {
   if (!Array.isArray(splits) || splits.length < 2) {
     throw new ValidationError('Split payment requires at least 2 splits');
   }
@@ -163,7 +163,7 @@ async function processSplitPayment(orderId, { splits }, restaurantId) {
   ]);
 
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
-  const serviceChargeRate = parseFloat(settings.service_charge || '0') / 100;
+  const serviceChargeRate = waiveServiceCharge ? 0 : parseFloat(settings.service_charge || '0') / 100;
   const packagingFeeTotal = order.channel !== 'dining'
     ? parseFloat(settings.packaging_fee || '0')
     : 0;

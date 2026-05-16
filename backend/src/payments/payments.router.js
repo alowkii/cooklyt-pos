@@ -45,7 +45,8 @@ router.get('/:orderId/receipt', authenticate, async (req, res, next) => {
 router.get('/:orderId/bill', authenticate, async (req, res, next) => {
   try {
     const itemIds = req.query.itemIds ? req.query.itemIds.split(',').filter(Boolean) : null;
-    res.json(await service.getBill(req.params.orderId, req.user.restaurantId, itemIds));
+    const waiveServiceCharge = req.query.waive === 'true';
+    res.json(await service.getBill(req.params.orderId, req.user.restaurantId, itemIds, waiveServiceCharge));
   } catch (e) {
     next(e);
   }

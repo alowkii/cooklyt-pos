@@ -145,7 +145,7 @@ function DiscountSection({ orderId, bill, format }) {
   );
 }
 
-function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true }) {
+function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, waiveServiceCharge = false, onWaiveChange }) {
   return (
     <div className="rounded-[6px] p-4 space-y-1.5" style={{ border: '1px solid var(--line)', background: 'var(--paper-2)' }}>
       {billLoading ? (
@@ -164,8 +164,37 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
             {bill.taxRate > 0 && (
               <BillRow label={`Tax (${+(bill.taxRate * 100).toFixed(4)}%)`} value={bill.taxAmount} format={format} />
             )}
-            {bill.serviceChargeRate > 0 && (
-              <BillRow label={`Service charge (${+(bill.serviceChargeRate * 100).toFixed(4)}%)`} value={bill.serviceChargeAmount} format={format} />
+            {(bill.serviceChargeRate > 0 || waiveServiceCharge) && (
+              waiveServiceCharge ? (
+                <div className="flex items-center justify-between" style={{ fontSize: 13, color: 'var(--ok)' }}>
+                  <span>Service charge waived</span>
+                  {onWaiveChange && (
+                    <button type="button" onClick={() => onWaiveChange(false)}
+                      style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer', padding: 0 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                      title="Restore service charge">
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between" style={{ fontSize: 13, color: 'var(--mute)' }}>
+                  <span>Service charge ({+(bill.serviceChargeRate * 100).toFixed(4)}%)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="mono num">{format(bill.serviceChargeAmount)}</span>
+                    {onWaiveChange && (
+                      <button type="button" onClick={() => onWaiveChange(true)}
+                        style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer', padding: 0 }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                        title="Waive service charge">
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
             )}
             {bill.packagingFee > 0 && (
               <BillRow label="Packaging fee" value={bill.packagingFee} format={format} />
@@ -197,20 +226,22 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const processPayment      = useProcessPayment();
   const processSplitPayment = useProcessSplitPayment();
   const { format, currency } = useCurrency();
-  const { data: bill, isLoading: billLoading } = useBill(order.id);
 
   const [mode, setMode] = useState('full');
-  const [method,         setMethod]         = useState('cash');
-  const [splitTender,    setSplitTender]    = useState(false);
-  const [tender1Amount,  setTender1Amount]  = useState('');
-  const [method2,        setMethod2]        = useState('mobile');
-  const [amountTendered, setAmountTendered] = useState('');
-  const [quantities,     setQuantities]     = useState({});
-  const [splitMethods,   setSplitMethods]   = useState({ 1: 'cash', 2: 'mobile' });
-  const [result,         setResult]         = useState(null);
-  const [error,          setError]          = useState('');
-  const [printing,       setPrinting]       = useState(false);
-  const [printError,     setPrintError]     = useState('');
+  const [method,            setMethod]            = useState('cash');
+  const [splitTender,       setSplitTender]       = useState(false);
+  const [tender1Amount,     setTender1Amount]     = useState('');
+  const [method2,           setMethod2]           = useState('mobile');
+  const [amountTendered,    setAmountTendered]    = useState('');
+  const [quantities,        setQuantities]        = useState({});
+  const [splitMethods,      setSplitMethods]      = useState({ 1: 'cash', 2: 'mobile' });
+  const [waiveServiceCharge, setWaiveServiceCharge] = useState(false);
+
+  const { data: bill, isLoading: billLoading } = useBill(order.id, { waiveServiceCharge });
+  const [result,            setResult]            = useState(null);
+  const [error,             setError]             = useState('');
+  const [printing,          setPrinting]          = useState(false);
+  const [printError,        setPrintError]        = useState('');
 
   const bill1Items = useMemo(
     () => (bill?.items ?? []).map((i) => ({ ...i, quantity: quantities[i.id] ?? i.quantity })).filter((i) => i.quantity > 0),
@@ -252,6 +283,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
       payload.method = method;
       if (method === 'cash' && amountTendered) { payload.amountTendered = parseFloat(amountTendered) / currency.rate; }
     }
+    if (waiveServiceCharge) payload.waiveServiceCharge = true;
     try {
       const data = await processPayment.mutateAsync(payload);
       setResult(data);
@@ -267,7 +299,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
       { items: bill2Items.map((i) => ({ orderItemId: i.id, quantity: i.quantity })), tenders: [{ method: splitMethods[2], amount: parseFloat(bill2Total.toFixed(4)) }] },
     ];
     try {
-      const data = await processSplitPayment.mutateAsync({ orderId: order.id, splits });
+      const data = await processSplitPayment.mutateAsync({ orderId: order.id, splits, waiveServiceCharge });
       setResult(data);
     } catch (err) { setError(err.response?.data?.error || err.message || 'Payment failed'); }
   }
@@ -341,7 +373,8 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
         {/* Full bill mode */}
         {mode === 'full' && (
           <form onSubmit={handleFullSubmit} className="space-y-5">
-            <BillBreakdown bill={bill} billLoading={billLoading} orderId={order.id} format={format} />
+            <BillBreakdown bill={bill} billLoading={billLoading} orderId={order.id} format={format}
+              waiveServiceCharge={waiveServiceCharge} onWaiveChange={setWaiveServiceCharge} />
 
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -432,6 +465,25 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
             ) : (
               <>
                 <div>
+                  {(bill.serviceChargeRate > 0 || waiveServiceCharge) && (
+                    <div className="flex items-center justify-between mb-3 pb-3" style={{ borderBottom: '1px solid var(--line)' }}>
+                      <span style={{ fontSize: 12.5, color: 'var(--mute)' }}>
+                        Service charge ({waiveServiceCharge ? 'waived' : `${+(bill.serviceChargeRate * 100).toFixed(4)}%`})
+                      </span>
+                      <button type="button"
+                        onClick={() => setWaiveServiceCharge((v) => !v)}
+                        style={{
+                          fontSize: 11.5, fontWeight: 500, border: 0, background: 'transparent',
+                          cursor: 'pointer', padding: 0,
+                          color: waiveServiceCharge ? 'var(--ok)' : 'var(--mute)',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = waiveServiceCharge ? 'var(--mute)' : 'var(--bad)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = waiveServiceCharge ? 'var(--ok)' : 'var(--mute)')}
+                      >
+                        {waiveServiceCharge ? 'Restore' : 'Waive'}
+                      </button>
+                    </div>
+                  )}
                   <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 8 }}>
                     Assign Items to Each Bill
                   </p>
