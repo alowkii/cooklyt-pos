@@ -102,7 +102,7 @@ const updateItemStatus = (itemId, orderId, status) =>
 
 const getItemStatuses = (orderId) =>
   db
-    .query('SELECT id, status FROM order_items WHERE order_id = $1', [orderId])
+    .query('SELECT id, status, menu_item_id, quantity FROM order_items WHERE order_id = $1', [orderId])
     .then((r) => r.rows);
 
 const setDiscount = (id, discountType, discountValue) =>

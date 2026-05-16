@@ -17,11 +17,12 @@ import Users           from './pages/Users';
 import Settings        from './pages/Settings';
 import OrderHistory    from './pages/OrderHistory';
 import ShiftCount      from './pages/ShiftCount';
-import Ingredients     from './pages/Ingredients';
-import Recipes         from './pages/Recipes';
-import Combos          from './pages/Combos';
-import WasteLog        from './pages/WasteLog';
-import CostingReports  from './pages/CostingReports';
+import Ingredients      from './pages/Ingredients';
+import Recipes          from './pages/Recipes';
+import Combos           from './pages/Combos';
+import WasteLog         from './pages/WasteLog';
+import CostingReports   from './pages/CostingReports';
+import InventoryLedger  from './pages/InventoryLedger';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/history"  element={<RequireAdmin><OrderHistory /></RequireAdmin>} />
           <Route path="/shift"       element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
           <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
+          <Route path="/inventory"   element={<RequireAdmin><InventoryLedger /></RequireAdmin>} />
           <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />
           <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
           <Route path="/waste"       element={<RequireAdmin><WasteLog /></RequireAdmin>} />

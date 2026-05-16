@@ -21,11 +21,11 @@ const getById = (id, restaurantId) =>
     .query('SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-const create = ({ name, price, category, sku, restaurantId, customizationGroups }) =>
+const create = ({ name, price, category, sku, restaurantId, customizationGroups, recipeId }) =>
   db
     .query(
-      'INSERT INTO menu_items (name, price, category, sku, restaurant_id, customization_groups) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, price, category, sku || null, restaurantId, JSON.stringify(customizationGroups || [])],
+      'INSERT INTO menu_items (name, price, category, sku, restaurant_id, customization_groups, recipe_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [name, price, category, sku || null, restaurantId, JSON.stringify(customizationGroups || []), recipeId || null],
     )
     .then((r) => r.rows[0]);
 

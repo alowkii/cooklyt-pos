@@ -2,7 +2,6 @@ const repo = require('./payments.repository');
 const ordersInterface = require('../orders/orders.interface');
 const tablesInterface = require('../tables/tables.interface');
 const settingsRepo = require('../settings/settings.repository');
-const inventoryService = require('../inventory/inventory.service');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError, AppError } = require('../shared/errors');
 
@@ -133,10 +132,6 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
   }
 
-  // Deduct recipe ingredients from stock — best-effort, never fails payment
-  const orderItems = await ordersInterface.getOrderItems(orderId, restaurantId);
-  inventoryService.deductForOrder(orderId, restaurantId, orderItems);
-
   ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
 
   return {
@@ -251,10 +246,6 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
   }
-
-  // Deduct recipe ingredients from stock — best-effort, never fails payment
-  const orderItems = await ordersInterface.getOrderItems(orderId, restaurantId);
-  inventoryService.deductForOrder(orderId, restaurantId, orderItems);
 
   const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));
   ws.broadcast('PAYMENT_COMPLETED', { orderId, total: totalCharged }, restaurantId);

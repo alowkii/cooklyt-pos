@@ -21,6 +21,7 @@ import {
   TrendingUp,
   ChefHat,
   ChevronDown,
+  Layers,
 } from 'lucide-react';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
@@ -30,7 +31,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 
-const RMS_PATHS = ['/ingredients', '/recipes', '/combos', '/waste', '/costing'];
+const RMS_PATHS = ['/ingredients', '/inventory', '/recipes', '/combos', '/waste', '/costing'];
 
 const ALL_NAV = [
   { to: '/overview', label: 'Overview', Icon: LayoutDashboard, end: true, adminOnly: false },
@@ -43,11 +44,12 @@ const ALL_NAV = [
   {
     type: 'group', label: 'Recipe Mgmt', Icon: ChefHat, adminOnly: true,
     children: [
-      { to: '/ingredients', label: 'Ingredients', Icon: FlaskConical },
-      { to: '/recipes',     label: 'Recipes',     Icon: BookOpen     },
-      { to: '/combos',      label: 'Combos',      Icon: Package      },
-      { to: '/waste',       label: 'Waste Log',   Icon: Trash2       },
-      { to: '/costing',     label: 'Costing',     Icon: TrendingUp   },
+      { to: '/ingredients', label: 'Ingredients',  Icon: FlaskConical },
+      { to: '/inventory',   label: 'Ledger',        Icon: Layers       },
+      { to: '/recipes',     label: 'Recipes',       Icon: BookOpen     },
+      { to: '/combos',      label: 'Combos',        Icon: Package      },
+      { to: '/waste',       label: 'Waste Log',     Icon: Trash2       },
+      { to: '/costing',     label: 'Costing',       Icon: TrendingUp   },
     ],
   },
   { to: '/users',    label: 'Users',    Icon: Users,                      adminOnly: true  },

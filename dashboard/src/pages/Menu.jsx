@@ -1,17 +1,18 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff, BookOpen } from 'lucide-react';
 import {
   useMenuItems,
   useCreateMenuItem,
   useUpdateMenuItem,
   useDeleteMenuItem,
 } from '../hooks/useMenu';
+import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import { useCurrency } from '../context/CurrencyContext';
 
 const FORM_CATEGORIES = ['starters', 'mains', 'desserts', 'drinks', 'sides', 'other'];
-const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', customizationGroups: [] };
+const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', recipeId: '', customizationGroups: [] };
 
 function newGroup() {
   return { name: '', type: 'single', required: false, options: [{ label: '', priceAdd: 0 }] };
@@ -152,6 +153,7 @@ function CustomizationGroupsEditor({ groups, onChange }) {
 
 export default function Menu() {
   const { data: items = [], isLoading } = useMenuItems();
+  const { data: recipes = [] } = useRecipes();
   const { isAdmin }  = useAuth();
   const { format, currency } = useCurrency();
   const createItem = useCreateMenuItem();
@@ -200,6 +202,7 @@ export default function Menu() {
       category:            item.category || 'mains',
       available:           item.available,
       sku:                 item.sku || '',
+      recipeId:            item.recipe_id || '',
       customizationGroups: item.customization_groups || [],
     });
     setModal(item);
@@ -207,7 +210,7 @@ export default function Menu() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = { ...form, price: parseFloat(form.price) / currency.rate, sku: form.sku.trim() || undefined };
+    const payload = { ...form, price: parseFloat(form.price) / currency.rate, sku: form.sku.trim() || undefined, recipeId: form.recipeId || undefined };
     if (modal === 'add') { await createItem.mutateAsync(payload); }
     else                 { await updateItem.mutateAsync({ id: modal.id, ...payload }); }
     setModal(null);
@@ -365,6 +368,16 @@ export default function Menu() {
                       {item.sku}
                     </span>
                   )}
+                  {item.recipe_id && (
+                    <span
+                      className="inline-flex items-center gap-1 shrink-0"
+                      title="Inventory tracked via recipe"
+                      style={{ fontSize: 10, color: '#16a34a' }}
+                    >
+                      <BookOpen size={9} />
+                      {recipes.find(r => r.id === item.recipe_id)?.name || 'Recipe'}
+                    </span>
+                  )}
                   {item.customization_groups?.length > 0 && (
                     <span
                       className="inline-flex items-center gap-1 shrink-0"
@@ -462,6 +475,22 @@ export default function Menu() {
                 className="input mono"
                 placeholder="e.g. SALMN-001"
               />
+            </div>
+
+            <div>
+              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
+                Recipe <span style={{ fontWeight: 400, color: 'var(--mute-2)' }}>(for inventory tracking)</span>
+              </label>
+              <select
+                value={form.recipeId}
+                onChange={(e) => setForm((f) => ({ ...f, recipeId: e.target.value }))}
+                className="input"
+              >
+                <option value="">None — no inventory tracking</option>
+                {recipes.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

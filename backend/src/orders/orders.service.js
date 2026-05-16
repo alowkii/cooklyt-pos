@@ -2,6 +2,7 @@ const repo = require('./orders.repository');
 const tablesInterface = require('../tables/tables.interface');
 const menuInterface = require('../menu/menu.interface');
 const settingsRepo = require('../settings/settings.repository');
+const inventoryService = require('../inventory/inventory.service');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
@@ -42,6 +43,12 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
   }
 
+  // Deduct recipe ingredients immediately when order is placed — fire-and-forget
+  inventoryService.deductForOrder(
+    order.id, restaurantId,
+    items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
+  );
+
   ws.broadcast('NEW_ORDER', { orderId: order.id, tableId: order.table_id }, restaurantId);
 
   return order;
@@ -57,6 +64,13 @@ async function addItems(orderId, items, restaurantId) {
   if (order.status === 'served') {
     await repo.updateStatus(orderId, 'received');
   }
+
+  // Deduct ingredients for the newly added items — fire-and-forget
+  inventoryService.deductForOrder(
+    orderId, restaurantId,
+    items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
+  );
+
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
 }
@@ -81,6 +95,11 @@ async function updateItemStatus(orderId, itemId, status, restaurantId) {
       throw new ValidationError(`Cannot cancel an item that is already ${currentStatus}`);
     const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled');
     if (!updated) throw new NotFoundError('Order item');
+
+    // Return ingredients for the cancelled item — fire-and-forget
+    inventoryService.returnStock(orderId, restaurantId, [
+      { menu_item_id: itemRow.menu_item_id, quantity: itemRow.quantity },
+    ]);
 
     // Re-evaluate order status now that this item is gone
     const allItems = await repo.getItemStatuses(orderId);
@@ -138,6 +157,14 @@ async function cancelPendingItems(orderId, restaurantId) {
   for (const itemId of toCancelIds) {
     await repo.updateItemStatus(itemId, orderId, 'cancelled');
   }
+
+  // Return ingredients for all bulk-cancelled items — fire-and-forget
+  inventoryService.returnStock(
+    orderId, restaurantId,
+    allItems
+      .filter((i) => toCancelIds.includes(i.id))
+      .map((i) => ({ menu_item_id: i.menu_item_id, quantity: i.quantity })),
+  );
 
   // Determine what remains
   const remaining = allItems.filter((i) => !toCancelIds.includes(i.id) && i.status !== 'cancelled');
