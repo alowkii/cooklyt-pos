@@ -217,7 +217,6 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
         style={{
           minHeight: 44,
           padding: '6px 8px',
-          borderBottom: '1px solid var(--line)',
           background: isOpen ? 'var(--paper-2)' : 'transparent',
           border: 0,
           borderBottom: '1px solid var(--line)',
