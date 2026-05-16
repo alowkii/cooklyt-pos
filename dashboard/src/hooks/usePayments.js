@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
+import { enqueue } from '../store/syncQueue';
 import { queryClient } from '../lib/queryClient';
 
 export function useBill(orderId, { itemIds = null, waiveServiceCharge = false } = {}) {
@@ -37,8 +38,15 @@ export function useProcessPayment() {
       const body = tenders ? { tenders } : { method };
       if (!tenders && amountTendered !== undefined) body.amountTendered = parseFloat(amountTendered);
       if (waiveServiceCharge) body.waiveServiceCharge = true;
-      const { data } = await api.post(`/payments/${orderId}`, body);
-      return data;
+
+      try {
+        const { data } = await api.post(`/payments/${orderId}`, body);
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      await enqueue('payments', 'POST', { orderId, ...body });
+      return { orderId, status: 'queued' };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
@@ -50,8 +58,14 @@ export function useProcessPayment() {
 export function useProcessSplitPayment() {
   return useMutation({
     mutationFn: async ({ orderId, splits, waiveServiceCharge }) => {
-      const { data } = await api.post(`/payments/${orderId}/split`, { splits, waiveServiceCharge });
-      return data;
+      try {
+        const { data } = await api.post(`/payments/${orderId}/split`, { splits, waiveServiceCharge });
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      await enqueue('payments', 'split:POST', { orderId, splits, waiveServiceCharge });
+      return { orderId, status: 'queued' };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
