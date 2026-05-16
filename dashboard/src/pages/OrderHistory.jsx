@@ -391,10 +391,8 @@ export default function OrderHistory() {
       )}
 
       {/* Table */}
-      <div
-        className="overflow-x-auto"
-        style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', overflow: 'hidden' }}
-      >
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', overflow: 'hidden' }}>
+        <div className="overflow-x-auto">
         {/* Column headers */}
         <div
           className="flex items-center gap-3 px-4 py-2 min-w-[480px]"
@@ -436,6 +434,7 @@ export default function OrderHistory() {
             currency={currency}
           />
         ))}
+        </div>
       </div>
     </div>
   );
