@@ -57,11 +57,14 @@ export function useActiveOrders() {
 export function useCreateOrder() {
   return useMutation({
     mutationFn: async ({ tableId, items, channel, customerRef }) => {
-      try {
-        const { data } = await api.post('/orders', { tableId, items, channel, customerRef });
-        return data;
-      } catch (err) {
-        if (err.response) throw err; // real API error — propagate
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post('/orders', { tableId, items, channel, customerRef });
+          return data;
+        } catch (err) {
+          if (err.response) throw err; // real API error — propagate
+          // network error despite onLine=true — fall through to offline path
+        }
       }
 
       // Network unreachable — build a local stub visible in the kitchen queue.
@@ -126,11 +129,13 @@ export function useOrderHistory({ from, to, status, channel }) {
 export function useCancelPendingItems() {
   return useMutation({
     mutationFn: async (orderId) => {
-      try {
-        const { data } = await api.post(`/orders/${orderId}/cancel-pending`);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post(`/orders/${orderId}/cancel-pending`);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await db.kitchen
         .where('order_id').equals(orderId)
@@ -148,11 +153,13 @@ export function useCancelPendingItems() {
 export function useUpdateItemStatus() {
   return useMutation({
     mutationFn: async ({ orderId, itemId, status }) => {
-      try {
-        const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await db.kitchen.update(itemId, { item_status: status });
       await enqueue('orders', 'items:PATCH', { orderId, itemId, status });
@@ -167,11 +174,13 @@ export function useUpdateItemStatus() {
 export function useAddItems() {
   return useMutation({
     mutationFn: async ({ orderId, items }) => {
-      try {
-        const { data } = await api.post(`/orders/${orderId}/items`, { items });
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post(`/orders/${orderId}/items`, { items });
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('orders', 'items:POST', { orderId, items });
       return { orderId, items };
@@ -185,11 +194,13 @@ export function useAddItems() {
 export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {
-      try {
-        const { data } = await api.patch(`/orders/${id}/status`, { status });
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.patch(`/orders/${id}/status`, { status });
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('orders', 'PATCH', { id, status });
       return { id, status };

@@ -24,12 +24,14 @@ export function useUpdateTableStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {
       await db.restaurant_tables.update(id, { status });
-      try {
-        const { data } = await api.patch(`/tables/${id}/status`, { status });
-        await db.restaurant_tables.put(data);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.patch(`/tables/${id}/status`, { status });
+          await db.restaurant_tables.put(data);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('tables', 'PATCH', { id, status });
       return { id, status };
@@ -71,12 +73,14 @@ export function useUpdateTablePosition() {
 export function useCreateTable() {
   return useMutation({
     mutationFn: async (table) => {
-      try {
-        const { data } = await api.post('/tables', table);
-        await db.restaurant_tables.put(data);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post('/tables', table);
+          await db.restaurant_tables.put(data);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       const local = { ...table, id: `local_${crypto.randomUUID()}`, status: 'available' };
       await db.restaurant_tables.put(local);

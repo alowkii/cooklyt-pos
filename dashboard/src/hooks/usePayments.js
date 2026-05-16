@@ -39,11 +39,13 @@ export function useProcessPayment() {
       if (!tenders && amountTendered !== undefined) body.amountTendered = parseFloat(amountTendered);
       if (waiveServiceCharge) body.waiveServiceCharge = true;
 
-      try {
-        const { data } = await api.post(`/payments/${orderId}`, body);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post(`/payments/${orderId}`, body);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('payments', 'POST', { orderId, ...body });
       return { orderId, status: 'queued' };
@@ -58,11 +60,13 @@ export function useProcessPayment() {
 export function useProcessSplitPayment() {
   return useMutation({
     mutationFn: async ({ orderId, splits, waiveServiceCharge }) => {
-      try {
-        const { data } = await api.post(`/payments/${orderId}/split`, { splits, waiveServiceCharge });
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post(`/payments/${orderId}/split`, { splits, waiveServiceCharge });
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('payments', 'split:POST', { orderId, splits, waiveServiceCharge });
       return { orderId, status: 'queued' };

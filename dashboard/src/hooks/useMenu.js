@@ -37,12 +37,14 @@ export function usePopularMenuItems(limit = 6) {
 export function useCreateMenuItem() {
   return useMutation({
     mutationFn: async (item) => {
-      try {
-        const { data } = await api.post('/menu', item);
-        await db.menu.put(data);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.post('/menu', item);
+          await db.menu.put(data);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       const local = { ...item, id: `local_${crypto.randomUUID()}`, available: true };
       await db.menu.put(local);
@@ -61,12 +63,14 @@ export function useUpdateMenuItem() {
   return useMutation({
     mutationFn: async ({ id, ...fields }) => {
       await db.menu.update(id, fields);
-      try {
-        const { data } = await api.patch(`/menu/${id}`, fields);
-        await db.menu.put(data);
-        return data;
-      } catch (err) {
-        if (err.response) throw err;
+      if (navigator.onLine) {
+        try {
+          const { data } = await api.patch(`/menu/${id}`, fields);
+          await db.menu.put(data);
+          return data;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
       await enqueue('menu', 'PATCH', { id, ...fields });
       return { id, ...fields };
@@ -86,12 +90,15 @@ export function useDeleteMenuItem() {
   return useMutation({
     mutationFn: async (id) => {
       await db.menu.delete(id);
-      try {
-        await api.delete(`/menu/${id}`);
-      } catch (err) {
-        if (err.response) throw err;
-        await enqueue('menu', 'DELETE', { id });
+      if (navigator.onLine) {
+        try {
+          await api.delete(`/menu/${id}`);
+          return id;
+        } catch (err) {
+          if (err.response) throw err;
+        }
       }
+      await enqueue('menu', 'DELETE', { id });
       return id;
     },
     onSuccess: (deletedId) => {
