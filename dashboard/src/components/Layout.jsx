@@ -18,7 +18,9 @@ import {
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
+import NotificationBell from './NotificationBell';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 
 const ALL_NAV = [
@@ -33,8 +35,18 @@ const ALL_NAV = [
   { to: '/settings', label: 'Settings', Icon: Settings,    adminOnly: true },
 ];
 
+const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED']);
+
 export default function Layout() {
-  useWebSocket();
+  const { notifications, unreadCount, add, markAllRead, clearAll } = useNotifications();
+
+  useWebSocket({
+    onEvent(event, payload) {
+      if (!NOTIFIABLE.has(event)) return;
+      const token = payload?.orderId ? payload.orderId.slice(-6).toUpperCase() : null;
+      add(event, token);
+    },
+  });
 
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
@@ -212,8 +224,14 @@ export default function Layout() {
               · {restaurant.name}
             </span>
           )}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             <SyncBadge />
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onOpen={markAllRead}
+              onClear={clearAll}
+            />
           </div>
         </header>
 

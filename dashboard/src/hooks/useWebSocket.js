@@ -4,10 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 // Falls back to the vite proxy target in development
 const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}/ws`;
 
-export function useWebSocket() {
+export function useWebSocket({ onEvent } = {}) {
   const qc = useQueryClient();
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+  // Stable ref so changing the callback never triggers a reconnect
+  const onEventRef = useRef(onEvent);
+  useEffect(() => { onEventRef.current = onEvent; });
 
   useEffect(() => {
     if (!localStorage.getItem('pos_token')) return;
@@ -22,7 +25,7 @@ export function useWebSocket() {
 
       ws.onmessage = ({ data }) => {
         try {
-          const { event } = JSON.parse(data);
+          const { event, data: payload } = JSON.parse(data);
           switch (event) {
             case 'NEW_ORDER':
             case 'ORDER_UPDATED':
@@ -38,6 +41,7 @@ export function useWebSocket() {
               qc.invalidateQueries({ queryKey: ['reports'] });
               break;
           }
+          onEventRef.current?.(event, payload ?? {});
         } catch {
           // Ignore malformed messages
         }
