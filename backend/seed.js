@@ -77,6 +77,112 @@ const ORDER_SCHEDULE = [
   [ 21, 45, 4, [['Chicken Burger', 3], ['BBQ Chicken Pizza', 1], ['Tiramisu', 3], ['Soft Drink (Can)', 3]]                             ],
 ];
 
+// ── Ingredients catalogue ──────────────────────────────────────────────────
+// [name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost]
+const INGREDIENTS = [
+  ['Chicken',            'kg',  10.000, 2.0,  5.0,  3.5000],
+  ['Butter',             'kg',   5.000, 1.0,  3.0,  4.0000],
+  ['Tomatoes',           'kg',   8.000, 2.0,  5.0,  1.2000],
+  ['Black Lentils',      'kg',   5.000, 1.0,  3.0,  1.8000],
+  ['Basmati Rice',       'kg',  15.000, 3.0, 10.0,  1.5000],
+  ['Milk',               'L',   10.000, 2.0,  5.0,  1.2000],
+  ['Tea Leaves',         'kg',   2.000, 0.3,  1.0,  8.0000],
+  ['Coffee',             'kg',   2.000, 0.3,  1.0, 12.0000],
+  ['Mango Pulp',         'L',    5.000, 1.0,  3.0,  2.5000],
+  ['Oranges',            'kg',   6.000, 1.5,  4.0,  1.8000],
+  ['Cooking Cream',      'L',    4.000, 1.0,  3.0,  3.0000],
+  ['Onions',             'kg',  10.000, 2.0,  5.0,  0.8000],
+  ['Garlic',             'kg',   3.000, 0.5,  2.0,  3.0000],
+  ['Spice Blend',        'kg',   2.000, 0.3,  1.0,  5.0000],
+  ['Paneer',             'kg',   4.000, 0.8,  2.0,  5.0000],
+  ['All-Purpose Flour',  'kg',  10.000, 2.0,  5.0,  0.6000],
+  ['Chicken Breast',     'kg',   8.000, 2.0,  5.0,  5.0000],
+  ['Fish Fillet',        'kg',   5.000, 1.0,  3.0,  7.0000],
+  ['Potatoes',           'kg',  10.000, 2.0,  5.0,  0.7000],
+  ['Mozzarella Cheese',  'kg',   3.000, 0.5,  2.0,  6.0000],
+  ['Pizza Dough',        'pcs', 20.000, 5.0, 10.0,  0.8000],
+  ['Pasta',              'kg',   5.000, 1.0,  3.0,  1.0000],
+  ['Dark Chocolate',     'kg',   2.000, 0.3,  1.0,  8.0000],
+  ['Sugar',              'kg',   5.000, 1.0,  3.0,  0.8000],
+  ['Yogurt',             'L',    5.000, 1.0,  3.0,  1.5000],
+  ['Burger Bun',         'pcs', 50.000,10.0, 20.0,  0.3000],
+];
+
+// ── Recipes & ingredients ──────────────────────────────────────────────────
+// Each recipe: [recipeName, yieldQty, yieldUnit, prepTimeSec, menuItemName,
+//               [[ingredientName, qty, unit], ...]]
+const RECIPES = [
+  ['Butter Chicken', 1, 'portion', 900, 'Butter Chicken', [
+    ['Chicken',       0.2500, 'kg'],
+    ['Butter',        0.0500, 'kg'],
+    ['Tomatoes',      0.1500, 'kg'],
+    ['Cooking Cream', 0.0500, 'L' ],
+    ['Onions',        0.1000, 'kg'],
+    ['Garlic',        0.0200, 'kg'],
+    ['Spice Blend',   0.0200, 'kg'],
+  ]],
+  ['Dal Makhani', 1, 'portion', 1800, 'Dal Makhani', [
+    ['Black Lentils', 0.1500, 'kg'],
+    ['Butter',        0.0400, 'kg'],
+    ['Tomatoes',      0.1000, 'kg'],
+    ['Cooking Cream', 0.0500, 'L' ],
+    ['Onions',        0.0800, 'kg'],
+    ['Spice Blend',   0.0200, 'kg'],
+  ]],
+  ['Chicken Biryani', 1, 'portion', 1200, 'Chicken Biryani', [
+    ['Chicken',      0.3000, 'kg'],
+    ['Basmati Rice', 0.2000, 'kg'],
+    ['Onions',       0.1500, 'kg'],
+    ['Garlic',       0.0200, 'kg'],
+    ['Spice Blend',  0.0300, 'kg'],
+  ]],
+  ['Masala Chai', 1, 'cup', 300, 'Masala Chai', [
+    ['Tea Leaves',  0.0050, 'kg'],
+    ['Milk',        0.1500, 'L' ],
+    ['Sugar',       0.0200, 'kg'],
+    ['Spice Blend', 0.0030, 'kg'],
+  ]],
+  ['Cold Coffee', 1, 'glass', 180, 'Cold Coffee', [
+    ['Coffee', 0.0150, 'kg'],
+    ['Milk',   0.2000, 'L' ],
+    ['Sugar',  0.0300, 'kg'],
+  ]],
+  ['Mango Lassi', 1, 'glass', 120, 'Mango Lassi', [
+    ['Mango Pulp', 0.1000, 'L' ],
+    ['Yogurt',     0.1500, 'L' ],
+    ['Sugar',      0.0200, 'kg'],
+  ]],
+  ['Paneer Tikka', 1, 'portion', 600, 'Paneer Tikka', [
+    ['Paneer',      0.1500, 'kg'],
+    ['Onions',      0.0500, 'kg'],
+    ['Spice Blend', 0.0200, 'kg'],
+    ['Yogurt',      0.0500, 'L' ],
+  ]],
+  ['Paneer Butter Masala', 1, 'portion', 720, 'Paneer Butter Masala', [
+    ['Paneer',        0.2000, 'kg'],
+    ['Butter',        0.0400, 'kg'],
+    ['Tomatoes',      0.1200, 'kg'],
+    ['Cooking Cream', 0.0500, 'L' ],
+    ['Onions',        0.0800, 'kg'],
+    ['Spice Blend',   0.0200, 'kg'],
+  ]],
+];
+
+// ── Combo meals ────────────────────────────────────────────────────────────
+// [name, sku, price, [[menuItemName, qty, sort_order], ...]]
+const COMBOS = [
+  ['Veg Lunch Special', 'COMBO-VEG-01', 14.99, [
+    ['Paneer Tikka', 1, 0],
+    ['Dal Makhani',  1, 1],
+    ['Masala Chai',  1, 2],
+  ]],
+  ["Chef's Non-Veg Combo", 'COMBO-NV-01', 18.99, [
+    ['Chicken Wings',  1, 0],
+    ['Butter Chicken', 1, 1],
+    ['Cold Coffee',    1, 2],
+  ]],
+];
+
 async function main() {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
@@ -86,6 +192,22 @@ async function main() {
 
   // ── 1. Clear existing seed data scoped to this restaurant ──────────────────
   console.log('Clearing existing data…');
+  // Recipe / inventory tables first (FK order)
+  await client.query('DELETE FROM cost_snapshots       WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM inventory_transactions WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM waste_logs           WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query(`
+    DELETE FROM recipe_ingredients
+    WHERE recipe_id IN (SELECT id FROM recipes WHERE restaurant_id = $1)
+  `, [RESTAURANT_ID]);
+  await client.query(`
+    DELETE FROM combo_items
+    WHERE combo_id IN (SELECT id FROM combo_meals WHERE restaurant_id = $1)
+  `, [RESTAURANT_ID]);
+  await client.query('DELETE FROM combo_meals          WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM recipes              WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM ingredients          WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  // Core tables
   await client.query(`
     DELETE FROM payments
     WHERE order_id IN (SELECT id FROM orders WHERE restaurant_id = $1)
@@ -185,6 +307,137 @@ async function main() {
     `, [order.id, subtotal.toFixed(2)]);
   }
 
+  // ── 8. Ingredients ─────────────────────────────────────────────────────────
+  console.log('Seeding ingredients…');
+  const ingredientIdByName = {};
+  const ingredientCostByName = {};
+  const ingredientUnitByName = {};
+  for (const [name, unit, stock, reorder_level, reorder_qty, cost] of INGREDIENTS) {
+    const { rows: [ing] } = await client.query(`
+      INSERT INTO ingredients
+        (restaurant_id, name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING id
+    `, [RESTAURANT_ID, name, unit, stock, reorder_level, reorder_qty, cost]);
+    ingredientIdByName[name]   = ing.id;
+    ingredientCostByName[name] = cost;
+    ingredientUnitByName[name] = unit;
+  }
+  console.log(`  ${INGREDIENTS.length} ingredients inserted`);
+
+  // ── 9. Initial inventory transactions (opening stock) ─────────────────────
+  console.log('Seeding opening stock transactions…');
+  for (const [name, , stock, , , cost] of INGREDIENTS) {
+    await client.query(`
+      INSERT INTO inventory_transactions
+        (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by)
+      VALUES ($1, $2, 'PURCHASE', $3, $4, 'SEED-OPENING-STOCK', $5)
+    `, [RESTAURANT_ID, ingredientIdByName[name], stock, cost, ADMIN_ID]);
+  }
+
+  // ── 10. Recipes ────────────────────────────────────────────────────────────
+  console.log('Seeding recipes…');
+  const recipeIdByName = {};
+  for (const [recipeName, yieldQty, yieldUnit, prepTime, , lines] of RECIPES) {
+    const { rows: [rec] } = await client.query(`
+      INSERT INTO recipes (restaurant_id, name, yield_quantity, yield_unit, prep_time_sec)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id
+    `, [RESTAURANT_ID, recipeName, yieldQty, yieldUnit, prepTime]);
+    recipeIdByName[recipeName] = rec.id;
+
+    for (const [ingName, qty, unit] of lines) {
+      const costPerUnit = ingredientCostByName[ingName] ?? 0;
+      await client.query(`
+        INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity, unit, cost_per_unit)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [rec.id, ingredientIdByName[ingName], qty, unit, costPerUnit]);
+    }
+  }
+  console.log(`  ${RECIPES.length} recipes inserted`);
+
+  // ── 11. Link recipes → menu items ──────────────────────────────────────────
+  console.log('Linking recipes to menu items…');
+  let linkedCount = 0;
+  for (const [recipeName, , , , menuItemName] of RECIPES) {
+    if (!menuItemName || !menuIdByName[menuItemName]) continue;
+    await client.query(`
+      UPDATE menu_items SET recipe_id = $1 WHERE id = $2
+    `, [recipeIdByName[recipeName], menuIdByName[menuItemName]]);
+    linkedCount++;
+  }
+  console.log(`  ${linkedCount} menu items linked to recipes`);
+
+  // ── 12. Combos ─────────────────────────────────────────────────────────────
+  console.log('Seeding combos…');
+  for (const [name, sku, price, items] of COMBOS) {
+    const { rows: [combo] } = await client.query(`
+      INSERT INTO combo_meals (restaurant_id, name, sku, price, is_active)
+      VALUES ($1, $2, $3, $4, true) RETURNING id
+    `, [RESTAURANT_ID, name, sku, price]);
+
+    for (const [menuItemName, qty, sortOrder] of items) {
+      const menuItemId = menuIdByName[menuItemName];
+      if (!menuItemId) continue;
+      await client.query(`
+        INSERT INTO combo_items (combo_id, menu_item_id, quantity, sort_order)
+        VALUES ($1, $2, $3, $4)
+      `, [combo.id, menuItemId, qty, sortOrder]);
+    }
+  }
+  console.log(`  ${COMBOS.length} combos inserted`);
+
+  // ── 13. Waste logs ─────────────────────────────────────────────────────────
+  console.log('Seeding waste logs…');
+  const WASTE_ENTRIES = [
+    // [ingredientName, qty, reason, notes, hoursAgo]
+    ['Chicken',    0.300, 'SPOILAGE', 'End-of-day stock — exceeded shelf life', 2],
+    ['Milk',       0.500, 'SPOILAGE', 'Opened carton not used in time',         4],
+    ['Paneer',     0.100, 'DAMAGED',  'Dropped during prep',                    6],
+    ['Tomatoes',   0.250, 'OVERPREP', 'Excess chopped for morning prep',        1],
+  ];
+  for (const [ingName, qty, reason, notes, hoursAgo] of WASTE_ENTRIES) {
+    const ingId   = ingredientIdByName[ingName];
+    const costNow = ingredientCostByName[ingName];
+    const total   = (qty * costNow).toFixed(4);
+    const loggedAt = new Date(Date.now() - hoursAgo * 3600 * 1000).toISOString();
+
+    await client.query(`
+      INSERT INTO waste_logs
+        (restaurant_id, ingredient_id, quantity, unit, reason, cost_at_time, total_cost, logged_by, logged_at, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [RESTAURANT_ID, ingId, qty, ingredientUnitByName[ingName],
+        reason, costNow, total, ADMIN_ID, loggedAt, notes]);
+
+    await client.query(`
+      INSERT INTO inventory_transactions
+        (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by, created_at)
+      VALUES ($1, $2, 'WASTE', $3, $4, $5, $6, $7)
+    `, [RESTAURANT_ID, ingId, -qty, costNow, `WASTE-SEED`, ADMIN_ID, loggedAt]);
+  }
+  console.log(`  ${WASTE_ENTRIES.length} waste entries inserted`);
+
+  // ── 14. Cost snapshots ─────────────────────────────────────────────────────
+  console.log('Seeding cost snapshots…');
+  let snapshotCount = 0;
+  for (const [recipeName, , , , menuItemName, lines] of RECIPES) {
+    const currentCost = lines.reduce(
+      (sum, [ingName, qty]) => sum + qty * (ingredientCostByName[ingName] ?? 0), 0,
+    );
+    const sellingPrice = menuPriceByName[menuItemName] ?? null;
+    if (!sellingPrice) continue;
+    const grossMargin = sellingPrice - currentCost;
+    const marginPct   = (grossMargin / sellingPrice) * 100;
+
+    await client.query(`
+      INSERT INTO cost_snapshots
+        (recipe_id, restaurant_id, total_cost, selling_price, gross_margin, margin_pct, triggered_by)
+      VALUES ($1, $2, $3, $4, $5, $6, 'SEED')
+    `, [recipeIdByName[recipeName], RESTAURANT_ID,
+        currentCost.toFixed(4), sellingPrice,
+        grossMargin.toFixed(4), marginPct.toFixed(2)]);
+    snapshotCount++;
+  }
+  console.log(`  ${snapshotCount} cost snapshots inserted`);
+
   await client.end();
 
   console.log('\nSeed complete!');
@@ -194,6 +447,11 @@ async function main() {
   console.log(`  Tables     : ${tableIds.length}`);
   console.log(`  Menu items : ${MENU.length}`);
   console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across today`);
+  console.log(`  Ingredients: ${INGREDIENTS.length}`);
+  console.log(`  Recipes    : ${RECIPES.length} (${linkedCount} linked to menu items)`);
+  console.log(`  Combos     : ${COMBOS.length}`);
+  console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
+  console.log(`  Snapshots  : ${snapshotCount}`);
 }
 
 main().catch((e) => {
