@@ -173,11 +173,9 @@ function ItemRow({ orderId, item, canUpdate }) {
 
 /* ── OrderRow ────────────────────────────────────────────── */
 
-function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
+function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel, onPay, onAddItems }) {
   const updateStatus  = useUpdateOrderStatus();
   const cancelPending = useCancelPendingItems();
-  const [payingOrder,   setPayingOrder]   = useState(null);
-  const [addingToOrder, setAddingToOrder] = useState(null);
 
   const time     = elapsed(order.created_at);
   const token    = order.id.slice(-6).toUpperCase();
@@ -277,7 +275,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
               </button>
               {canOrder && (
                 <button
-                  onClick={() => setAddingToOrder(order)}
+                  onClick={() => onAddItems({ order, orderTitle })}
                   className="btn btn-sm"
                 >
                   <Plus size={12} /> Add items
@@ -295,7 +293,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
               )}
               {order.status === 'served' && canOrder && (
                 <button
-                  onClick={() => setPayingOrder(order)}
+                  onClick={() => onPay({ order, tableNumber: order.channel === 'dining' ? table?.number : null })}
                   className="btn-primary btn-sm"
                 >
                   <DollarSign size={12} /> Collect payment
@@ -327,20 +325,6 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel }) {
         </div>
       )}
 
-      {addingToOrder && (
-        <AddItemsModal
-          order={addingToOrder}
-          orderTitle={orderTitle}
-          onClose={() => setAddingToOrder(null)}
-        />
-      )}
-      {payingOrder && (
-        <PaymentModal
-          order={payingOrder}
-          tableNumber={order.channel === 'dining' ? table?.number : null}
-          onClose={() => setPayingOrder(null)}
-        />
-      )}
     </div>
   );
 }
@@ -355,9 +339,11 @@ export default function Orders() {
   const canCancel = isAdmin || user?.role === 'staff';
   const canOrder  = isAdmin || user?.role === 'staff';
 
-  const [expanded,     setExpanded]     = useState(null);
-  const [showNewOrder, setShowNewOrder] = useState(false);
-  const [filter,       setFilter]       = useState('all');
+  const [expanded,      setExpanded]      = useState(null);
+  const [showNewOrder,  setShowNewOrder]  = useState(false);
+  const [filter,        setFilter]        = useState('all');
+  const [payingOrder,   setPayingOrder]   = useState(null); // { order, tableNumber }
+  const [addingToOrder, setAddingToOrder] = useState(null); // { order, orderTitle }
 
   const tableMap = Object.fromEntries(tables.map((t) => [t.id, t]));
 
@@ -464,12 +450,28 @@ export default function Orders() {
               onToggle={() => setExpanded(expanded === order.id ? null : order.id)}
               canOrder={canOrder}
               canCancel={canCancel}
+              onPay={setPayingOrder}
+              onAddItems={setAddingToOrder}
             />
           ))
         )}
       </div>
 
       {showNewOrder && <NewOrderModal onClose={() => setShowNewOrder(false)} />}
+      {payingOrder && (
+        <PaymentModal
+          order={payingOrder.order}
+          tableNumber={payingOrder.tableNumber}
+          onClose={() => setPayingOrder(null)}
+        />
+      )}
+      {addingToOrder && (
+        <AddItemsModal
+          order={addingToOrder.order}
+          orderTitle={addingToOrder.orderTitle}
+          onClose={() => setAddingToOrder(null)}
+        />
+      )}
     </div>
   );
 }

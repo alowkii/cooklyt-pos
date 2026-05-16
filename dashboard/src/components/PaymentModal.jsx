@@ -228,11 +228,13 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const tender2Amount = parseFloat((displayTotal - tender1Num).toFixed(currency.decimals ?? 2));
 
   async function handlePrintReceipt() {
+    const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
+    if (!win) { alert('Please allow pop-ups for this site to print receipts.'); return; }
     setPrinting(true); setPrintError('');
     try {
       const { data } = await api.get(`/payments/${order.id}/receipt`);
-      printReceipt(data, currency);
-    } catch { setPrintError('Could not load receipt. Try again.'); }
+      printReceipt(data, currency, win);
+    } catch { win.close(); setPrintError('Could not load receipt. Try again.'); }
     finally { setPrinting(false); }
   }
 
