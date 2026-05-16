@@ -78,40 +78,98 @@ const ORDER_SCHEDULE = [
 ];
 
 // ── Ingredients catalogue ──────────────────────────────────────────────────
-// [name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost]
+// [name, unit, opening_stock, reorder_level, reorder_qty, latest_unit_cost]
+// opening_stock is the amount received as initial stock (used for PURCHASE txn).
+// stock_on_hand in the DB is set to 0 on insert and reconciled at the end.
 const INGREDIENTS = [
-  ['Chicken',            'kg',  10.000, 2.0,  5.0,  3.5000],
-  ['Butter',             'kg',   5.000, 1.0,  3.0,  4.0000],
-  ['Tomatoes',           'kg',   8.000, 2.0,  5.0,  1.2000],
-  ['Black Lentils',      'kg',   5.000, 1.0,  3.0,  1.8000],
-  ['Basmati Rice',       'kg',  15.000, 3.0, 10.0,  1.5000],
-  ['Milk',               'L',   10.000, 2.0,  5.0,  1.2000],
-  ['Tea Leaves',         'kg',   2.000, 0.3,  1.0,  8.0000],
-  ['Coffee',             'kg',   2.000, 0.3,  1.0, 12.0000],
-  ['Mango Pulp',         'L',    5.000, 1.0,  3.0,  2.5000],
-  ['Oranges',            'kg',   6.000, 1.5,  4.0,  1.8000],
-  ['Cooking Cream',      'L',    4.000, 1.0,  3.0,  3.0000],
-  ['Onions',             'kg',  10.000, 2.0,  5.0,  0.8000],
-  ['Garlic',             'kg',   3.000, 0.5,  2.0,  3.0000],
-  ['Spice Blend',        'kg',   2.000, 0.3,  1.0,  5.0000],
-  ['Paneer',             'kg',   4.000, 0.8,  2.0,  5.0000],
-  ['All-Purpose Flour',  'kg',  10.000, 2.0,  5.0,  0.6000],
-  ['Chicken Breast',     'kg',   8.000, 2.0,  5.0,  5.0000],
-  ['Fish Fillet',        'kg',   5.000, 1.0,  3.0,  7.0000],
-  ['Potatoes',           'kg',  10.000, 2.0,  5.0,  0.7000],
-  ['Mozzarella Cheese',  'kg',   3.000, 0.5,  2.0,  6.0000],
-  ['Pizza Dough',        'pcs', 20.000, 5.0, 10.0,  0.8000],
-  ['Pasta',              'kg',   5.000, 1.0,  3.0,  1.0000],
-  ['Dark Chocolate',     'kg',   2.000, 0.3,  1.0,  8.0000],
-  ['Sugar',              'kg',   5.000, 1.0,  3.0,  0.8000],
-  ['Yogurt',             'L',    5.000, 1.0,  3.0,  1.5000],
-  ['Burger Bun',         'pcs', 50.000,10.0, 20.0,  0.3000],
+  ['Chicken',              'kg',  10.000,  2.0,  5.0,  3.5000],
+  ['Butter',               'kg',   5.000,  1.0,  3.0,  4.0000],
+  ['Tomatoes',             'kg',   8.000,  2.0,  5.0,  1.2000],
+  ['Black Lentils',        'kg',   5.000,  1.0,  3.0,  1.8000],
+  ['Basmati Rice',         'kg',  15.000,  3.0, 10.0,  1.5000],
+  ['Milk',                 'L',   10.000,  2.0,  5.0,  1.2000],
+  ['Tea Leaves',           'kg',   2.000,  0.3,  1.0,  8.0000],
+  ['Coffee',               'kg',   2.000,  0.3,  1.0, 12.0000],
+  ['Mango Pulp',           'L',    5.000,  1.0,  3.0,  2.5000],
+  ['Oranges',              'kg',   6.000,  1.5,  4.0,  1.8000],
+  ['Cooking Cream',        'L',    4.000,  1.0,  3.0,  3.0000],
+  ['Onions',               'kg',  10.000,  2.0,  5.0,  0.8000],
+  ['Garlic',               'kg',   3.000,  0.5,  2.0,  3.0000],
+  ['Spice Blend',          'kg',   2.000,  0.3,  1.0,  5.0000],
+  ['Paneer',               'kg',   4.000,  0.8,  2.0,  5.0000],
+  ['All-Purpose Flour',    'kg',  10.000,  2.0,  5.0,  0.6000],
+  ['Chicken Breast',       'kg',   8.000,  2.0,  5.0,  5.0000],
+  ['Fish Fillet',          'kg',   5.000,  1.0,  3.0,  7.0000],
+  ['Potatoes',             'kg',  10.000,  2.0,  5.0,  0.7000],
+  ['Mozzarella Cheese',    'kg',   3.000,  0.5,  2.0,  6.0000],
+  ['Pizza Dough',          'pcs', 20.000,  5.0, 10.0,  0.8000],
+  ['Pasta',                'kg',   5.000,  1.0,  3.0,  1.0000],
+  ['Dark Chocolate',       'kg',   2.000,  0.3,  1.0,  8.0000],
+  ['Sugar',                'kg',   5.000,  1.0,  3.0,  0.8000],
+  ['Yogurt',               'L',    5.000,  1.0,  3.0,  1.5000],
+  ['Burger Bun',           'pcs', 50.000, 10.0, 20.0,  0.3000],
+  // Additional ingredients for full menu coverage
+  ['Bread Loaf',           'pcs', 30.000,  8.0, 20.0,  0.5000],
+  ['Vegetable Mix',        'kg',   5.000,  1.5,  3.0,  1.2000],
+  ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,  0.1000],
+  ['Calamari',             'kg',   3.000,  0.8,  2.0,  8.0000],
+  ['Heavy Cream',          'L',    2.000,  0.5,  1.5,  2.5000],
+  ['BBQ Sauce',            'L',    2.000,  0.5,  1.5,  3.0000],
+  ['Eggs',                 'pcs', 30.000,  8.0, 20.0,  0.2500],
 ];
 
 // ── Recipes & ingredients ──────────────────────────────────────────────────
 // Each recipe: [recipeName, yieldQty, yieldUnit, prepTimeSec, menuItemName,
 //               [[ingredientName, qty, unit], ...]]
+// 30 recipes covering all menu items except packaged goods
+// (Mineral Water, Sparkling Water, Soft Drink Can, Fresh Lime Soda).
 const RECIPES = [
+  // ── Starters ──────────────────────────────────────────────────────────────
+  ['Veg Spring Rolls', 1, 'portion', 600, 'Veg Spring Rolls', [
+    ['Spring Roll Wrappers', 2.0000, 'pcs'],
+    ['Vegetable Mix',        0.1000, 'kg' ],
+    ['All-Purpose Flour',    0.0200, 'kg' ],
+  ]],
+  ['Chicken Wings', 1, 'portion', 720, 'Chicken Wings', [
+    ['Chicken',     0.3000, 'kg'],
+    ['Spice Blend', 0.0200, 'kg'],
+    ['Garlic',      0.0150, 'kg'],
+    ['BBQ Sauce',   0.0300, 'L' ],
+  ]],
+  ['Garlic Bread', 1, 'portion', 300, 'Garlic Bread', [
+    ['Bread Loaf', 2.0000, 'pcs'],
+    ['Butter',     0.0300, 'kg' ],
+    ['Garlic',     0.0100, 'kg' ],
+  ]],
+  ['Onion Rings', 1, 'portion', 480, 'Onion Rings', [
+    ['Onions',           0.1500, 'kg'],
+    ['All-Purpose Flour',0.0500, 'kg'],
+    ['Milk',             0.0500, 'L' ],
+  ]],
+  ['Paneer Tikka', 1, 'portion', 600, 'Paneer Tikka', [
+    ['Paneer',      0.1500, 'kg'],
+    ['Onions',      0.0500, 'kg'],
+    ['Spice Blend', 0.0200, 'kg'],
+    ['Yogurt',      0.0500, 'L' ],
+  ]],
+  ['Crispy Calamari', 1, 'portion', 600, 'Crispy Calamari', [
+    ['Calamari',         0.2000, 'kg' ],
+    ['All-Purpose Flour',0.0500, 'kg' ],
+    ['Spice Blend',      0.0100, 'kg' ],
+    ['Eggs',             1.0000, 'pcs'],
+  ]],
+  ['Bruschetta', 1, 'portion', 300, 'Bruschetta', [
+    ['Bread Loaf', 2.0000, 'pcs'],
+    ['Tomatoes',   0.1000, 'kg' ],
+    ['Garlic',     0.0100, 'kg' ],
+  ]],
+  ['Soup of the Day', 1, 'bowl', 600, 'Soup of the Day', [
+    ['Vegetable Mix', 0.1500, 'kg'],
+    ['Onions',        0.0500, 'kg'],
+    ['Cooking Cream', 0.0500, 'L' ],
+    ['Spice Blend',   0.0100, 'kg'],
+  ]],
+  // ── Mains ─────────────────────────────────────────────────────────────────
   ['Butter Chicken', 1, 'portion', 900, 'Butter Chicken', [
     ['Chicken',       0.2500, 'kg'],
     ['Butter',        0.0500, 'kg'],
@@ -129,6 +187,12 @@ const RECIPES = [
     ['Onions',        0.0800, 'kg'],
     ['Spice Blend',   0.0200, 'kg'],
   ]],
+  ['Veg Fried Rice', 1, 'portion', 720, 'Veg Fried Rice', [
+    ['Basmati Rice',  0.2000, 'kg'],
+    ['Vegetable Mix', 0.1500, 'kg'],
+    ['Onions',        0.0800, 'kg'],
+    ['Garlic',        0.0150, 'kg'],
+  ]],
   ['Chicken Biryani', 1, 'portion', 1200, 'Chicken Biryani', [
     ['Chicken',      0.3000, 'kg'],
     ['Basmati Rice', 0.2000, 'kg'],
@@ -136,6 +200,91 @@ const RECIPES = [
     ['Garlic',       0.0200, 'kg'],
     ['Spice Blend',  0.0300, 'kg'],
   ]],
+  ['Grilled Chicken Steak', 1, 'portion', 900, 'Grilled Chicken Steak', [
+    ['Chicken Breast', 0.2800, 'kg'],
+    ['Spice Blend',    0.0200, 'kg'],
+    ['Butter',         0.0300, 'kg'],
+  ]],
+  ['Fish & Chips', 1, 'portion', 900, 'Fish & Chips', [
+    ['Fish Fillet',      0.2000, 'kg'],
+    ['Potatoes',         0.2000, 'kg'],
+    ['All-Purpose Flour',0.0500, 'kg'],
+    ['Spice Blend',      0.0100, 'kg'],
+  ]],
+  ['Veg Burger', 1, 'portion', 600, 'Veg Burger', [
+    ['Burger Bun',       1.0000, 'pcs'],
+    ['Potatoes',         0.1500, 'kg' ],
+    ['Vegetable Mix',    0.1000, 'kg' ],
+    ['Onions',           0.0500, 'kg' ],
+    ['All-Purpose Flour',0.0300, 'kg' ],
+  ]],
+  ['Chicken Burger', 1, 'portion', 600, 'Chicken Burger', [
+    ['Burger Bun',     1.0000, 'pcs'],
+    ['Chicken Breast', 0.1500, 'kg' ],
+    ['Onions',         0.0300, 'kg' ],
+    ['Spice Blend',    0.0150, 'kg' ],
+  ]],
+  ['Margherita Pizza', 1, 'pizza', 900, 'Margherita Pizza', [
+    ['Pizza Dough',      1.0000, 'pcs'],
+    ['Mozzarella Cheese',0.1200, 'kg' ],
+    ['Tomatoes',         0.1500, 'kg' ],
+  ]],
+  ['BBQ Chicken Pizza', 1, 'pizza', 900, 'BBQ Chicken Pizza', [
+    ['Pizza Dough',      1.0000, 'pcs'],
+    ['Mozzarella Cheese',0.1200, 'kg' ],
+    ['Chicken',          0.1500, 'kg' ],
+    ['BBQ Sauce',        0.0600, 'L'  ],
+  ]],
+  ['Pasta Arrabbiata', 1, 'portion', 720, 'Pasta Arrabbiata', [
+    ['Pasta',       0.1500, 'kg'],
+    ['Tomatoes',    0.2000, 'kg'],
+    ['Garlic',      0.0200, 'kg'],
+    ['Spice Blend', 0.0200, 'kg'],
+  ]],
+  ['Paneer Butter Masala', 1, 'portion', 720, 'Paneer Butter Masala', [
+    ['Paneer',        0.2000, 'kg'],
+    ['Butter',        0.0400, 'kg'],
+    ['Tomatoes',      0.1200, 'kg'],
+    ['Cooking Cream', 0.0500, 'L' ],
+    ['Onions',        0.0800, 'kg'],
+    ['Spice Blend',   0.0200, 'kg'],
+  ]],
+  // ── Desserts ──────────────────────────────────────────────────────────────
+  ['Chocolate Lava Cake', 1, 'serving', 600, 'Chocolate Lava Cake', [
+    ['Dark Chocolate',   0.0800, 'kg' ],
+    ['Butter',           0.0400, 'kg' ],
+    ['Sugar',            0.0400, 'kg' ],
+    ['All-Purpose Flour',0.0300, 'kg' ],
+    ['Eggs',             2.0000, 'pcs'],
+  ]],
+  ['Gulab Jamun', 2, 'pcs', 480, 'Gulab Jamun (2 pcs)', [
+    ['All-Purpose Flour',0.0600, 'kg'],
+    ['Milk',             0.0400, 'L' ],
+    ['Sugar',            0.0600, 'kg'],
+    ['Cooking Cream',    0.0200, 'L' ],
+  ]],
+  ['Vanilla Ice Cream', 1, 'serving', 60, 'Vanilla Ice Cream', [
+    ['Milk',        0.1000, 'L' ],
+    ['Sugar',       0.0300, 'kg'],
+    ['Heavy Cream', 0.0800, 'L' ],
+  ]],
+  ['Mango Sorbet', 1, 'serving', 60, 'Mango Sorbet', [
+    ['Mango Pulp', 0.1200, 'L' ],
+    ['Sugar',      0.0300, 'kg'],
+  ]],
+  ['Cheesecake', 1, 'slice', 120, 'Cheesecake', [
+    ['All-Purpose Flour',0.0600, 'kg'],
+    ['Butter',           0.0400, 'kg'],
+    ['Sugar',            0.0500, 'kg'],
+    ['Cooking Cream',    0.1000, 'L' ],
+  ]],
+  ['Tiramisu', 1, 'serving', 120, 'Tiramisu', [
+    ['Coffee',        0.0200, 'kg'],
+    ['Sugar',         0.0400, 'kg'],
+    ['Cooking Cream', 0.1000, 'L' ],
+    ['Milk',          0.0500, 'L' ],
+  ]],
+  // ── Drinks ────────────────────────────────────────────────────────────────
   ['Masala Chai', 1, 'cup', 300, 'Masala Chai', [
     ['Tea Leaves',  0.0050, 'kg'],
     ['Milk',        0.1500, 'L' ],
@@ -152,19 +301,8 @@ const RECIPES = [
     ['Yogurt',     0.1500, 'L' ],
     ['Sugar',      0.0200, 'kg'],
   ]],
-  ['Paneer Tikka', 1, 'portion', 600, 'Paneer Tikka', [
-    ['Paneer',      0.1500, 'kg'],
-    ['Onions',      0.0500, 'kg'],
-    ['Spice Blend', 0.0200, 'kg'],
-    ['Yogurt',      0.0500, 'L' ],
-  ]],
-  ['Paneer Butter Masala', 1, 'portion', 720, 'Paneer Butter Masala', [
-    ['Paneer',        0.2000, 'kg'],
-    ['Butter',        0.0400, 'kg'],
-    ['Tomatoes',      0.1200, 'kg'],
-    ['Cooking Cream', 0.0500, 'L' ],
-    ['Onions',        0.0800, 'kg'],
-    ['Spice Blend',   0.0200, 'kg'],
+  ['Fresh Orange Juice', 1, 'glass', 120, 'Fresh Orange Juice', [
+    ['Oranges', 0.3000, 'kg'],
   ]],
 ];
 
@@ -284,6 +422,7 @@ async function main() {
 
   // ── 7. Orders, items, payments ────────────────────────────────────────────
   console.log('Seeding orders and payments…');
+  const ordersCreated = []; // saved for SALE transaction generation in step 11.5
   for (const [hour, minute, tableIdx, lines] of ORDER_SCHEDULE) {
     const ts = `${today} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+00`;
 
@@ -305,6 +444,8 @@ async function main() {
       INSERT INTO payments (order_id, amount, method, status, subtotal, total_charged)
       VALUES ($1, $2, 'cash', 'completed', $2, $2)
     `, [order.id, subtotal.toFixed(2)]);
+
+    ordersCreated.push({ orderId: order.id, ts, lines });
   }
 
   // ── 8. Ingredients ─────────────────────────────────────────────────────────
@@ -312,12 +453,12 @@ async function main() {
   const ingredientIdByName = {};
   const ingredientCostByName = {};
   const ingredientUnitByName = {};
-  for (const [name, unit, stock, reorder_level, reorder_qty, cost] of INGREDIENTS) {
+  for (const [name, unit, , reorder_level, reorder_qty, cost] of INGREDIENTS) {
     const { rows: [ing] } = await client.query(`
       INSERT INTO ingredients
         (restaurant_id, name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING id
-    `, [RESTAURANT_ID, name, unit, stock, reorder_level, reorder_qty, cost]);
+      VALUES ($1, $2, $3, 0, $4, $5, $6, true) RETURNING id
+    `, [RESTAURANT_ID, name, unit, reorder_level, reorder_qty, cost]);
     ingredientIdByName[name]   = ing.id;
     ingredientCostByName[name] = cost;
     ingredientUnitByName[name] = unit;
@@ -365,6 +506,38 @@ async function main() {
     linkedCount++;
   }
   console.log(`  ${linkedCount} menu items linked to recipes`);
+
+  // ── 11.5. SALE transactions — one per ingredient per order line ───────────
+  console.log('Seeding SALE inventory transactions…');
+
+  // Build menuItemName → [{ingredientId, qtyPerServing, unitCost}]
+  const recipeIngsByMenuItem = {};
+  for (const [, , , , menuItemName, lines] of RECIPES) {
+    if (!menuItemName) continue;
+    recipeIngsByMenuItem[menuItemName] = lines.map(([ingName, qty]) => ({
+      ingredientId: ingredientIdByName[ingName],
+      qtyPerServing: qty,
+      unitCost: ingredientCostByName[ingName],
+    }));
+  }
+
+  let saleTxnCount = 0;
+  for (const { orderId, ts, lines } of ordersCreated) {
+    for (const [itemName, qty] of lines) {
+      const recipe = recipeIngsByMenuItem[itemName];
+      if (!recipe) continue;
+      for (const { ingredientId, qtyPerServing, unitCost } of recipe) {
+        const delta = -(qtyPerServing * qty);
+        await client.query(`
+          INSERT INTO inventory_transactions
+            (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by, created_at)
+          VALUES ($1, $2, 'SALE', $3, $4, $5, $6, $7)
+        `, [RESTAURANT_ID, ingredientId, delta, unitCost, orderId, ADMIN_ID, ts]);
+        saleTxnCount++;
+      }
+    }
+  }
+  console.log(`  ${saleTxnCount} SALE transactions inserted`);
 
   // ── 12. Combos ─────────────────────────────────────────────────────────────
   console.log('Seeding combos…');
@@ -415,6 +588,19 @@ async function main() {
   }
   console.log(`  ${WASTE_ENTRIES.length} waste entries inserted`);
 
+  // ── 13.5. Reconcile stock_on_hand from transaction ledger ─────────────────
+  console.log('Reconciling stock_on_hand…');
+  await client.query(`
+    UPDATE ingredients i
+    SET stock_on_hand = COALESCE((
+      SELECT SUM(it.quantity_delta)
+      FROM inventory_transactions it
+      WHERE it.ingredient_id = i.id
+        AND it.restaurant_id = i.restaurant_id
+    ), 0)
+    WHERE i.restaurant_id = $1
+  `, [RESTAURANT_ID]);
+
   // ── 14. Cost snapshots ─────────────────────────────────────────────────────
   console.log('Seeding cost snapshots…');
   let snapshotCount = 0;
@@ -447,9 +633,10 @@ async function main() {
   console.log(`  Tables     : ${tableIds.length}`);
   console.log(`  Menu items : ${MENU.length}`);
   console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across today`);
-  console.log(`  Ingredients: ${INGREDIENTS.length}`);
+  console.log(`  Ingredients: ${INGREDIENTS.length} (stock reconciled from ledger)`);
   console.log(`  Recipes    : ${RECIPES.length} (${linkedCount} linked to menu items)`);
   console.log(`  Combos     : ${COMBOS.length}`);
+  console.log(`  Inv. txns  : ${INGREDIENTS.length} PURCHASE + ${saleTxnCount} SALE + ${WASTE_ENTRIES.length} WASTE`);
   console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
   console.log(`  Snapshots  : ${snapshotCount}`);
 }
