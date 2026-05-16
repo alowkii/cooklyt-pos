@@ -151,7 +151,7 @@ export function printKOT(order) {
         .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
       return `
         <tr><td style="font-size:15px;font-weight:700;padding:5px 0 1px;vertical-align:top">
-          ${esc(item.quantity)}&nbsp;&times;&nbsp;${esc(item.name)}
+          ${esc(item.quantity)}&nbsp;&times;&nbsp;${esc(item.item_name || item.name)}
         </td></tr>
         ${custLabels.length > 0
           ? `<tr><td style="font-size:12px;color:#333;padding:0 0 2px 16px">${custLabels.map(esc).join(', ')}</td></tr>`
