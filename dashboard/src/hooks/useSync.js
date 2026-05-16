@@ -18,8 +18,10 @@ export function useSync() {
     if (wasOffline.current) {
       wasOffline.current = false;
       flushQueue().then(({ synced, errors }) => {
+        if (errors > 0) {
+          console.warn(`[sync] ${errors} mutation(s) failed to sync — check the sync badge to retry`);
+        }
         if (synced > 0 || errors > 0) {
-          // Refresh all data after flushing so the UI reflects server state
           queryClient.invalidateQueries();
         }
       });

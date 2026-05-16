@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { db } from '../db';
+import { db, dbMeta } from '../db';
 import api from '../api/client';
 import { enqueue } from '../store/syncQueue';
 import { queryClient } from '../lib/queryClient';
@@ -11,6 +11,7 @@ export function useTables() {
       try {
         const { data } = await api.get('/tables');
         await db.restaurant_tables.bulkPut(data);
+        await dbMeta.setLastSync('tables');
         return data;
       } catch {
         return db.restaurant_tables.orderBy('number').toArray();
@@ -22,19 +23,18 @@ export function useTables() {
 export function useUpdateTableStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {
-      // Optimistic local update
       await db.restaurant_tables.update(id, { status });
-
-      if (navigator.onLine) {
+      try {
         const { data } = await api.patch(`/tables/${id}/status`, { status });
         await db.restaurant_tables.put(data);
         return data;
+      } catch (err) {
+        if (err.response) throw err;
       }
       await enqueue('tables', 'PATCH', { id, status });
       return { id, status };
     },
     onSuccess: (updatedTable) => {
-      // Update the cache entry directly so the UI reflects the change instantly
       queryClient.setQueryData(['tables'], (old) => {
         if (!old) return old;
         return old.map((t) =>
@@ -71,12 +71,19 @@ export function useUpdateTablePosition() {
 export function useCreateTable() {
   return useMutation({
     mutationFn: async (table) => {
-      const { data } = await api.post('/tables', table);
-      await db.restaurant_tables.put(data);
-      return data;
+      try {
+        const { data } = await api.post('/tables', table);
+        await db.restaurant_tables.put(data);
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      const local = { ...table, id: `local_${crypto.randomUUID()}`, status: 'available' };
+      await db.restaurant_tables.put(local);
+      await enqueue('tables', 'POST', table, local.id);
+      return local;
     },
     onSuccess: (newTable) => {
-      // Append to cache directly so grid updates instantly
       queryClient.setQueryData(['tables'], (old) =>
         old ? [...old, newTable].sort((a, b) => a.number - b.number) : [newTable],
       );

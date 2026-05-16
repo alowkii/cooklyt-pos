@@ -1,10 +1,16 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { db } from '../db';
+import { db, dbMeta } from '../db';
 import api from '../api/client';
 import { enqueue } from '../store/syncQueue';
 import { queryClient } from '../lib/queryClient';
 
-// Kitchen queue — received, preparing, ready orders
+// Returns true when an axios error means "no response was received" — i.e. the
+// device is offline, the server refused the connection, or the request timed out.
+// For actual API errors (4xx, 5xx) err.response IS defined, so we propagate those.
+function isNetworkError(err) {
+  return !err.response;
+}
+
 export function useKitchenQueue() {
   return useQuery({
     queryKey: ['kitchen', 'queue'],
@@ -12,6 +18,7 @@ export function useKitchenQueue() {
       try {
         const { data } = await api.get('/kitchen/queue');
         await db.kitchen.bulkPut(data);
+        await dbMeta.setLastSync('kitchen');
         return data;
       } catch {
         return db.kitchen.toArray();
@@ -50,8 +57,49 @@ export function useActiveOrders() {
 export function useCreateOrder() {
   return useMutation({
     mutationFn: async ({ tableId, items, channel, customerRef }) => {
-      const { data } = await api.post('/orders', { tableId, items, channel, customerRef });
-      return data;
+      try {
+        const { data } = await api.post('/orders', { tableId, items, channel, customerRef });
+        return data;
+      } catch (err) {
+        if (err.response) throw err; // real API error — propagate
+      }
+
+      // Network unreachable — build a local stub visible in the kitchen queue.
+      const localOrderId = `local_${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+
+      const [table, menuItems] = await Promise.all([
+        tableId ? db.restaurant_tables.get(tableId) : Promise.resolve(null),
+        db.menu.bulkGet(items.map((i) => i.menuItemId)),
+      ]);
+
+      // Field names must match what Orders.jsx and useActiveOrders expect
+      const kitchenItems = items.map((item, idx) => ({
+        order_item_id:    `local_item_${crypto.randomUUID()}`,
+        order_id:         localOrderId,
+        table_id:         tableId      ?? null,
+        table_number:     table?.number ?? null,
+        channel:          channel      ?? 'dining',
+        customer_ref:     customerRef  ?? null,
+        order_status:     'received',
+        order_created_at: now,
+        menu_item_id:     item.menuItemId,
+        item_name:        menuItems[idx]?.name ?? 'Unknown item',
+        item_status:      'pending',
+        quantity:         item.quantity,
+        notes:            item.notes          ?? null,
+        customizations:   item.customizations ?? null,
+      }));
+
+      await db.kitchen.bulkPut(kitchenItems);
+
+      if (tableId) {
+        await db.restaurant_tables.update(tableId, { status: 'occupied' });
+      }
+
+      await enqueue('orders', 'POST', { tableId, items, channel, customerRef }, localOrderId);
+
+      return { id: localOrderId, status: 'received', created_at: now };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
@@ -78,8 +126,18 @@ export function useOrderHistory({ from, to, status, channel }) {
 export function useCancelPendingItems() {
   return useMutation({
     mutationFn: async (orderId) => {
-      const { data } = await api.post(`/orders/${orderId}/cancel-pending`);
-      return data;
+      try {
+        const { data } = await api.post(`/orders/${orderId}/cancel-pending`);
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      await db.kitchen
+        .where('order_id').equals(orderId)
+        .and((item) => item.item_status === 'pending')
+        .modify({ item_status: 'cancelled' });
+      await enqueue('orders', 'cancel-pending:POST', { orderId });
+      return { orderId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
@@ -90,8 +148,15 @@ export function useCancelPendingItems() {
 export function useUpdateItemStatus() {
   return useMutation({
     mutationFn: async ({ orderId, itemId, status }) => {
-      const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
-      return data;
+      try {
+        const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      await db.kitchen.update(itemId, { item_status: status });
+      await enqueue('orders', 'items:PATCH', { orderId, itemId, status });
+      return { orderId, itemId, status };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
@@ -102,8 +167,14 @@ export function useUpdateItemStatus() {
 export function useAddItems() {
   return useMutation({
     mutationFn: async ({ orderId, items }) => {
-      const { data } = await api.post(`/orders/${orderId}/items`, { items });
-      return data;
+      try {
+        const { data } = await api.post(`/orders/${orderId}/items`, { items });
+        return data;
+      } catch (err) {
+        if (err.response) throw err;
+      }
+      await enqueue('orders', 'items:POST', { orderId, items });
+      return { orderId, items };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
@@ -114,9 +185,11 @@ export function useAddItems() {
 export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => {
-      if (navigator.onLine) {
+      try {
         const { data } = await api.patch(`/orders/${id}/status`, { status });
         return data;
+      } catch (err) {
+        if (err.response) throw err;
       }
       await enqueue('orders', 'PATCH', { id, status });
       return { id, status };
