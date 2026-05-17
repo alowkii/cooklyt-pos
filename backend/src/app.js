@@ -57,6 +57,7 @@ app.use('/api/combos',       require('./combos/combos.router'));
 app.use('/api/modifiers',    require('./modifiers/modifiers.router'));
 app.use('/api/waste',        require('./waste/waste.router'));
 app.use('/api/inventory',    require('./inventory/inventory.router'));
+app.use('/api/notifications', require('./notifications/notifications.router'));
 
 // 404
 app.use((req, res) => {

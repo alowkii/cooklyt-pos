@@ -69,7 +69,7 @@ const ALL_NAV = [
   { to: '/settings', label: 'Settings', Icon: Settings, adminOnly: true },
 ];
 
-const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);
+const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED', 'STAFF_ASSIGNED']);
 
 function MyQRModal({ user, onClose }) {
   const [qrUrl, setQrUrl] = useState('');
@@ -127,6 +127,8 @@ export default function Layout() {
       if (event === 'BILL_REQUESTED' && !isAdmin && !isCashier) return;
       let token = null;
       if (event === 'BILL_REQUESTED') {
+        token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
+      } else if (event === 'STAFF_ASSIGNED') {
         token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
       } else {
         token = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
