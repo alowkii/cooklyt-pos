@@ -72,7 +72,7 @@ router.get('/users', authenticate, authorize('admin'), async (req, res, next) =>
 });
 
 // Admin-only: delete a user (must belong to same restaurant)
-router.delete('/users/:id', authenticate, authorize('admin'), async (req, res, next) => {
+router.delete('/users/:id', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
     const deleted = await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
     audit.log({
@@ -103,7 +103,7 @@ router.post('/change-password', authenticate, writeLimiter, async (req, res, nex
 });
 
 // Admin or self: update a user's display name
-router.patch('/users/:id/name', authenticate, async (req, res, next) => {
+router.patch('/users/:id/name', authenticate, writeLimiter, async (req, res, next) => {
   try {
     const isSelf  = req.params.id === req.user.userId;
     const isAdmin = req.user.role === 'admin';
@@ -116,7 +116,7 @@ router.patch('/users/:id/name', authenticate, async (req, res, next) => {
 });
 
 // Admin-only: set or clear a user's 4-digit staff PIN
-router.patch('/users/:id/pin', authenticate, authorize('admin'), async (req, res, next) => {
+router.patch('/users/:id/pin', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
     const pin = req.body.pin === '' ? null : req.body.pin;
     const user = await service.setStaffPin(req.params.id, pin, req.user.restaurantId);
@@ -132,7 +132,7 @@ router.patch('/users/:id/pin', authenticate, authorize('admin'), async (req, res
 });
 
 // Admin-only: change a user's role (must belong to same restaurant)
-router.patch('/users/:id/role', authenticate, authorize('admin'), async (req, res, next) => {
+router.patch('/users/:id/role', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
     const user = await service.updateUserRole(
       req.params.id,
@@ -152,7 +152,7 @@ router.patch('/users/:id/role', authenticate, authorize('admin'), async (req, re
 });
 
 // Admin-only: enable or disable a user account
-router.patch('/users/:id/active', authenticate, authorize('admin'), async (req, res, next) => {
+router.patch('/users/:id/active', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
     const user = await service.setUserActive(req.params.id, !!req.body.is_active, req.user.userId, req.user.restaurantId);
     res.json(user);
@@ -160,7 +160,7 @@ router.patch('/users/:id/active', authenticate, authorize('admin'), async (req, 
 });
 
 // Self or admin: mark presence (in restaurant / away)
-router.patch('/users/:id/present', authenticate, async (req, res, next) => {
+router.patch('/users/:id/present', authenticate, writeLimiter, async (req, res, next) => {
   try {
     const isSelf  = req.params.id === req.user.userId;
     const isAdmin = req.user.role === 'admin';

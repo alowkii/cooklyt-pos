@@ -25,7 +25,7 @@ async function authenticate(req, res, next) {
         'SELECT EXTRACT(EPOCH FROM password_changed_at)::bigint AS pca FROM users WHERE id = $1',
         [decoded.userId],
       );
-      if (rows[0] && Number(rows[0].pca) > decoded.iat) {
+      if (rows[0] && rows[0].pca != null && Number(rows[0].pca) > decoded.iat) {
         return next(new UnauthorizedError('Token revoked — please sign in again'));
       }
     }
