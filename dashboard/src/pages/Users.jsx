@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X } from 'lucide-react';
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole } from '../hooks/useUsers';
+import { useState, useEffect, useRef } from 'react';
+import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound } from 'lucide-react';
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useSetStaffPin } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
+import QRCode from 'qrcode';
 
 const ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
 
@@ -105,6 +106,104 @@ function RoleCell({ user, isSelf, onSave }) {
   );
 }
 
+function PinModal({ user, onClose }) {
+  const setPin = useSetStaffPin();
+  const [pin,      setPin_]  = useState(user.staff_pin || '');
+  const [qrUrl,    setQrUrl] = useState('');
+  const [saving,   setSaving] = useState(false);
+  const [error,    setError]  = useState('');
+  const [saved,    setSaved]  = useState(false);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!user.staff_pin) return;
+    QRCode.toDataURL(user.staff_pin, { width: 180, margin: 2 })
+      .then(setQrUrl)
+      .catch(() => {});
+  }, [user.staff_pin]);
+
+  async function handleSave() {
+    setError('');
+    if (pin && !/^\d{4}$/.test(pin)) { setError('PIN must be exactly 4 digits'); return; }
+    setSaving(true);
+    try {
+      await setPin.mutateAsync({ id: user.id, pin: pin || null });
+      if (pin) {
+        const url = await QRCode.toDataURL(pin, { width: 180, margin: 2 });
+        setQrUrl(url);
+      } else {
+        setQrUrl('');
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to save PIN');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={`Staff PIN — ${user.email.split('@')[0]}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p style={{ fontSize: 12, color: 'var(--mute)' }}>
+          Set a 4-digit PIN for this staff member. Customers enter this code when placing orders (if Staff Assignment is enabled in Settings).
+        </p>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={pin}
+            onChange={(e) => { setPin_(e.target.value.replace(/\D/g, '').slice(0, 4)); setSaved(false); }}
+            className="input mono"
+            style={{ width: 100, letterSpacing: '0.3em', fontSize: 18, textAlign: 'center' }}
+            placeholder="1234"
+          />
+          <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          {pin && (
+            <button
+              onClick={() => { setPin_(''); setPin.mutateAsync({ id: user.id, pin: null }); setQrUrl(''); }}
+              className="btn-secondary"
+              title="Clear PIN"
+            >
+              <X size={13} /> Clear
+            </button>
+          )}
+          {saved && <span style={{ fontSize: 12, color: 'var(--ok)' }}><Check size={12} /> Saved</span>}
+        </div>
+
+        {error && (
+          <p style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</p>
+        )}
+
+        {qrUrl && (
+          <div className="flex flex-col items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+            <p style={{ fontSize: 12, color: 'var(--mute)', textAlign: 'center' }}>
+              Staff QR — customer scans to auto-fill the code
+            </p>
+            <img src={qrUrl} alt={`QR for PIN ${pin || user.staff_pin}`} style={{ width: 180, height: 180, borderRadius: 8 }} />
+            <p className="mono" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '0.3em', color: 'var(--ink)' }}>
+              {pin || user.staff_pin}
+            </p>
+            <a
+              href={qrUrl}
+              download={`staff-qr-${user.email.split('@')[0]}.png`}
+              className="btn-secondary"
+              style={{ fontSize: 12 }}
+            >
+              Download QR
+            </a>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Users() {
   const { data: users = [], isLoading } = useUsers();
   const createUser = useCreateUser();
@@ -113,6 +212,7 @@ export default function Users() {
 
   const [addModal,       setAddModal]       = useState(false);
   const [confirmDelete,  setConfirmDelete]  = useState(null);
+  const [pinModal,       setPinModal]       = useState(null); // user object
   const [form,           setForm]           = useState(EMPTY_FORM);
   const [formError,      setFormError]      = useState('');
 
@@ -165,6 +265,7 @@ export default function Users() {
                   Role
                   <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to change)</span>
                 </th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Staff PIN</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Created</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -196,6 +297,26 @@ export default function Users() {
                         isSelf={isSelf}
                         onSave={(id, role) => updateRole.mutateAsync({ id, role })}
                       />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <button
+                        onClick={() => setPinModal(user)}
+                        className="inline-flex items-center gap-1.5"
+                        style={{ fontSize: 12, background: 'none', border: 0, cursor: 'pointer', color: user.staff_pin ? 'var(--ink)' : 'var(--mute-2)', padding: 0 }}
+                        title={user.staff_pin ? `PIN set — click to manage` : 'Set staff PIN'}
+                      >
+                        {user.staff_pin ? (
+                          <>
+                            <QrCode size={12} style={{ color: 'var(--ok)' }} />
+                            <span className="mono" style={{ letterSpacing: '0.15em' }}>{user.staff_pin}</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound size={12} />
+                            <span>Set PIN</span>
+                          </>
+                        )}
+                      </button>
                     </td>
                     <td className="px-5 py-3.5" style={{ color: 'var(--mute)' }}>{formatDate(user.created_at)}</td>
                     <td className="px-5 py-3.5 text-right">
@@ -281,6 +402,9 @@ export default function Users() {
           </form>
         </Modal>
       )}
+
+      {/* PIN / QR Modal */}
+      {pinModal && <PinModal user={pinModal} onClose={() => setPinModal(null)} />}
 
       {/* Confirm Delete Modal */}
       {confirmDelete && (

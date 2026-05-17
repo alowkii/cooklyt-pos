@@ -22,14 +22,19 @@ import {
   ChefHat,
   ChevronDown,
   Layers,
+  QrCode,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationBell from './NotificationBell';
+import Modal from './Modal';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
+import { useMeProfile } from '../hooks/useUsers';
+import { useSettings } from '../hooks/useSettings';
 
 const GROUP_PATHS = {
   analytics: ['/reports', '/history', '/waste', '/costing'],
@@ -66,9 +71,55 @@ const ALL_NAV = [
 
 const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);
 
+function MyQRModal({ user, onClose }) {
+  const [qrUrl, setQrUrl] = useState('');
+
+  useEffect(() => {
+    if (!user?.staff_pin) return;
+    QRCode.toDataURL(user.staff_pin, { width: 200, margin: 2 })
+      .then(setQrUrl)
+      .catch(() => {});
+  }, [user?.staff_pin]);
+
+  return (
+    <Modal title="My Staff QR" onClose={onClose}>
+      {user?.staff_pin ? (
+        <div className="flex flex-col items-center gap-4 py-2">
+          <p style={{ fontSize: 12, color: 'var(--mute)', textAlign: 'center' }}>
+            Customers scan this QR or enter your PIN when placing an order.
+          </p>
+          {qrUrl && (
+            <img src={qrUrl} alt="Staff QR code" style={{ width: 200, height: 200, borderRadius: 8 }} />
+          )}
+          <p className="mono" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '0.35em', color: 'var(--ink)' }}>
+            {user.staff_pin}
+          </p>
+          {qrUrl && (
+            <a
+              href={qrUrl}
+              download={`staff-qr-${user.email.split('@')[0]}.png`}
+              className="btn-secondary"
+              style={{ fontSize: 12 }}
+            >
+              Download QR
+            </a>
+          )}
+        </div>
+      ) : (
+        <div className="py-6 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
+          No PIN assigned yet. Ask an admin to set your staff PIN.
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export default function Layout() {
   const { notifications, unreadCount, add, markAllRead, clearAll } = useNotifications();
   const { user, restaurant, isAdmin, isCashier } = useAuth();
+  const { data: meProfile } = useMeProfile();
+  const { data: settings } = useSettings();
+  const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
 
   useWebSocket({
     onEvent(event, payload) {
@@ -88,6 +139,7 @@ export default function Layout() {
   const location  = useLocation();
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
+  const [showMyQR,      setShowMyQR]      = useState(false);
   const [openGroups, setOpenGroups] = useState(() =>
     Object.fromEntries(
       Object.entries(GROUP_PATHS).map(([key, paths]) => [
@@ -282,6 +334,26 @@ export default function Layout() {
 
         {/* Footer */}
         <div className="shrink-0 px-2 pb-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+          {!isAdmin && staffAssignmentEnabled && (
+            <button
+              onClick={() => setShowMyQR(true)}
+              className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
+              style={{ height: 36, color: 'var(--mute)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              <QrCode size={15} />
+              My QR
+              {meProfile?.staff_pin && (
+                <span
+                  className="ml-auto mono"
+                  style={{ fontSize: 10, letterSpacing: '0.15em', color: 'var(--ok)', fontWeight: 600 }}
+                >
+                  {meProfile.staff_pin}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={() => setShowChangePwd(true)}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
@@ -365,6 +437,9 @@ export default function Layout() {
 
       {showChangePwd && (
         <ChangePasswordModal onClose={() => setShowChangePwd(false)} />
+      )}
+      {showMyQR && (
+        <MyQRModal user={meProfile} onClose={() => setShowMyQR(false)} />
       )}
     </div>
   );

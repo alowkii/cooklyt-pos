@@ -40,3 +40,24 @@ export function useUpdateUserRole() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 }
+
+export function useMeProfile() {
+  return useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const { data } = await api.get('/auth/me');
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useSetStaffPin() {
+  return useMutation({
+    mutationFn: async ({ id, pin }) => {
+      const { data } = await api.patch(`/auth/users/${id}/pin`, { pin: pin ?? '' });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  });
+}

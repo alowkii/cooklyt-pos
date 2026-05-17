@@ -36,14 +36,15 @@ export function useActiveOrders() {
     items.reduce((acc, item) => {
       if (!acc[item.order_id]) {
         acc[item.order_id] = {
-          id:           item.order_id,
-          table_id:     item.table_id,
-          table_number: item.table_number,
-          channel:      item.channel      || 'dining',
-          customer_ref: item.customer_ref || null,
-          status:       item.order_status,
-          created_at:   item.order_created_at,
-          items:        [],
+          id:                    item.order_id,
+          table_id:              item.table_id,
+          table_number:          item.table_number,
+          channel:               item.channel               || 'dining',
+          customer_ref:          item.customer_ref          || null,
+          status:                item.order_status,
+          created_at:            item.order_created_at,
+          assigned_staff_email:  item.assigned_staff_email  || null,
+          items:                 [],
         };
       }
       acc[item.order_id].items.push(item);

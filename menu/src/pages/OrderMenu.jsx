@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Plus, Minus, ShoppingCart, CheckCircle, AlertCircle,
   X, ClipboardList, Utensils, Receipt, SlidersHorizontal,
@@ -13,7 +13,8 @@ const STATUS_CONFIG = {
 };
 
 export default function OrderMenu() {
-  const { tableId } = useParams();
+  const { tableId }          = useParams();
+  const [searchParams]       = useSearchParams();
 
   const [loading,        setLoading]        = useState(true);
   const [loadError,      setLoadError]      = useState('');
@@ -39,6 +40,11 @@ export default function OrderMenu() {
   // Inline note below menu item row (only one item at a time)
   const [inlineNoteItemId, setInlineNoteItemId] = useState(null);
 
+  // Staff PIN assignment
+  const [staffPin,      setStaffPin]      = useState(() => searchParams.get('staff') || '');
+  const [staffName,     setStaffName]     = useState('');
+  const [pinVerifying,  setPinVerifying]  = useState(false);
+
   const BILL_COOLDOWN_MS = 5 * 60 * 1000;
   const billKey  = `bill_requested_at_${tableId}`;
   const storedAt = parseInt(localStorage.getItem(billKey) || '0', 10);
@@ -46,6 +52,21 @@ export default function OrderMenu() {
   const [billDone, setBillDone] = useState(remaining > 0);
 
   const catRefs = useRef({});
+
+  async function verifyPin(pin, restaurantId) {
+    if (!pin || !/^\d{4}$/.test(pin)) { setStaffName(''); return; }
+    setPinVerifying(true);
+    try {
+      const res = await fetch(`/api/public/staff/verify-pin/${restaurantId}/${pin}`);
+      if (res.ok) {
+        const { name } = await res.json();
+        setStaffName(name);
+      } else {
+        setStaffName('');
+      }
+    } catch { setStaffName(''); }
+    finally { setPinVerifying(false); }
+  }
 
   useEffect(() => {
     if (remaining <= 0) return;
@@ -89,6 +110,12 @@ export default function OrderMenu() {
     const interval = setInterval(() => fetchOrders(tableId), 12000);
     return () => clearInterval(interval);
   }, [tableId, fetchOrders]);
+
+  // Auto-verify URL-provided staff PIN once tableInfo is available
+  useEffect(() => {
+    if (!tableInfo?.restaurant_id || !staffPin) return;
+    verifyPin(staffPin, tableInfo.restaurant_id);
+  }, [tableInfo?.restaurant_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
   const cartCount  = cart.reduce((s, l) => s + l.quantity, 0);
@@ -224,6 +251,7 @@ export default function OrderMenu() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableId,
+          staffPin: staffPin || undefined,
           items: cart.map((line) => ({
             menuItemId: line.itemId,
             quantity:   line.quantity,
@@ -980,6 +1008,45 @@ export default function OrderMenu() {
           <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
         </svg>
       </div>
+
+      {/* Staff PIN bar — shown when feature is enabled */}
+      {tableInfo?.staff_assignment_enabled && (
+        <div className="flex items-center gap-2" style={{
+          padding: '8px 16px',
+          background: 'var(--paper)',
+          borderBottom: '1px solid var(--line)',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--mute)', whiteSpace: 'nowrap' }}>
+            Staff code
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={staffPin}
+            onChange={(e) => { setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setStaffName(''); }}
+            onBlur={() => tableInfo?.restaurant_id && verifyPin(staffPin, tableInfo.restaurant_id)}
+            placeholder="1234"
+            style={{
+              width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
+              padding: '4px 8px', fontSize: 14, fontFamily: 'monospace',
+              letterSpacing: '0.2em', textAlign: 'center',
+              background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
+            }}
+          />
+          {pinVerifying && (
+            <span style={{ fontSize: 11, color: 'var(--mute)' }}>Checking…</span>
+          )}
+          {staffName && !pinVerifying && (
+            <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
+              ✓ {staffName}
+            </span>
+          )}
+          {staffPin.length === 4 && !staffName && !pinVerifying && (
+            <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
