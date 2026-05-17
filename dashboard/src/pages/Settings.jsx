@@ -26,7 +26,7 @@ export default function Settings() {
     if (settings.tax_rate       !== undefined) setTaxRate(settings.tax_rate);
     if (settings.service_charge !== undefined) setServiceCharge(settings.service_charge);
     if (settings.packaging_fee  !== undefined) {
-      const display = parseFloat(settings.packaging_fee || '0') * currency.rate;
+      const display = parseFloat(settings.packaging_fee || '0');
       setPackagingFee(display ? display.toFixed(currency.decimals ?? 2) : '');
     }
   }, [settings]);
@@ -38,7 +38,7 @@ export default function Settings() {
     try {
       await updateSetting.mutateAsync({ key: 'tax_rate',       value: taxRate       || '0' });
       await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
-      const pkgBase = (parseFloat(packagingFee || '0') / currency.rate).toFixed(4);
+      const pkgBase = parseFloat(packagingFee || '0').toFixed(4);
       await updateSetting.mutateAsync({ key: 'packaging_fee', value: pkgBase });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2500);
@@ -94,8 +94,8 @@ export default function Settings() {
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Display Currency</h2>
         </div>
         <p style={{ fontSize: 12, color: 'var(--mute)' }}>
-          All monetary values across the dashboard are stored in USD and converted for
-          display using the rates below. Select the currency your restaurant operates in.
+          All monetary values are stored and displayed in the selected currency.
+          Choose the currency your restaurant operates in.
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export default function Settings() {
               </div>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{c.code}</p>
               <p style={{ fontSize: 11, color: 'var(--mute)', lineHeight: 1.3 }}>{c.name}</p>
-              <p className="mono num" style={{ fontSize: 10, color: 'var(--line-2)' }}>1 USD = {c.rate} {c.code}</p>
+              <p className="mono num" style={{ fontSize: 10, color: 'var(--line-2)' }}>{c.symbol} · {c.decimals} decimals</p>
             </button>
           );
         })}

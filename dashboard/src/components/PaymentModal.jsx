@@ -257,7 +257,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const bill1Total = useMemo(() => computeSubTotal(bill1Items, bill), [bill1Items, bill]);
   const bill2Total = useMemo(() => computeSubTotal(bill2Items, bill), [bill2Items, bill]);
 
-  const displayTotal  = bill ? parseFloat((bill.total * currency.rate).toFixed(currency.decimals ?? 2)) : 0;
+  const displayTotal  = bill ? parseFloat(parseFloat(bill.total).toFixed(currency.decimals ?? 2)) : 0;
   const tender1Num    = parseFloat(tender1Amount) || 0;
   const tender2Amount = parseFloat((displayTotal - tender1Num).toFixed(currency.decimals ?? 2));
 
@@ -279,12 +279,12 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
       if (!tender1Amount || tender1Num <= 0) { setError('Enter an amount for the first payment method'); return; }
       if (tender2Amount <= 0) { setError(`First amount must be less than the total (${format(bill.total)})`); return; }
       payload.tenders = [
-        { method, amount: parseFloat((tender1Num / currency.rate).toFixed(4)) },
-        { method: method2, amount: parseFloat((tender2Amount / currency.rate).toFixed(4)) },
+        { method, amount: parseFloat(tender1Num.toFixed(4)) },
+        { method: method2, amount: parseFloat(tender2Amount.toFixed(4)) },
       ];
     } else {
       payload.method = method;
-      if (method === 'cash' && amountTendered) { payload.amountTendered = parseFloat(amountTendered) / currency.rate; }
+      if (method === 'cash' && amountTendered) { payload.amountTendered = parseFloat(amountTendered); }
     }
     if (waiveServiceCharge) payload.waiveServiceCharge = true;
     try {
@@ -423,7 +423,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                     <div className="flex items-center gap-2 rounded-[6px] px-3 py-2" style={{ border: '1px solid var(--line-2)', background: 'var(--paper)' }}>
                       <span className="flex-1" style={{ fontSize: 13, color: 'var(--mute)' }}>Remaining</span>
                       <span className="mono num font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>
-                        {tender1Amount && tender2Amount > 0 ? format(tender2Amount / currency.rate) : '—'}
+                        {tender1Amount && tender2Amount > 0 ? format(tender2Amount) : '—'}
                       </span>
                     </div>
                   </div>

@@ -15,8 +15,8 @@ function formatPaymentMethod(receipt) {
 }
 
 export function printReceipt(receipt, currency, win = null) {
-  const { symbol, rate, decimals } = currency;
-  const fmt = (v) => `${esc(symbol)}${(parseFloat(v) * rate).toFixed(decimals)}`;
+  const { symbol, decimals } = currency;
+  const fmt = (v) => `${esc(symbol)}${parseFloat(v).toFixed(decimals)}`;
 
   const date = new Date(receipt.created_at).toLocaleString('en-US', {
     timeZone: receipt.timezone || 'UTC',

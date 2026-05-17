@@ -37,7 +37,7 @@ export default function Reports() {
   const tooltipFormatter = (v) => [format(v)];
 
   const formatTick = useCallback((v) => {
-    const val = parseFloat(v) * currency.rate;
+    const val = parseFloat(v);
     if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1)}M`;
     if (val >= 1_000)     return `${currency.symbol}${(val / 1_000).toFixed(1)}k`;
     return `${currency.symbol}${val.toFixed(0)}`;

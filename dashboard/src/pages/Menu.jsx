@@ -198,7 +198,7 @@ export default function Menu() {
   function openEdit(item) {
     setForm({
       name:                item.name,
-      price:               (parseFloat(item.price) * currency.rate).toFixed(currency.decimals),
+      price:               parseFloat(item.price).toFixed(currency.decimals),
       category:            item.category || 'mains',
       available:           item.available,
       sku:                 item.sku || '',
@@ -210,7 +210,7 @@ export default function Menu() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = { ...form, price: parseFloat(form.price) / currency.rate, sku: form.sku.trim() || undefined, recipeId: form.recipeId || undefined };
+    const payload = { ...form, price: parseFloat(form.price), sku: form.sku.trim() || undefined, recipeId: form.recipeId || undefined };
     if (modal === 'add') { await createItem.mutateAsync(payload); }
     else                 { await updateItem.mutateAsync({ id: modal.id, ...payload }); }
     setModal(null);

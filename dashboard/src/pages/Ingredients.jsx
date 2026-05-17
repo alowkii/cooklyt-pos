@@ -35,13 +35,13 @@ export default function Ingredients() {
       unit:            ing.unit,
       reorderLevel:    ing.reorder_level,
       reorderQty:      ing.reorder_qty,
-      latestUnitCost:  (parseFloat(ing.latest_unit_cost) * currency.rate).toFixed(currency.decimals),
+      latestUnitCost:  parseFloat(ing.latest_unit_cost).toFixed(currency.decimals),
     });
     setModal(ing);
   }
 
   function openPurchase(ing) {
-    setPurForm({ quantity: '', unitCost: (parseFloat(ing.latest_unit_cost) * currency.rate).toFixed(currency.decimals) });
+    setPurForm({ quantity: '', unitCost: parseFloat(ing.latest_unit_cost).toFixed(currency.decimals) });
     setPurchase(ing);
   }
 
@@ -49,7 +49,7 @@ export default function Ingredients() {
     e.preventDefault();
     const payload = {
       ...form,
-      latestUnitCost: parseFloat(form.latestUnitCost) / currency.rate || 0,
+      latestUnitCost: parseFloat(form.latestUnitCost) || 0,
       reorderLevel:   parseFloat(form.reorderLevel)   || 0,
       reorderQty:     parseFloat(form.reorderQty)     || 0,
     };
@@ -66,7 +66,7 @@ export default function Ingredients() {
     await recordPurchase.mutateAsync({
       id:       purchase.id,
       quantity: parseFloat(purForm.quantity),
-      unitCost: parseFloat(purForm.unitCost) / currency.rate,
+      unitCost: parseFloat(purForm.unitCost),
     });
     setPurchase(null);
   }

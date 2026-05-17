@@ -12,12 +12,8 @@ export function CurrencyProvider({ children }) {
 
   const currency = CURRENCIES[code] || CURRENCIES.USD;
 
-  // Amounts are stored in USD. Multiply by rate to display in the selected currency.
   const format = useCallback(
-    (amount) => {
-      const value = parseFloat(amount || 0) * currency.rate;
-      return `${currency.symbol}${value.toFixed(currency.decimals)}`;
-    },
+    (amount) => `${currency.symbol}${parseFloat(amount || 0).toFixed(currency.decimals)}`,
     [currency],
   );
 

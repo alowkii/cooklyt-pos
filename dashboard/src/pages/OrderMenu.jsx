@@ -14,8 +14,8 @@ export default function OrderMenu() {
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
-    const { symbol, rate, decimals } = tableInfo.currency;
-    return `${symbol}${(parseFloat(v) * rate).toFixed(decimals)}`;
+    const { symbol, decimals } = tableInfo.currency;
+    return `${symbol}${parseFloat(v).toFixed(decimals)}`;
   };
 
   useEffect(() => {

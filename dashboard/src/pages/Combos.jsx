@@ -31,7 +31,7 @@ export default function Combos() {
     setForm({
       name:       combo.name,
       sku:        combo.sku || '',
-      price:      (parseFloat(combo.price) * currency.rate).toFixed(currency.decimals),
+      price:      parseFloat(combo.price).toFixed(currency.decimals),
       isActive:   combo.is_active,
       validFrom:  combo.valid_from  ? combo.valid_from.slice(0, 10)  : '',
       validUntil: combo.valid_until ? combo.valid_until.slice(0, 10) : '',
@@ -53,7 +53,7 @@ export default function Combos() {
     const payload = {
       name:       form.name,
       sku:        form.sku.trim() || undefined,
-      price:      parseFloat(form.price) / currency.rate,
+      price:      parseFloat(form.price),
       isActive:   form.isActive,
       validFrom:  form.validFrom  || null,
       validUntil: form.validUntil || null,

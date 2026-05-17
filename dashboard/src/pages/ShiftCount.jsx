@@ -38,7 +38,7 @@ export default function ShiftCount() {
   const [notes,       setNotes]      = useState('');
   const [saved,       setSaved]      = useState(false);
 
-  const expectedDisplay = summary ? parseFloat(summary.expectedCash || 0) * currency.rate : 0;
+  const expectedDisplay = summary ? parseFloat(summary.expectedCash || 0) : 0;
 
   const countedDisplay = denoms
     ? denoms.reduce((sum, d) => sum + d * (parseInt(counts[d] || '0') || 0), 0)
@@ -50,12 +50,12 @@ export default function ShiftCount() {
   const varianceAbs = Math.abs(variance);
 
   function fmt(v) {
-    return format(v / currency.rate);
+    return format(v);
   }
 
   async function handleSubmit() {
     setSaved(false);
-    const actualCashBase = countedDisplay / currency.rate;
+    const actualCashBase = countedDisplay;
     const denomPayload = denoms
       ? denoms.filter((d) => parseInt(counts[d] || '0') > 0)
                .map((d) => ({ value: d, count: parseInt(counts[d]), subtotal: d * parseInt(counts[d]) }))
@@ -221,7 +221,7 @@ export default function ShiftCount() {
           </p>
           <div className="space-y-1">
             {history.map((h) => {
-              const v    = parseFloat(h.variance) * currency.rate;
+              const v    = parseFloat(h.variance);
               const over  = v > 0.005;
               const short = v < -0.005;
               return (
