@@ -28,6 +28,12 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     throw new ValidationError('At least one item is required');
   }
 
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+      throw new ValidationError('Each item quantity must be a positive integer');
+    }
+  }
+
   // Validate all menu items exist and are available for this restaurant
   const menuItems = await menuInterface.getAvailableItems(restaurantId);
   const availableIds = new Set(menuItems.map((i) => i.id));
@@ -43,11 +49,10 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
   }
 
-  // Deduct recipe ingredients immediately when order is placed — fire-and-forget
   inventoryService.deductForOrder(
     order.id, restaurantId,
     items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
-  );
+  ).catch((err) => console.error('[inventory] deductForOrder failed for order', order.id, err?.message));
 
   ws.broadcast('NEW_ORDER', { orderId: order.id, tableId: order.table_id }, restaurantId);
 
@@ -65,11 +70,10 @@ async function addItems(orderId, items, restaurantId) {
     await repo.updateStatus(orderId, 'received');
   }
 
-  // Deduct ingredients for the newly added items — fire-and-forget
   inventoryService.deductForOrder(
     orderId, restaurantId,
     items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
-  );
+  ).catch((err) => console.error('[inventory] deductForOrder failed for order', orderId, err?.message));
 
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
@@ -96,10 +100,9 @@ async function updateItemStatus(orderId, itemId, status, restaurantId) {
     const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled');
     if (!updated) throw new NotFoundError('Order item');
 
-    // Return ingredients for the cancelled item — fire-and-forget
     inventoryService.returnStock(orderId, restaurantId, [
       { menu_item_id: itemRow.menu_item_id, quantity: itemRow.quantity },
-    ]);
+    ]).catch((err) => console.error('[inventory] returnStock failed for order', orderId, err?.message));
 
     // Re-evaluate order status now that this item is gone
     const allItems = await repo.getItemStatuses(orderId);
@@ -158,13 +161,12 @@ async function cancelPendingItems(orderId, restaurantId) {
     await repo.updateItemStatus(itemId, orderId, 'cancelled');
   }
 
-  // Return ingredients for all bulk-cancelled items — fire-and-forget
   inventoryService.returnStock(
     orderId, restaurantId,
     allItems
       .filter((i) => toCancelIds.includes(i.id))
       .map((i) => ({ menu_item_id: i.menu_item_id, quantity: i.quantity })),
-  );
+  ).catch((err) => console.error('[inventory] returnStock failed for order', orderId, err?.message));
 
   // Determine what remains
   const remaining = allItems.filter((i) => !toCancelIds.includes(i.id) && i.status !== 'cancelled');
@@ -172,7 +174,7 @@ async function cancelPendingItems(orderId, restaurantId) {
   let nextStatus;
   if (remaining.length === 0) {
     nextStatus = 'cancelled';
-  } else if (remaining.every((i) => i.status === 'served')) {
+  } else if (remaining.every((i) => (i.status ?? 'pending') === 'served')) {
     nextStatus = 'served';
   } else {
     nextStatus = 'ready';
@@ -240,6 +242,13 @@ async function applyDiscount(orderId, discountType, discountValue, restaurantId)
   const order = await getById(orderId, restaurantId);
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
+
+  if (discountType === 'flat') {
+    const subtotal = await require('./orders.repository').calculateTotal(orderId);
+    if (value > parseFloat(subtotal)) {
+      throw new ValidationError('Flat discount cannot exceed the order subtotal');
+    }
+  }
 
   return repo.setDiscount(orderId, discountType, value);
 }

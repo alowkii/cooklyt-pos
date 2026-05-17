@@ -5,6 +5,14 @@ const { UnauthorizedError, ValidationError, NotFoundError } = require('../shared
 
 const SALT_ROUNDS = 12;
 
+function createToken(userId, role, restaurantId, extra = {}) {
+  return jwt.sign(
+    { userId, role, restaurantId, ...extra },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' },
+  );
+}
+
 function assertStrongPassword(password) {
   if (typeof password !== 'string' || password.length < 8) {
     throw new ValidationError('Password must be at least 8 characters');
@@ -22,16 +30,9 @@ async function login(email, password) {
   if (!valid) throw new UnauthorizedError('Invalid credentials');
   if (user.is_active === false) throw new UnauthorizedError('Account is disabled');
 
-  const token = jwt.sign(
-    {
-      userId: user.id,
-      role: user.role,
-      restaurantId: user.restaurant_id,
-      forcePasswordChange: user.force_password_change,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' },
-  );
+  const token = createToken(user.id, user.role, user.restaurant_id, {
+    forcePasswordChange: user.force_password_change,
+  });
 
   return {
     token,
@@ -106,11 +107,7 @@ async function signup(restaurantName, email, password) {
     password: hashed,
   });
 
-  const token = jwt.sign(
-    { userId: user.id, role: user.role, restaurantId: restaurant.id },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' },
-  );
+  const token = createToken(user.id, user.role, restaurant.id);
 
   return {
     token,
@@ -137,11 +134,7 @@ async function changePassword(userId, currentPassword, newPassword) {
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await repo.updatePassword(userId, hashed);
 
-  const token = jwt.sign(
-    { userId: user.id, role: user.role, restaurantId: user.restaurant_id, forcePasswordChange: false },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' },
-  );
+  const token = createToken(user.id, user.role, user.restaurant_id, { forcePasswordChange: false });
   return { token };
 }
 

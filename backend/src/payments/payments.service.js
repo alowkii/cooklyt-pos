@@ -111,7 +111,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
 
   if (effectiveTenders) {
     const sum = parseFloat(effectiveTenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
-    if (Math.abs(sum - total) > 0.02) {
+    if (Math.abs(sum - total) > 0.05) {
       throw new ValidationError(`Tenders sum (${sum}) must equal total (${total})`);
     }
   } else if (amountTendered !== undefined && amountTendered < total) {
@@ -223,7 +223,7 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
       computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee);
 
     const tendersSum = parseFloat(tenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
-    if (Math.abs(tendersSum - total) > 0.02) {
+    if (Math.abs(tendersSum - total) > 0.05) {
       throw new ValidationError(`Split tenders sum (${tendersSum}) must equal split total (${total})`);
     }
 
