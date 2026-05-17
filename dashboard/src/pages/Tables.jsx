@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
@@ -45,7 +45,7 @@ export default function Tables() {
   const assignTableStaff = useAssignTableStaff();
   const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
-  const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
+  const staffAssignmentEnabled = settings?.staff_assignment_enabled === true || settings?.staff_assignment_enabled === 'true';
 
   // map tableId → assigned staff (from table record directly)
   const staffByTable = tables.reduce((acc, t) => {
@@ -77,9 +77,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const touchDragIdRef = useRef(null);
   const [touchPos, setTouchPos] = useState(null);
 
-  const cellMap = Object.fromEntries(
+  const sortedTables = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
+
+  const cellMap = useMemo(() => Object.fromEntries(
     tables.filter((t) => t.x_pos != null && t.y_pos != null).map((t) => [`${t.x_pos},${t.y_pos}`, t])
-  );
+  ), [tables]);
 
   function changeGrid(axis, delta) {
     if (axis === 'cols') {
@@ -201,9 +203,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
         function getTouchCell(touch) {
           if (!gridRef.current) return null;
-          const rect = gridRef.current.getBoundingClientRect();
-          const col  = Math.floor((touch.clientX - rect.left) / 68);
-          const row  = Math.floor((touch.clientY - rect.top)  / 68);
+          const rect    = gridRef.current.getBoundingClientRect();
+          const cellW   = rect.width  / gridCols;
+          const cellH   = rect.height / gridRows;
+          const col     = Math.floor((touch.clientX - rect.left) / cellW);
+          const row     = Math.floor((touch.clientY - rect.top)  / cellH);
           if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) return { x: col, y: row };
           return null;
         }
@@ -407,7 +411,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         </div>
       ) : view === 'grid' ? (
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
-          {[...tables].sort((a, b) => a.number - b.number).map((t) => (
+          {sortedTables.map((t) => (
             <div key={t.id} className="relative">
               <button
                 onClick={() => canEdit && setSelected(t)}
@@ -475,7 +479,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             <span>Table</span><span>Status</span><span>Seats</span>
             {staffAssignmentEnabled && <span>Staff</span>}
           </div>
-          {[...tables].sort((a, b) => a.number - b.number).map((t) => {
+          {sortedTables.map((t) => {
             const staff = staffByTable[t.id];
             const staffLabel = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
             return (

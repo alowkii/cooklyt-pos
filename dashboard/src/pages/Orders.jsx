@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Clock, ChefHat, ChevronDown, ChevronUp,
   Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer, User,
@@ -330,8 +330,8 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 4 }}>
                 {cat}
               </div>
-              {catItems.map((item, i) => (
-                <ItemRow key={i} orderId={order.id} item={item} canUpdate={canOrder} />
+              {catItems.map((item) => (
+                <ItemRow key={item.order_item_id} orderId={order.id} item={item} canUpdate={canOrder} />
               ))}
             </div>
           ))}
@@ -360,7 +360,7 @@ export default function Orders() {
   const [payingOrder,   setPayingOrder]   = useState(null); // { order, tableNumber }
   const [addingToOrder, setAddingToOrder] = useState(null); // { order, orderTitle }
 
-  const tableMap = Object.fromEntries(tables.map((t) => [t.id, t]));
+  const tableMap = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, t])), [tables]);
 
   const counts = {
     all:      orders.length,

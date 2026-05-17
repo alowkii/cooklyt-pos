@@ -36,6 +36,7 @@ export function useKitchenQueue() {
       }
     },
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
