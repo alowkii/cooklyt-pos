@@ -357,10 +357,15 @@ export default function Menu() {
             >
               {/* Name + tags */}
               <div className="min-w-0 py-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }} className="truncate">
-                    {item.name}
-                  </span>
+                <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                  {item.name}
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {item.category && (
+                    <span className="capitalize" style={{ fontSize: 10.5, color: 'var(--mute)' }}>
+                      {item.category}
+                    </span>
+                  )}
                   {item.sku && (
                     <span
                       className="mono shrink-0 rounded px-1.5 py-0.5"
@@ -387,11 +392,6 @@ export default function Menu() {
                     </span>
                   )}
                 </div>
-                {item.category && (
-                  <p className="mt-0.5 capitalize" style={{ fontSize: 10.5, color: 'var(--mute)' }}>
-                    {item.category}
-                  </p>
-                )}
               </div>
 
               {/* Price */}
