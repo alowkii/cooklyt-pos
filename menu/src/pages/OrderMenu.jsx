@@ -988,7 +988,7 @@ export default function OrderMenu() {
 
       {/* Cart FAB */}
       {cartCount > 0 && tab === 'menu' && (
-        <div style={{ position: 'absolute', bottom: 64, left: 16, right: 16, zIndex: 20 }}>
+        <div style={{ position: 'fixed', bottom: 70, left: 16, right: 16, zIndex: 40 }}>
           <button
             onClick={() => setShowCart(true)}
             className="flex w-full items-center gap-3"
