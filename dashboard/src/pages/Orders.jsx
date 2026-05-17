@@ -173,7 +173,7 @@ function ItemRow({ orderId, item, canUpdate }) {
 
 /* ── OrderRow ────────────────────────────────────────────── */
 
-function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel, onPay, onAddItems }) {
+function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canCancel, onPay, onAddItems }) {
   const updateStatus  = useUpdateOrderStatus();
   const cancelPending = useCancelPendingItems();
 
@@ -299,7 +299,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canCancel, onPay, 
                   <DollarSign size={12} /> Collect payment
                 </button>
               )}
-              {next && canOrder && (
+              {next && canOrder && (next !== 'preparing' || canPrepare) && (
                 <button
                   onClick={() => updateStatus.mutate({ id: order.id, status: next })}
                   disabled={updateStatus.isPending}
@@ -336,8 +336,9 @@ export default function Orders() {
   const { data: tables = [] }            = useTables();
   const { isAdmin, user }                = useAuth();
 
-  const canCancel = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
-  const canOrder  = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canCancel  = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canOrder   = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canPrepare = isAdmin || user?.role === 'staff';
 
   const [expanded,      setExpanded]      = useState(null);
   const [showNewOrder,  setShowNewOrder]  = useState(false);
@@ -449,6 +450,7 @@ export default function Orders() {
               isOpen={expanded === order.id}
               onToggle={() => setExpanded(expanded === order.id ? null : order.id)}
               canOrder={canOrder}
+              canPrepare={canPrepare}
               canCancel={canCancel}
               onPay={setPayingOrder}
               onAddItems={setAddingToOrder}
