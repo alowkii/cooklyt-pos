@@ -10,6 +10,15 @@ const RESTAURANT_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID      = '00000000-0000-0000-0000-000000000002';
 const STAFF_ID      = '00000000-0000-0000-0000-000000000003';
 
+const SEED_USERS = [
+  { id: ADMIN_ID,                                    email: 'admin@demo.com',   password: 'admin123', role: 'admin',   name: 'Admin',      pin: null   },
+  { id: STAFF_ID,                                    email: 'arjun@demo.com',   password: 'staff123', role: 'staff',   name: 'Arjun',      pin: '1234' },
+  { id: '00000000-0000-0000-0000-000000000004',      email: 'priya@demo.com',   password: 'staff123', role: 'staff',   name: 'Priya',      pin: '2345' },
+  { id: '00000000-0000-0000-0000-000000000005',      email: 'ravi@demo.com',    password: 'staff123', role: 'staff',   name: 'Ravi',       pin: '3456' },
+  { id: '00000000-0000-0000-0000-000000000006',      email: 'kitchen@demo.com', password: 'staff123', role: 'kitchen', name: 'Kitchen',    pin: '4567' },
+  { id: '00000000-0000-0000-0000-000000000007',      email: 'cashier@demo.com', password: 'staff123', role: 'cashier', name: 'Cashier',    pin: '5678' },
+];
+
 // Full menu across categories (prices in INR)
 const MENU = [
   // Starters
@@ -380,18 +389,16 @@ async function main() {
 
   // ── 4. Users ───────────────────────────────────────────────────────────────
   console.log('Seeding users…');
-  const [adminHash, staffHash] = await Promise.all([
-    bcrypt.hash('admin123', 10),
-    bcrypt.hash('staff123', 10),
-  ]);
-  await client.query(`
-    INSERT INTO users (id, email, password, role, restaurant_id)
-    VALUES ($1, 'admin@demo.com', $2, 'admin', $3)
-  `, [ADMIN_ID, adminHash, RESTAURANT_ID]);
-  await client.query(`
-    INSERT INTO users (id, email, password, role, restaurant_id)
-    VALUES ($1, 'staff@demo.com', $2, 'staff', $3)
-  `, [STAFF_ID, staffHash, RESTAURANT_ID]);
+  const uniquePasswords = [...new Set(SEED_USERS.map((u) => u.password))];
+  const hashes = await Promise.all(uniquePasswords.map((p) => bcrypt.hash(p, 10)));
+  const hashByPassword = Object.fromEntries(uniquePasswords.map((p, i) => [p, hashes[i]]));
+
+  for (const u of SEED_USERS) {
+    await client.query(`
+      INSERT INTO users (id, email, password, role, name, staff_pin, restaurant_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [u.id, u.email, hashByPassword[u.password], u.role, u.name, u.pin, RESTAURANT_ID]);
+  }
 
   // ── 5. Tables ──────────────────────────────────────────────────────────────
   console.log('Seeding tables…');
@@ -628,8 +635,9 @@ async function main() {
 
   console.log('\nSeed complete!');
   console.log(`  Restaurant : Demo Restaurant (${RESTAURANT_ID})`);
-  console.log('  Admin      : admin@demo.com / admin123');
-  console.log('  Staff      : staff@demo.com / staff123');
+  for (const u of SEED_USERS) {
+    console.log(`  ${u.role.padEnd(8)}: ${u.email} / ${u.password}${u.pin ? ` (PIN: ${u.pin})` : ''}`);
+  }
   console.log(`  Tables     : ${tableIds.length}`);
   console.log(`  Menu items : ${MENU.length}`);
   console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across today`);
