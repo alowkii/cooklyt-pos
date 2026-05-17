@@ -371,12 +371,10 @@ export default function Menu() {
                   )}
                   {item.recipe_id && (
                     <span
-                      className="inline-flex items-center gap-1 shrink-0"
-                      title="Inventory tracked via recipe"
-                      style={{ fontSize: 10, color: '#16a34a' }}
+                      title={recipes.find(r => r.id === item.recipe_id)?.name || 'Recipe linked'}
+                      style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center' }}
                     >
-                      <BookOpen size={9} />
-                      {recipes.find(r => r.id === item.recipe_id)?.name || 'Recipe'}
+                      <BookOpen size={11} />
                     </span>
                   )}
                   {item.customization_groups?.length > 0 && (
