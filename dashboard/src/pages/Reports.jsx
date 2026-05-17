@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar,
   LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { Trash2, TrendingUp } from 'lucide-react';
 import { useDailyReport } from '../hooks/useReports';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
@@ -20,6 +22,7 @@ function StatCard({ label, value }) {
 }
 
 export default function Reports() {
+  const navigate = useNavigate();
   const { timezone, todayLocal } = useTimezone();
   const today = todayLocal();
   const [date, setDate] = useState(today);
@@ -42,8 +45,8 @@ export default function Reports() {
 
   return (
     <div className="space-y-5">
-      {/* Date picker */}
-      <div className="flex items-center gap-3">
+      {/* Date picker + quick links */}
+      <div className="flex flex-wrap items-center gap-3">
         <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', flexShrink: 0 }}>Date</label>
         <input
           type="date"
@@ -52,6 +55,28 @@ export default function Reports() {
           onChange={(e) => setDate(e.target.value)}
           className="input w-full max-w-[200px]"
         />
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => navigate('/waste')}
+            className="flex items-center gap-1.5 rounded-[6px] px-3 text-[12px] font-medium transition-colors duration-75"
+            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
+          >
+            <Trash2 size={13} />
+            Waste Log
+          </button>
+          <button
+            onClick={() => navigate('/costing')}
+            className="flex items-center gap-1.5 rounded-[6px] px-3 text-[12px] font-medium transition-colors duration-75"
+            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
+          >
+            <TrendingUp size={13} />
+            Costing
+          </button>
+        </div>
       </div>
 
       {isLoading && (
@@ -76,6 +101,41 @@ export default function Reports() {
             <StatCard label="Total Revenue" value={revenue !== null ? format(revenue) : '—'} />
             <StatCard label="Total Orders"  value={orders ?? '—'} />
             <StatCard label="Avg Order Value" value={orders ? format(avgValue) : '—'} />
+          </div>
+
+          {/* Top Items Table */}
+          <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Top Selling Items</p>
+            </div>
+            {data.topItems?.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Item</th>
+                      <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Category</th>
+                      <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Sold</th>
+                      <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.topItems.map((item, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)' }}>{item.name}</td>
+                        <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)' }}>{item.category}</td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{item.total_sold}</td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(item.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>
+                No completed orders on this date
+              </p>
+            )}
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -160,41 +220,6 @@ export default function Reports() {
                 <EmptyChart />
               )}
             </div>
-          </div>
-
-          {/* Top Items Table */}
-          <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
-            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Top Selling Items</p>
-            </div>
-            {data.topItems?.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full" style={{ fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                      <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Item</th>
-                      <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Category</th>
-                      <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Sold</th>
-                      <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.topItems.map((item, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)' }}>{item.name}</td>
-                        <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)' }}>{item.category}</td>
-                        <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{item.total_sold}</td>
-                        <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(item.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>
-                No completed orders on this date
-              </p>
-            )}
           </div>
         </>
       )}

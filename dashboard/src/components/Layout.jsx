@@ -31,29 +31,37 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 
-const RMS_PATHS = ['/ingredients', '/inventory', '/recipes', '/combos', '/waste', '/costing'];
+const GROUP_PATHS = {
+  analytics: ['/reports', '/history', '/waste', '/costing'],
+  rms:       ['/ingredients', '/inventory', '/recipes', '/combos'],
+};
 
 const ALL_NAV = [
   { to: '/overview', label: 'Overview', Icon: LayoutDashboard, end: true, adminOnly: false },
   { to: '/menu',     label: 'Menu',     Icon: UtensilsCrossed,            adminOnly: false },
   { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                    adminOnly: false },
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,              adminOnly: false },
-  { to: '/reports',  label: 'Reports',  Icon: BarChart2,                  adminOnly: true  },
-  { to: '/history',  label: 'History',  Icon: ScrollText,                 adminOnly: true  },
   { to: '/shift',    label: 'Shift',    Icon: Wallet,                     adminOnly: false, staffOnly: true },
   {
-    type: 'group', label: 'Recipe Mgmt', Icon: ChefHat, adminOnly: true,
+    type: 'group', key: 'analytics', label: 'Analytics', Icon: BarChart2, adminOnly: true,
     children: [
-      { to: '/ingredients', label: 'Ingredients',  Icon: FlaskConical },
-      { to: '/inventory',   label: 'Ledger',        Icon: Layers       },
-      { to: '/recipes',     label: 'Recipes',       Icon: BookOpen     },
-      { to: '/combos',      label: 'Combos',        Icon: Package      },
-      { to: '/waste',       label: 'Waste Log',     Icon: Trash2       },
-      { to: '/costing',     label: 'Costing',       Icon: TrendingUp   },
+      { to: '/reports',  label: 'Reports',   Icon: BarChart2  },
+      { to: '/history',  label: 'History',   Icon: ScrollText },
+      { to: '/waste',    label: 'Waste Log', Icon: Trash2     },
+      { to: '/costing',  label: 'Costing',   Icon: TrendingUp },
     ],
   },
-  { to: '/users',    label: 'Users',    Icon: Users,                      adminOnly: true  },
-  { to: '/settings', label: 'Settings', Icon: Settings,                   adminOnly: true  },
+  {
+    type: 'group', key: 'rms', label: 'Recipe Mgmt', Icon: ChefHat, adminOnly: true,
+    children: [
+      { to: '/ingredients', label: 'Ingredients', Icon: FlaskConical },
+      { to: '/inventory',   label: 'Ledger',       Icon: Layers      },
+      { to: '/recipes',     label: 'Recipes',      Icon: BookOpen    },
+      { to: '/combos',      label: 'Combos',       Icon: Package     },
+    ],
+  },
+  { to: '/users',    label: 'Users',    Icon: Users,    adminOnly: true },
+  { to: '/settings', label: 'Settings', Icon: Settings, adminOnly: true },
 ];
 
 const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED']);
@@ -80,8 +88,12 @@ export default function Layout() {
   const location  = useLocation();
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
-  const [rmsOpen,       setRmsOpen]       = useState(() =>
-    RMS_PATHS.some(p => location.pathname.startsWith(p)),
+  const [openGroups, setOpenGroups] = useState(() =>
+    Object.fromEntries(
+      Object.entries(GROUP_PATHS).map(([key, paths]) => [
+        key, paths.some(p => location.pathname.startsWith(p)),
+      ])
+    )
   );
 
   useEffect(() => {
@@ -89,7 +101,12 @@ export default function Layout() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (RMS_PATHS.some(p => location.pathname.startsWith(p))) setRmsOpen(true);
+    const active = Object.fromEntries(
+      Object.entries(GROUP_PATHS)
+        .filter(([, paths]) => paths.some(p => location.pathname.startsWith(p)))
+        .map(([key]) => [key, true])
+    );
+    if (Object.keys(active).length) setOpenGroups(prev => ({ ...prev, ...active }));
   }, [location.pathname]);
 
   const isKitchen = user?.role === 'kitchen';
@@ -165,11 +182,12 @@ export default function Layout() {
           {nav.map((item) => {
             if (item.type === 'group') {
               const GroupIcon = item.Icon;
+              const isOpen = openGroups[item.key] ?? false;
               const groupActive = item.children.some(c => location.pathname.startsWith(c.to));
               return (
-                <div key="rms-group">
+                <div key={item.key}>
                   <button
-                    onClick={() => setRmsOpen(o => !o)}
+                    onClick={() => setOpenGroups(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
                     className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12.5px] font-medium transition-colors duration-75"
                     style={{ height: 36, background: groupActive ? 'var(--paper-2)' : 'transparent', color: groupActive ? 'var(--ink)' : 'var(--mute)' }}
                     onMouseEnter={(e) => { if (!groupActive) { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; } }}
@@ -180,10 +198,10 @@ export default function Layout() {
                     <ChevronDown
                       size={12}
                       className="ml-auto shrink-0"
-                      style={{ transform: rmsOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+                      style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
                     />
                   </button>
-                  {rmsOpen && (
+                  {isOpen && (
                     <div
                       className="mt-px flex flex-col gap-px pb-px"
                       style={{ borderLeft: '1px solid var(--line)', marginLeft: 14, paddingLeft: 6 }}
