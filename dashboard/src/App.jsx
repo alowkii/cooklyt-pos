@@ -28,6 +28,10 @@ function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
 }
 
+function RequireGuest({ children }) {
+  return localStorage.getItem('pos_token') ? <Navigate to="/overview" replace /> : children;
+}
+
 function RequireAdmin({ children }) {
   const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
   if (!localStorage.getItem('pos_token')) return <Navigate to="/login" replace />;
@@ -71,7 +75,7 @@ function SettingsSync() {
     if (!settings) return;
     if (settings.timezone && settings.timezone !== iana) setTimezone(settings.timezone);
     if (settings.currency && settings.currency !== code) setCurrency(settings.currency);
-  }, [settings]);
+  }, [settings, iana, code, setTimezone, setCurrency]);
 
   return null;
 }
@@ -81,8 +85,8 @@ export default function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SyncWatcher />
       <Routes>
-        <Route path="/"               element={<Landing />} />
-        <Route path="/login"          element={<Login />} />
+        <Route path="/"               element={<RequireGuest><Landing /></RequireGuest>} />
+        <Route path="/login"          element={<RequireGuest><Login /></RequireGuest>} />
         <Route path="/change-password" element={<ChangePassword />} />
 
         {/* Pathless layout route — wraps all authenticated pages */}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
   Printer, Split, Plus, Minus, ArrowLeft,
@@ -245,6 +245,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const [error,             setError]             = useState('');
   const [printing,          setPrinting]          = useState(false);
   const [printError,        setPrintError]        = useState('');
+  const printWinRef = useRef(null);
 
   const bill1Items = useMemo(
     () => (bill?.items ?? []).map((i) => ({ ...i, quantity: quantities[i.id] ?? i.quantity })).filter((i) => i.quantity > 0),
@@ -262,14 +263,20 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const tender2Amount = parseFloat((displayTotal - tender1Num).toFixed(currency.decimals ?? 2));
 
   async function handlePrintReceipt() {
+    // Close any leftover print window from a previous attempt
+    if (printWinRef.current && !printWinRef.current.closed) printWinRef.current.close();
     const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
     if (!win) { alert('Please allow pop-ups for this site to print receipts.'); return; }
+    printWinRef.current = win;
     setPrinting(true); setPrintError('');
     try {
       const { data } = await api.get(`/payments/${order.id}/receipt`);
       printReceipt(data, currency, win);
-    } catch { win.close(); setPrintError('Could not load receipt. Try again.'); }
-    finally { setPrinting(false); }
+    } catch {
+      win.close();
+      printWinRef.current = null;
+      setPrintError('Could not load receipt. Try again.');
+    } finally { setPrinting(false); }
   }
 
   async function handleFullSubmit(e) {
@@ -342,7 +349,15 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
               )}
             </>
           )}
-          {printError && <p style={{ fontSize: 12, color: 'var(--bad)' }}>{printError}</p>}
+          {printError && (
+            <div className="w-full rounded-[6px] px-3 py-2 flex items-center justify-between gap-3" style={{ background: 'rgba(179,55,43,.06)' }}>
+              <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{printError}</p>
+              <button onClick={handlePrintReceipt} disabled={printing}
+                style={{ fontSize: 12, color: 'var(--bad)', border: 0, background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Retry
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 mt-2 w-full">
             <button onClick={handlePrintReceipt} disabled={printing}
               className="btn-secondary flex-1 flex items-center justify-center gap-2">
