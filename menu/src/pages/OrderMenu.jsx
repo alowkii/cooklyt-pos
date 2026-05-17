@@ -33,6 +33,12 @@ export default function OrderMenu() {
   const [selections, setSelections] = useState({});   // { [groupIndex]: [label, ...] }
   const [custNotes,  setCustNotes]  = useState('');
 
+  // Per-line note editing in cart (Set of _key values whose textarea is open)
+  const [openNoteKeys, setOpenNoteKeys] = useState(new Set());
+
+  // Inline note below menu item row (only one item at a time)
+  const [inlineNoteItemId, setInlineNoteItemId] = useState(null);
+
   const BILL_COOLDOWN_MS = 5 * 60 * 1000;
   const billKey  = `bill_requested_at_${tableId}`;
   const storedAt = parseInt(localStorage.getItem(billKey) || '0', 10);
@@ -131,6 +137,38 @@ export default function OrderMenu() {
       return prev.map((l) => l._key === key ? { ...l, quantity: l.quantity + delta } : l);
     });
   }
+
+  function updateLineNote(key, val) {
+    setCart((prev) => prev.map((l) => l._key === key ? { ...l, notes: val } : l));
+  }
+
+  function toggleNoteOpen(key) {
+    setOpenNoteKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Updates the notes field on a simple (no-customization) cart line
+  function updateSimpleItemNote(itemId, text) {
+    setCart((prev) =>
+      prev.map((l) =>
+        l.itemId === itemId && Object.keys(l.selections).length === 0
+          ? { ...l, notes: text }
+          : l,
+      ),
+    );
+  }
+
+  // Auto-close inline note when the item is removed from cart
+  useEffect(() => {
+    if (!inlineNoteItemId) return;
+    const stillInCart = cart.some(
+      (l) => l.itemId === inlineNoteItemId && Object.keys(l.selections).length === 0,
+    );
+    if (!stillInCart) setInlineNoteItemId(null);
+  }, [cart, inlineNoteItemId]);
 
   // ── Customization modal helpers ──────────────────────────────────────────────
 
@@ -479,12 +517,39 @@ export default function OrderMenu() {
                         {selSummary}
                       </p>
                     )}
-                    {line.notes && (
-                      <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1, fontStyle: 'italic' }}>
-                        {line.notes}
-                      </p>
+                    {/* Inline note editor */}
+                    {openNoteKeys.has(line._key) ? (
+                      <textarea
+                        autoFocus
+                        value={line.notes}
+                        onChange={(e) => updateLineNote(line._key, e.target.value)}
+                        onBlur={() => { if (!line.notes) toggleNoteOpen(line._key); }}
+                        placeholder="e.g. No onions, extra sauce…"
+                        rows={2}
+                        style={{
+                          marginTop: 6, width: '100%', boxSizing: 'border-box',
+                          borderRadius: 7, border: '1px solid var(--line-2)',
+                          background: 'var(--paper-2)', color: 'var(--ink)',
+                          fontSize: 12, padding: '7px 10px',
+                          fontFamily: 'inherit', resize: 'none', outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => toggleNoteOpen(line._key)}
+                        style={{
+                          marginTop: 4, background: 'none', border: 'none',
+                          padding: 0, cursor: 'pointer', textAlign: 'left',
+                          fontFamily: 'inherit', display: 'block',
+                        }}
+                      >
+                        {line.notes
+                          ? <span style={{ fontSize: 11.5, color: 'var(--mute)', fontStyle: 'italic' }}>{line.notes}</span>
+                          : <span style={{ fontSize: 11.5, color: 'var(--mute-2)' }}>+ Add note</span>
+                        }
+                      </button>
                     )}
-                    <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
+                    <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 4 }}>
                       {fmt(unitPrice)} each
                     </p>
                   </div>
@@ -611,12 +676,19 @@ export default function OrderMenu() {
                 </div>
                 <div style={{ padding: '11px 14px' }} className="space-y-1.5">
                   {(order.items || []).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between" style={{ fontSize: 13 }}>
-                      <span style={{ color: 'var(--ink)' }}>
-                        {item.name}
-                        <span style={{ color: 'var(--mute)', marginLeft: 6 }}>× {item.quantity}</span>
-                      </span>
-                      <span style={{ color: 'var(--mute)' }}>{fmt(item.price * item.quantity)}</span>
+                    <div key={idx} style={{ fontSize: 13 }}>
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: 'var(--ink)' }}>
+                          {item.name}
+                          <span style={{ color: 'var(--mute)', marginLeft: 6 }}>× {item.quantity}</span>
+                        </span>
+                        <span style={{ color: 'var(--mute)' }}>{fmt(item.price * item.quantity)}</span>
+                      </div>
+                      {item.notes && (
+                        <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2, fontStyle: 'italic' }}>
+                          {item.notes}
+                        </p>
+                      )}
                     </div>
                   ))}
                   {total > 0 && (
@@ -726,93 +798,134 @@ export default function OrderMenu() {
               const qty       = itemCartQty(item.id);
               const simpleQty = cart.find((l) => l.itemId === item.id && Object.keys(l.selections).length === 0)?.quantity || 0;
 
+              const inlineOpen = inlineNoteItemId === item.id;
+              const simpleNote = cart.find(
+                (l) => l.itemId === item.id && Object.keys(l.selections).length === 0,
+              )?.notes || '';
+
               return (
                 <div
                   key={item.id}
-                  className="flex items-start gap-4"
-                  style={{
-                    background: 'var(--paper)',
-                    padding: '14px 16px',
-                    borderBottom: '1px solid var(--line)',
-                  }}
+                  style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
-                      {item.name}
-                    </p>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginTop: 3 }}>
-                      {fmt(item.price)}
-                    </p>
-                    {hasCustom && (
-                      <p className="flex items-center gap-1" style={{ fontSize: 11, color: 'var(--mute)', marginTop: 3 }}>
-                        <SlidersHorizontal size={10} /> Customizable
+                  {/* Item row */}
+                  <div className="flex items-start gap-4" style={{ padding: '14px 16px' }}>
+                    <div className="flex-1 min-w-0">
+                      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
+                        {item.name}
                       </p>
-                    )}
-                  </div>
-
-                  {hasCustom ? (
-                    /* Customizable: always open modal on + */
-                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                      {qty > 0 && (
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 18, textAlign: 'center' }}>
-                          {qty}
-                        </span>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginTop: 3 }}>
+                        {fmt(item.price)}
+                      </p>
+                      {hasCustom && (
+                        <p className="flex items-center gap-1" style={{ fontSize: 11, color: 'var(--mute)', marginTop: 3 }}>
+                          <SlidersHorizontal size={10} /> Customizable
+                        </p>
                       )}
+                      {/* Show note preview below item name when inline note is closed */}
+                      {!hasCustom && !inlineOpen && simpleNote && (
+                        <p
+                          style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 3, fontStyle: 'italic', cursor: 'pointer' }}
+                          onClick={() => setInlineNoteItemId(item.id)}
+                        >
+                          {simpleNote}
+                        </p>
+                      )}
+                    </div>
+
+                    {hasCustom ? (
+                      <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                        {qty > 0 && (
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 18, textAlign: 'center' }}>
+                            {qty}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => openCustomization(item)}
+                          style={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            border: '2px solid var(--ink)', background: 'transparent',
+                            color: 'var(--ink)', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                          }}
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+                    ) : simpleQty > 0 ? (
+                      <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
+                        <button
+                          onClick={() => removeSimple(item.id)}
+                          style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            border: '2px solid var(--ink)', background: 'transparent',
+                            color: 'var(--ink)', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', cursor: 'pointer',
+                          }}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span style={{ width: 20, textAlign: 'center', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
+                          {simpleQty}
+                        </span>
+                        <button
+                          onClick={() => { addSimple(item); setInlineNoteItemId(item.id); }}
+                          style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => openCustomization(item)}
+                        onClick={() => { addSimple(item); setInlineNoteItemId(item.id); }}
                         style={{
                           width: 36, height: 36, borderRadius: '50%',
                           border: '2px solid var(--ink)', background: 'transparent',
                           color: 'var(--ink)', display: 'flex', alignItems: 'center',
                           justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                          marginTop: 2,
                         }}
                       >
                         <Plus size={18} />
                       </button>
-                    </div>
-                  ) : simpleQty > 0 ? (
-                    /* Simple item in cart: stepper */
-                    <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
-                      <button
-                        onClick={() => removeSimple(item.id)}
+                    )}
+                  </div>
+
+                  {/* Inline note — only for simple items */}
+                  {!hasCustom && inlineOpen && (
+                    <div style={{ padding: '0 16px 14px' }}>
+                      <textarea
+                        autoFocus
+                        value={simpleNote}
+                        onChange={(e) => updateSimpleItemNote(item.id, e.target.value)}
+                        placeholder="e.g. No onions, extra sauce…"
+                        rows={2}
                         style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          border: '2px solid var(--ink)', background: 'transparent',
-                          color: 'var(--ink)', display: 'flex', alignItems: 'center',
-                          justifyContent: 'center', cursor: 'pointer',
+                          width: '100%', boxSizing: 'border-box',
+                          borderRadius: 8, border: '1px solid var(--line-2)',
+                          background: 'var(--paper-2)', color: 'var(--ink)',
+                          fontSize: 13, padding: '9px 12px',
+                          fontFamily: 'inherit', resize: 'none', outline: 'none',
                         }}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span style={{ width: 20, textAlign: 'center', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-                        {simpleQty}
-                      </span>
-                      <button
-                        onClick={() => addSimple(item)}
-                        style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Plus size={14} />
-                      </button>
+                      />
+                      <div className="flex justify-end" style={{ marginTop: 6 }}>
+                        <button
+                          onClick={() => setInlineNoteItemId(null)}
+                          style={{
+                            fontSize: 12, fontWeight: 600, color: 'var(--ink)',
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontFamily: 'inherit', padding: '4px 8px',
+                          }}
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    /* Simple item not in cart */
-                    <button
-                      onClick={() => addSimple(item)}
-                      style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        border: '2px solid var(--ink)', background: 'transparent',
-                        color: 'var(--ink)', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    >
-                      <Plus size={18} />
-                    </button>
                   )}
                 </div>
               );
