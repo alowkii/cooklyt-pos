@@ -6,7 +6,7 @@ const audit = require('../shared/audit');
 const pos = (req) => ({ actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId });
 
 // Must be declared before /:id so "history" is not consumed as an id param
-router.get('/history', authenticate, authorize('admin'), async (req, res, next) => {
+router.get('/history', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
   try {
     const { from, to, status, channel } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from and to dates are required' });
