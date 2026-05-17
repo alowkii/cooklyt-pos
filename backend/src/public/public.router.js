@@ -83,6 +83,7 @@ router.post('/orders', async (req, res, next) => {
         menuItemId: String(i.menuItemId),
         quantity: Math.max(1, parseInt(i.quantity) || 1),
         notes: i.notes ? String(i.notes).slice(0, 200) : null,
+        customizations: i.customizations && typeof i.customizations === 'object' ? i.customizations : {},
       })),
       channel: 'dining',
     });

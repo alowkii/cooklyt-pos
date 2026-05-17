@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Plus, Minus, ShoppingCart, CheckCircle, AlertCircle,
-  X, ClipboardList, Utensils, Receipt,
+  X, ClipboardList, Utensils, Receipt, SlidersHorizontal,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -15,27 +15,32 @@ const STATUS_CONFIG = {
 export default function OrderMenu() {
   const { tableId } = useParams();
 
-  const [loading,      setLoading]      = useState(true);
-  const [loadError,    setLoadError]    = useState('');
-  const [tableInfo,    setTableInfo]    = useState(null);
-  const [items,        setItems]        = useState([]);
-  const [cart,         setCart]         = useState({});
-  const [tab,          setTab]          = useState('menu');
-  const [showCart,     setShowCart]     = useState(false);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [toast,        setToast]        = useState('');
-  const [activeOrders,    setActiveOrders]    = useState([]);
-  const [cancelling,      setCancelling]      = useState(null);
-  const [billRequesting,  setBillRequesting]  = useState(false);
+  const [loading,        setLoading]        = useState(true);
+  const [loadError,      setLoadError]      = useState('');
+  const [tableInfo,      setTableInfo]      = useState(null);
+  const [items,          setItems]          = useState([]);
+  const [cart,           setCart]           = useState([]);   // array of cart lines
+  const [tab,            setTab]            = useState('menu');
+  const [showCart,       setShowCart]       = useState(false);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [toast,          setToast]          = useState('');
+  const [activeOrders,   setActiveOrders]   = useState([]);
+  const [cancelling,     setCancelling]     = useState(null);
+  const [billRequesting, setBillRequesting] = useState(false);
+
+  // Customization modal
+  const [custModal,  setCustModal]  = useState(null); // null | menuItem
+  const [selections, setSelections] = useState({});   // { [groupIndex]: [label, ...] }
+  const [custNotes,  setCustNotes]  = useState('');
+
   const BILL_COOLDOWN_MS = 5 * 60 * 1000;
-  const billKey = `bill_requested_at_${tableId}`;
+  const billKey  = `bill_requested_at_${tableId}`;
   const storedAt = parseInt(localStorage.getItem(billKey) || '0', 10);
   const remaining = BILL_COOLDOWN_MS - (Date.now() - storedAt);
   const [billDone, setBillDone] = useState(remaining > 0);
 
   const catRefs = useRef({});
 
-  // Restore bill cooldown across page refreshes
   useEffect(() => {
     if (remaining <= 0) return;
     const t = setTimeout(() => { localStorage.removeItem(billKey); setBillDone(false); }, remaining);
@@ -44,8 +49,8 @@ export default function OrderMenu() {
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
-    const { symbol, rate, decimals } = tableInfo.currency;
-    return `${symbol}${(parseFloat(v) * rate).toFixed(decimals)}`;
+    const { symbol, decimals } = tableInfo.currency;
+    return `${symbol}${parseFloat(v).toFixed(decimals)}`;
   };
 
   const fetchOrders = useCallback(async (tid) => {
@@ -80,13 +85,93 @@ export default function OrderMenu() {
   }, [tableId, fetchOrders]);
 
   const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
-  const cartItems  = items.filter((i) => (cart[i.id] || 0) > 0);
-  const cartCount  = Object.values(cart).reduce((s, v) => s + v, 0);
-  const cartTotal  = cartItems.reduce((s, i) => s + i.price * (cart[i.id] || 0), 0);
+  const cartCount  = cart.reduce((s, l) => s + l.quantity, 0);
+  const cartTotal  = cart.reduce((s, l) => s + (parseFloat(l.item.price) + l.extraPrice) * l.quantity, 0);
 
-  function changeQty(id, delta) {
-    setCart((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + delta) }));
+  function itemCartQty(itemId) {
+    return cart.filter((l) => l.itemId === itemId).reduce((s, l) => s + l.quantity, 0);
   }
+
+  function computeExtraPrice(item, sels) {
+    let extra = 0;
+    (item.customization_groups || []).forEach((group, gi) => {
+      (sels[gi] || []).forEach((lbl) => {
+        const opt = (group.options || []).find((o) => o.label === lbl);
+        if (opt) extra += parseFloat(opt.priceAdd || 0);
+      });
+    });
+    return extra;
+  }
+
+  // ── Cart mutation helpers ────────────────────────────────────────────────────
+
+  function addSimple(item) {
+    setCart((prev) => {
+      const idx = prev.findIndex((l) => l.itemId === item.id && Object.keys(l.selections).length === 0);
+      if (idx >= 0) return prev.map((l, i) => i === idx ? { ...l, quantity: l.quantity + 1 } : l);
+      return [...prev, { _key: Math.random(), itemId: item.id, item, quantity: 1, selections: {}, notes: '', extraPrice: 0 }];
+    });
+  }
+
+  function removeSimple(itemId) {
+    setCart((prev) => {
+      const idx = prev.findIndex((l) => l.itemId === itemId && Object.keys(l.selections).length === 0);
+      if (idx < 0) return prev;
+      const line = prev[idx];
+      if (line.quantity <= 1) return prev.filter((_, i) => i !== idx);
+      return prev.map((l, i) => i === idx ? { ...l, quantity: l.quantity - 1 } : l);
+    });
+  }
+
+  function changeLineQty(key, delta) {
+    setCart((prev) => {
+      const line = prev.find((l) => l._key === key);
+      if (!line) return prev;
+      if (delta < 0 && line.quantity <= 1) return prev.filter((l) => l._key !== key);
+      return prev.map((l) => l._key === key ? { ...l, quantity: l.quantity + delta } : l);
+    });
+  }
+
+  // ── Customization modal helpers ──────────────────────────────────────────────
+
+  function openCustomization(item) {
+    const defaults = {};
+    (item.customization_groups || []).forEach((group, gi) => {
+      const defs = (group.options || []).filter((o) => o.isDefault).map((o) => o.label);
+      if (defs.length) defaults[gi] = defs;
+    });
+    setSelections(defaults);
+    setCustNotes('');
+    setCustModal(item);
+  }
+
+  function toggleOption(gi, label, isSingle) {
+    setSelections((prev) => {
+      const cur = prev[gi] || [];
+      if (isSingle) return { ...prev, [gi]: [label] };
+      const has = cur.includes(label);
+      return { ...prev, [gi]: has ? cur.filter((l) => l !== label) : [...cur, label] };
+    });
+  }
+
+  const custReady = custModal
+    ? (custModal.customization_groups || []).every((g, i) => !g.required || (selections[i]?.length > 0))
+    : true;
+
+  function confirmCustomization() {
+    if (!custReady) return;
+    const item = custModal;
+    const extraPrice = computeExtraPrice(item, selections);
+    const selJson = JSON.stringify(selections);
+    setCart((prev) => {
+      const existing = prev.find((l) => l.itemId === item.id && JSON.stringify(l.selections) === selJson);
+      if (existing) return prev.map((l) => l === existing ? { ...l, quantity: l.quantity + 1 } : l);
+      return [...prev, { _key: Math.random(), itemId: item.id, item, quantity: 1, selections: { ...selections }, notes: custNotes, extraPrice }];
+    });
+    setCustModal(null);
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
 
   function showToast(msg) {
     setToast(msg);
@@ -101,14 +186,19 @@ export default function OrderMenu() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableId,
-          items: cartItems.map((i) => ({ menuItemId: i.id, quantity: cart[i.id] })),
+          items: cart.map((line) => ({
+            menuItemId: line.itemId,
+            quantity:   line.quantity,
+            notes:      line.notes || null,
+            customizations: line.selections,
+          })),
         }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || 'Failed to place order.');
       }
-      setCart({});
+      setCart([]);
       setShowCart(false);
       await fetchOrders(tableId);
       showToast('Order placed! Kitchen has been notified.');
@@ -161,7 +251,8 @@ export default function OrderMenu() {
     }
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // ── Loading / error screens ──────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: 'var(--paper-2)' }}>
@@ -181,7 +272,164 @@ export default function OrderMenu() {
     );
   }
 
+  // ── Customization modal ──────────────────────────────────────────────────────
+
+  const CustModal = custModal && (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(10,10,10,.5)' }}
+        onClick={() => setCustModal(null)}
+      />
+      <div className="relative flex flex-col" style={{
+        maxHeight: '92vh',
+        background: 'var(--paper)',
+        borderRadius: '16px 16px 0 0',
+      }}>
+        {/* Header */}
+        <div className="flex items-start justify-between" style={{
+          padding: '18px 20px 14px',
+          borderBottom: '1px solid var(--line)',
+        }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+              {custModal.name}
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--mute)', margin: '3px 0 0' }}>
+              {fmt(custModal.price)}
+              {computeExtraPrice(custModal, selections) > 0 && (
+                <span style={{ color: 'var(--ink)' }}>
+                  {' '}+ {fmt(computeExtraPrice(custModal, selections))} extras
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            onClick={() => setCustModal(null)}
+            style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: 0, color: 'var(--mute)', cursor: 'pointer',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Groups + notes */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: '16px 16px 4px' }}>
+          {(custModal.customization_groups || []).map((group, gi) => (
+            <div key={gi} style={{ marginBottom: 22 }}>
+              <div className="flex items-baseline gap-2 mb-3">
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+                  {group.name}
+                </p>
+                <span style={{ fontSize: 11, color: group.required ? 'var(--bad)' : 'var(--mute)' }}>
+                  {group.required ? 'Required' : 'Optional'} · {group.type === 'single' ? 'pick one' : 'pick any'}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {(group.options || []).map((opt) => {
+                  const isSingle = group.type === 'single';
+                  const picked   = (selections[gi] || []).includes(opt.label);
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => toggleOption(gi, opt.label, isSingle)}
+                      className="flex w-full items-center justify-between"
+                      style={{
+                        padding: '11px 14px',
+                        borderRadius: 10,
+                        border: picked ? '2px solid var(--ink)' : '1px solid var(--line-2)',
+                        background: picked ? 'var(--paper-2)' : 'transparent',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        transition: 'border-color .1s, background .1s',
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span style={{
+                          width: 18, height: 18, flexShrink: 0,
+                          borderRadius: isSingle ? '50%' : 4,
+                          border: picked
+                            ? (isSingle ? '5px solid var(--ink)' : 'none')
+                            : '1.5px solid var(--line-2)',
+                          background: picked && !isSingle ? 'var(--ink)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all .1s',
+                        }}>
+                          {picked && !isSingle && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4l3 3 5-6" stroke="var(--paper)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </span>
+                        <span style={{ fontSize: 14, color: 'var(--ink)', fontWeight: picked ? 500 : 400 }}>
+                          {opt.label}
+                        </span>
+                      </div>
+                      {parseFloat(opt.priceAdd || 0) > 0 && (
+                        <span style={{ fontSize: 13, color: 'var(--mute)', flexShrink: 0 }}>
+                          +{fmt(opt.priceAdd)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Notes */}
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', marginBottom: 6 }}>
+              Special instructions (optional)
+            </p>
+            <textarea
+              value={custNotes}
+              onChange={(e) => setCustNotes(e.target.value)}
+              placeholder="e.g. No onions, extra sauce…"
+              rows={2}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                borderRadius: 8,
+                border: '1px solid var(--line-2)',
+                background: 'var(--paper-2)',
+                color: 'var(--ink)', fontSize: 13,
+                padding: '10px 12px',
+                fontFamily: 'inherit', resize: 'none',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Add button */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--line)' }}>
+          <button
+            onClick={confirmCustomization}
+            disabled={!custReady}
+            style={{
+              width: '100%', borderRadius: 10, padding: '14px 0',
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              border: 0, fontSize: 14, fontWeight: 700,
+              cursor: custReady ? 'pointer' : 'default', fontFamily: 'inherit',
+              opacity: custReady ? 1 : 0.45,
+              transition: 'opacity .15s',
+            }}
+          >
+            {custReady
+              ? `Add to order · ${fmt(parseFloat(custModal.price) + computeExtraPrice(custModal, selections))}`
+              : 'Select required options to continue'
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ── Cart sheet ───────────────────────────────────────────────────────────────
+
   const CartSheet = showCart && (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div
@@ -194,7 +442,7 @@ export default function OrderMenu() {
         background: 'var(--paper)',
         borderRadius: '16px 16px 0 0',
       }}>
-        {/* Sheet header */}
+        {/* Header */}
         <div className="flex items-center justify-between" style={{
           padding: '16px 20px',
           borderBottom: '1px solid var(--line)',
@@ -214,55 +462,72 @@ export default function OrderMenu() {
           </button>
         </div>
 
-        {/* Cart items */}
+        {/* Cart lines */}
         <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px' }}>
-          <div className="space-y-3">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', margin: 0 }} className="truncate">
-                    {item.name}
-                  </p>
-                  <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1 }}>
-                    {fmt(item.price)} each
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => changeQty(item.id, -1)}
-                    style={{
-                      width: 28, height: 28, borderRadius: '50%',
-                      border: '1px solid var(--line-2)', background: 'var(--paper)',
-                      color: 'var(--ink)', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', cursor: 'pointer',
-                    }}
-                  >
-                    <Minus size={13} />
-                  </button>
-                  <span style={{ width: 20, textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
-                    {cart[item.id]}
+          <div className="space-y-4">
+            {cart.map((line) => {
+              const unitPrice  = parseFloat(line.item.price) + line.extraPrice;
+              const selSummary = Object.values(line.selections).flat().join(', ');
+              return (
+                <div key={line._key} className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', margin: 0 }} className="truncate">
+                      {line.item.name}
+                    </p>
+                    {selSummary && (
+                      <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1, lineHeight: 1.4 }}>
+                        {selSummary}
+                      </p>
+                    )}
+                    {line.notes && (
+                      <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1, fontStyle: 'italic' }}>
+                        {line.notes}
+                      </p>
+                    )}
+                    <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
+                      {fmt(unitPrice)} each
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => changeLineQty(line._key, -1)}
+                      style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        border: '1px solid var(--line-2)', background: 'var(--paper)',
+                        color: 'var(--ink)', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', cursor: 'pointer',
+                      }}
+                    >
+                      <Minus size={13} />
+                    </button>
+                    <span style={{ width: 20, textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                      {line.quantity}
+                    </span>
+                    <button
+                      onClick={() => changeLineQty(line._key, 1)}
+                      style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
+                  <span style={{
+                    width: 56, textAlign: 'right', flexShrink: 0,
+                    fontSize: 13, fontWeight: 600, color: 'var(--ink)', paddingTop: 2,
+                  }}>
+                    {fmt(unitPrice * line.quantity)}
                   </span>
-                  <button
-                    onClick={() => changeQty(item.id, 1)}
-                    style={{
-                      width: 28, height: 28, borderRadius: '50%',
-                      border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Plus size={13} />
-                  </button>
                 </div>
-                <span style={{ width: 56, textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                  {fmt(item.price * cart[item.id])}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Sheet footer */}
+        {/* Footer */}
         <div style={{ borderTop: '1px solid var(--line)', padding: '14px 16px' }}>
           <div className="flex justify-between" style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Subtotal</span>
@@ -290,6 +555,7 @@ export default function OrderMenu() {
   );
 
   // ── Orders tab ───────────────────────────────────────────────────────────────
+
   const OrdersTab = (
     <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px', paddingBottom: 24 }}>
       {activeOrders.length === 0 ? (
@@ -313,7 +579,6 @@ export default function OrderMenu() {
                 background: 'var(--paper)',
                 overflow: 'hidden',
               }}>
-                {/* Order header */}
                 <div className="flex items-center justify-between" style={{
                   padding: '11px 14px',
                   borderBottom: '1px solid var(--line)',
@@ -344,8 +609,6 @@ export default function OrderMenu() {
                     </button>
                   )}
                 </div>
-
-                {/* Order items */}
                 <div style={{ padding: '11px 14px' }} className="space-y-1.5">
                   {(order.items || []).map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between" style={{ fontSize: 13 }}>
@@ -373,7 +636,6 @@ export default function OrderMenu() {
         </div>
       )}
 
-      {/* Request Bill */}
       {activeOrders.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <div style={{
@@ -414,9 +676,9 @@ export default function OrderMenu() {
   );
 
   // ── Menu tab ─────────────────────────────────────────────────────────────────
+
   const MenuTab = (
     <>
-      {/* Category pills */}
       {categories.length > 1 && (
         <div className="flex gap-2 overflow-x-auto" style={{
           padding: '10px 16px',
@@ -442,11 +704,9 @@ export default function OrderMenu() {
         </div>
       )}
 
-      {/* Items list */}
       <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 100 }}>
         {categories.map((cat) => (
           <div key={cat}>
-            {/* Sticky category label */}
             <div
               ref={(el) => { catRefs.current[cat] = el; }}
               style={{
@@ -461,13 +721,15 @@ export default function OrderMenu() {
               </span>
             </div>
 
-            {/* Items */}
             {items.filter((i) => i.category === cat).map((item) => {
-              const qty = cart[item.id] || 0;
+              const hasCustom = (item.customization_groups || []).length > 0;
+              const qty       = itemCartQty(item.id);
+              const simpleQty = cart.find((l) => l.itemId === item.id && Object.keys(l.selections).length === 0)?.quantity || 0;
+
               return (
                 <div
                   key={item.id}
-                  className="flex items-center gap-4"
+                  className="flex items-start gap-4"
                   style={{
                     background: 'var(--paper)',
                     padding: '14px 16px',
@@ -481,12 +743,38 @@ export default function OrderMenu() {
                     <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginTop: 3 }}>
                       {fmt(item.price)}
                     </p>
+                    {hasCustom && (
+                      <p className="flex items-center gap-1" style={{ fontSize: 11, color: 'var(--mute)', marginTop: 3 }}>
+                        <SlidersHorizontal size={10} /> Customizable
+                      </p>
+                    )}
                   </div>
 
-                  {qty > 0 ? (
-                    <div className="flex items-center gap-2.5">
+                  {hasCustom ? (
+                    /* Customizable: always open modal on + */
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                      {qty > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 18, textAlign: 'center' }}>
+                          {qty}
+                        </span>
+                      )}
                       <button
-                        onClick={() => changeQty(item.id, -1)}
+                        onClick={() => openCustomization(item)}
+                        style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          border: '2px solid var(--ink)', background: 'transparent',
+                          color: 'var(--ink)', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                        }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                  ) : simpleQty > 0 ? (
+                    /* Simple item in cart: stepper */
+                    <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
+                      <button
+                        onClick={() => removeSimple(item.id)}
                         style={{
                           width: 32, height: 32, borderRadius: '50%',
                           border: '2px solid var(--ink)', background: 'transparent',
@@ -497,10 +785,10 @@ export default function OrderMenu() {
                         <Minus size={14} />
                       </button>
                       <span style={{ width: 20, textAlign: 'center', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-                        {qty}
+                        {simpleQty}
                       </span>
                       <button
-                        onClick={() => changeQty(item.id, 1)}
+                        onClick={() => addSimple(item)}
                         style={{
                           width: 32, height: 32, borderRadius: '50%',
                           border: 0, background: 'var(--ink)', color: 'var(--accent-on)',
@@ -512,13 +800,15 @@ export default function OrderMenu() {
                       </button>
                     </div>
                   ) : (
+                    /* Simple item not in cart */
                     <button
-                      onClick={() => changeQty(item.id, 1)}
+                      onClick={() => addSimple(item)}
                       style={{
                         width: 36, height: 36, borderRadius: '50%',
                         border: '2px solid var(--ink)', background: 'transparent',
                         color: 'var(--ink)', display: 'flex', alignItems: 'center',
                         justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                        marginTop: 2,
                       }}
                     >
                       <Plus size={18} />
@@ -540,11 +830,12 @@ export default function OrderMenu() {
   );
 
   // ── Main render ──────────────────────────────────────────────────────────────
+
   return (
     <div className="flex h-screen flex-col" style={{ background: 'var(--paper-2)' }}>
+      {CustModal}
       {CartSheet}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-4 right-4 z-50 flex items-center gap-2.5" style={{
           background: 'var(--ink)', color: 'var(--accent-on)',
