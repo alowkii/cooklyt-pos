@@ -195,13 +195,19 @@ export default function Landing() {
       }}>
         <div className="nav-inner" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', gap: 18 }}>
           {/* Brand */}
-          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 14, letterSpacing: '-.005em', textDecoration: 'none', color: 'var(--ink)', flexShrink: 0 }}>
-            <span style={{ width: 20, height: 20, borderRadius: 4, background: 'var(--ink)', color: 'var(--accent-on)', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700 }}>
-              C
-            </span>
-            <span>Krilok</span>
+          <a href="#top" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--ink)', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
+            <svg width="100" height="18" viewBox="0 0 360 64" role="img" aria-label="CookLyt">
+              <text x="0" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>COOKLY</text>
+              <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b"/>
+              <text x="309.33" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>T</text>
+            </svg>
             <span style={{ display: 'inline-block', width: 1, height: 13, background: 'var(--line-2)', margin: '0 2px' }} />
-            <span style={{ color: 'var(--mute)', fontWeight: 500 }}>CookLyt</span>
+            <span style={{ color: 'var(--mute)', fontWeight: 400, fontSize: 12 }}>by Krilok</span>
           </a>
 
           <nav style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -456,6 +462,19 @@ export default function Landing() {
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
       <section id="cta" className="cta-section" style={{ textAlign: 'center', background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
         <div className="lp-container" style={{ maxWidth: 1180, margin: '0 auto' }}>
+          {/* Brand lockup */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 36 }}>
+            <svg width="44" height="44" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
+            <svg width="136" height="24" viewBox="0 0 360 64" role="img" aria-label="CookLyt">
+              <text x="0" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>COOKLY</text>
+              <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b"/>
+              <text x="309.33" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>T</text>
+            </svg>
+          </div>
           <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mute)' }}>
             04 — Get in touch
           </span>
@@ -494,8 +513,14 @@ export default function Landing() {
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer style={{ padding: '36px 0', borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--mute)' }}>
         <div className="lp-container footer-inner" style={{ maxWidth: 1180, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
-            CookLyt <span style={{ color: 'var(--mute)' }}> by </span> Krilok
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
+            <span style={{ fontWeight: 400, color: 'var(--ink-2)', fontFamily: "'Marcellus', serif", letterSpacing: '.04em' }}>CookLyt</span>
+            <span style={{ color: 'var(--mute)' }}>by Krilok</span>
           </span>
           <span className="mono num" style={{ color: 'var(--mute)' }}>
             © {new Date().getFullYear()} Krilok. All rights reserved.

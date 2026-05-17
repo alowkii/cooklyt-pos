@@ -558,16 +558,23 @@ export default function OrderMenu() {
       )}
 
       {/* Header */}
-      <div style={{ background: 'var(--ink)', padding: '20px 16px 16px' }}>
-        <p style={{
-          fontSize: 10, fontWeight: 600, color: 'rgba(250,250,248,.5)',
-          textTransform: 'uppercase', letterSpacing: '.12em', margin: '0 0 3px',
-        }}>
-          {tableInfo?.restaurant_name}
-        </p>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-on)', margin: 0, lineHeight: 1.2 }}>
-          Table {tableInfo?.table_number}
-        </h1>
+      <div style={{ background: 'var(--ink)', padding: '20px 16px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{
+            fontSize: 10, fontWeight: 600, color: 'rgba(250,250,248,.5)',
+            textTransform: 'uppercase', letterSpacing: '.12em', margin: '0 0 3px',
+          }}>
+            {tableInfo?.restaurant_name}
+          </p>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-on)', margin: 0, lineHeight: 1.2 }}>
+            Table {tableInfo?.table_number}
+          </h1>
+        </div>
+        <svg width="28" height="28" viewBox="0 0 200 200" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+          <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                fill="none" stroke="rgba(250,250,248,0.7)" strokeWidth="15.6" strokeLinecap="round"/>
+          <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+        </svg>
       </div>
 
       {/* Content */}

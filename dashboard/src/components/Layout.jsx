@@ -143,12 +143,11 @@ export default function Layout() {
           className="flex h-12 items-center gap-2.5 px-4 shrink-0"
           style={{ borderBottom: '1px solid var(--line)' }}
         >
-          <span
-            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[11px] font-bold"
-            style={{ background: 'var(--accent)', color: 'var(--accent-on)' }}
-          >
-            C
-          </span>
+          <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                  fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+            <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+          </svg>
           <span className="truncate text-[12px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.005em' }}>
             {restaurant?.name || 'Cooklyt'}
           </span>

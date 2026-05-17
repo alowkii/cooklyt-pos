@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
-import { LogOut, Shield, Building2, ScrollText, Menu, X, Settings, KeyRound } from 'lucide-react';
+import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import ChangePasswordModal from './ChangePasswordModal';
 
@@ -56,9 +56,11 @@ export default function Layout() {
           style={{ borderBottom: '1px solid rgba(255,255,255,.07)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div style={{ width: 16, height: 16, background: '#fff', borderRadius: 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Shield size={10} color="#111110" />
-            </div>
+            <svg width="22" height="22" viewBox="0 0 200 200" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
             <div className="min-w-0">
               <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Cooklyt Admin</p>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', lineHeight: 1.2 }}>Operator Panel</p>
@@ -173,6 +175,11 @@ export default function Layout() {
           >
             <Menu size={18} />
           </button>
+          <svg width="18" height="18" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                  fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+            <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+          </svg>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Cooklyt Admin</span>
         </header>
 
