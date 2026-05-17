@@ -77,6 +77,10 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const touchDragIdRef = useRef(null);
   const [touchPos, setTouchPos] = useState(null);
 
+  const cellMap = Object.fromEntries(
+    tables.filter((t) => t.x_pos != null && t.y_pos != null).map((t) => [`${t.x_pos},${t.y_pos}`, t])
+  );
+
   function changeGrid(axis, delta) {
     if (axis === 'cols') {
       const next = Math.min(GRID_COLS_MAX, Math.max(GRID_COLS_MIN, gridCols + delta));
@@ -194,7 +198,6 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
       {layoutMode && (() => {
         const placed   = tables.filter((t) => t.x_pos != null && t.y_pos != null);
         const unplaced = tables.filter((t) => t.x_pos == null || t.y_pos == null);
-        const cellMap  = Object.fromEntries(placed.map((t) => [`${t.x_pos},${t.y_pos}`, t]));
 
         function getTouchCell(touch) {
           if (!gridRef.current) return null;
@@ -518,6 +521,70 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           })}
         </div>
       ))}
+
+      {/* Floor plan — read-only, shown when at least one table has a position */}
+      {!layoutMode && tables.some((t) => t.x_pos != null && t.y_pos != null) && (
+        <div style={{ marginTop: 24 }}>
+          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 10 }}>
+            Floor Plan
+          </p>
+          <div className="overflow-x-auto rounded-[6px] p-3" style={{ border: '1px solid var(--line)', background: 'var(--paper)' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${gridCols}, 56px)`,
+              gridTemplateRows: `repeat(${gridRows}, 56px)`,
+              gap: 4,
+              width: `${gridCols * 60}px`,
+            }}>
+              {Array.from({ length: gridRows }, (_, row) =>
+                Array.from({ length: gridCols }, (_, col) => {
+                  const key   = `${col},${row}`;
+                  const table = cellMap[key];
+                  const staff = table ? staffByTable[table.id] : null;
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-[6px]"
+                      style={{
+                        width: 56, height: 56,
+                        border: table ? `2px solid ${STATUS_DOT[table.status] ?? 'var(--line-2)'}` : '1px dashed var(--line-2)',
+                        background: table ? 'var(--paper)' : 'transparent',
+                        cursor: table && canEdit ? 'pointer' : 'default',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', gap: 1,
+                        transition: 'background 75ms',
+                      }}
+                      onClick={() => table && canEdit && setSelected(table)}
+                      onMouseEnter={(e) => { if (table && canEdit) e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { if (table) e.currentTarget.style.background = 'var(--paper)'; }}
+                    >
+                      {table && (<>
+                        <span className="mono num font-bold" style={{ fontSize: 15, lineHeight: 1, color: 'var(--ink)' }}>{table.number}</span>
+                        <span style={{ fontSize: 9, color: 'var(--mute)', lineHeight: 1 }}>{table.seats}p</span>
+                        {staffAssignmentEnabled && table.status === 'occupied' && (
+                          <span style={{ fontSize: 8, color: staff ? 'var(--ok)' : 'var(--mute-2)', lineHeight: 1, marginTop: 1, maxWidth: 50, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {isAdmin
+                              ? (staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : '—')
+                              : (staff ? '●' : '○')}
+                          </span>
+                        )}
+                      </>)}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 mt-2 flex-wrap" style={{ fontSize: 11, color: 'var(--mute)' }}>
+            {Object.entries(STATUS_DOT).map(([s, color]) => (
+              <span key={s} className="flex items-center gap-1.5">
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
+                {s[0].toUpperCase() + s.slice(1)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Change Status Modal */}
       {selected && canEdit && (() => {
