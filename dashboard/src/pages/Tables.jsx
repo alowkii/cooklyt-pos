@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition } from '../hooks/useTables';
+import { useActiveOrders } from '../hooks/useOrders';
 import { useAuth } from '../hooks/useAuth';
+import { useSettings } from '../hooks/useSettings';
 import Modal from '../components/Modal';
 
 const GRID_COLS_MIN = 4;  const GRID_COLS_MAX = 20;
@@ -32,11 +34,22 @@ function TableStatusDot({ status }) {
 
 export default function Tables() {
   const { data: tables = [], isLoading } = useTables();
+  const { data: activeOrders = [] } = useActiveOrders();
+  const { data: settings } = useSettings();
   const updateStatus   = useUpdateTableStatus();
   const updatePosition = useUpdateTablePosition();
   const createTable    = useCreateTable();
   const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
+
+  // map tableId → assigned staff email (from active dining orders)
+  const staffByTable = activeOrders.reduce((acc, order) => {
+    if (order.table_id && order.assigned_staff_email) {
+      acc[order.table_id] = order.assigned_staff_email;
+    }
+    return acc;
+  }, {});
 
   const [view,     setView]     = useState('grid');
   const [selected, setSelected] = useState(null);
@@ -404,6 +417,22 @@ export default function Tables() {
                   <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)' }}>{t.seats}p</span>
                 </span>
                 <TableStatusDot status={t.status} />
+                {staffAssignmentEnabled && t.status === 'occupied' && (() => {
+                  const email = staffByTable[t.id];
+                  if (isAdmin) {
+                    return (
+                      <span className="flex items-center gap-1 truncate w-full" style={{ fontSize: 10, color: email ? 'var(--ok)' : 'var(--mute-2)' }}>
+                        <User size={9} style={{ flexShrink: 0 }} />
+                        <span className="truncate">{email ? email.split('@')[0] : 'Unassigned'}</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span style={{ fontSize: 10, color: email ? 'var(--ok)' : 'var(--mute-2)' }}>
+                      {email ? 'Assigned' : 'Unassigned'}
+                    </span>
+                  );
+                })()}
               </button>
               {canEdit && (
                 <button
@@ -426,40 +455,56 @@ export default function Tables() {
           <div
             className="grid gap-3 px-2 py-1.5"
             style={{
-              gridTemplateColumns: '60px 1fr 80px 120px 80px',
+              gridTemplateColumns: staffAssignmentEnabled ? '60px 1fr 60px 1fr' : '60px 1fr 60px',
               fontSize: 10, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.08em',
             }}
           >
-            <span>Table</span><span>Status</span><span>Seats</span><span>Server</span><span style={{ textAlign: 'right' }}>Seats</span>
+            <span>Table</span><span>Status</span><span>Seats</span>
+            {staffAssignmentEnabled && <span>Staff</span>}
           </div>
-          {[...tables].sort((a, b) => a.number - b.number).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => canEdit && setSelected(t)}
-              className="grid gap-3 w-full text-left transition-colors duration-75"
-              style={{
-                gridTemplateColumns: '60px 1fr 80px 120px 80px',
-                padding: '8px 8px',
-                borderBottom: '1px solid var(--line)',
-                background: 'transparent',
-                cursor: 'default',
-                minHeight: 44,
-                alignItems: 'center',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              <span className="mono num font-bold" style={{ color: 'var(--ink)' }}>
-                T{String(t.number).padStart(2, '0')}
-              </span>
-              <TableStatusDot status={t.status} />
-              <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}</span>
-              <span style={{ fontSize: 12, color: 'var(--mute)' }}>
-                {t.status === 'occupied' ? ['A. Singh', 'M. Park', 'J. Chen', 'R. Diaz'][t.number % 4] : '—'}
-              </span>
-              <span style={{ textAlign: 'right', fontSize: 12, color: 'var(--mute)' }}>—</span>
-            </button>
-          ))}
+          {[...tables].sort((a, b) => a.number - b.number).map((t) => {
+            const email = staffByTable[t.id];
+            return (
+              <button
+                key={t.id}
+                onClick={() => canEdit && setSelected(t)}
+                className="grid gap-3 w-full text-left transition-colors duration-75"
+                style={{
+                  gridTemplateColumns: staffAssignmentEnabled ? '60px 1fr 60px 1fr' : '60px 1fr 60px',
+                  padding: '8px 8px',
+                  borderBottom: '1px solid var(--line)',
+                  background: 'transparent',
+                  cursor: 'default',
+                  minHeight: 44,
+                  alignItems: 'center',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span className="mono num font-bold" style={{ color: 'var(--ink)' }}>
+                  T{String(t.number).padStart(2, '0')}
+                </span>
+                <TableStatusDot status={t.status} />
+                <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}</span>
+                {staffAssignmentEnabled && (
+                  t.status === 'occupied' ? (
+                    isAdmin ? (
+                      <span className="flex items-center gap-1 truncate" style={{ fontSize: 12, color: email ? 'var(--ok)' : 'var(--mute-2)' }}>
+                        <User size={11} style={{ flexShrink: 0 }} />
+                        <span className="truncate">{email ? email.split('@')[0] : 'Unassigned'}</span>
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: email ? 'var(--ok)' : 'var(--mute-2)' }}>
+                        {email ? 'Assigned' : 'Unassigned'}
+                      </span>
+                    )
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--mute-2)' }}>—</span>
+                  )
+                )}
+              </button>
+            );
+          })}
         </div>
       ))}
 
