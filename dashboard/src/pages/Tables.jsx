@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition } from '../hooks/useTables';
@@ -49,6 +49,11 @@ export default function Tables() {
   const [overCell,   setOverCell]   = useState(null);
   const [gridCols,   setGridCols]   = useState(() => parseInt(localStorage.getItem('layoutGridCols') || '12'));
   const [gridRows,   setGridRows]   = useState(() => parseInt(localStorage.getItem('layoutGridRows') || '8'));
+
+  const gridRef        = useRef(null);
+  const unplacedRef    = useRef(null);
+  const touchDragIdRef = useRef(null);
+  const [touchPos, setTouchPos] = useState(null);
 
   function changeGrid(axis, delta) {
     if (axis === 'cols') {
@@ -169,6 +174,49 @@ export default function Tables() {
         const unplaced = tables.filter((t) => t.x_pos == null || t.y_pos == null);
         const cellMap  = Object.fromEntries(placed.map((t) => [`${t.x_pos},${t.y_pos}`, t]));
 
+        function getTouchCell(touch) {
+          if (!gridRef.current) return null;
+          const rect = gridRef.current.getBoundingClientRect();
+          const col  = Math.floor((touch.clientX - rect.left) / 68);
+          const row  = Math.floor((touch.clientY - rect.top)  / 68);
+          if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) return { x: col, y: row };
+          return null;
+        }
+
+        function isOverUnplaced(touch) {
+          if (!unplacedRef.current) return false;
+          const r = unplacedRef.current.getBoundingClientRect();
+          return touch.clientX >= r.left && touch.clientX <= r.right &&
+                 touch.clientY >= r.top  && touch.clientY <= r.bottom;
+        }
+
+        function onTouchMove(e) {
+          if (!touchDragIdRef.current) return;
+          const t = e.touches[0];
+          setTouchPos((p) => p ? { ...p, x: t.clientX, y: t.clientY } : null);
+          setOverCell(getTouchCell(t));
+        }
+
+        function onTouchEnd(e) {
+          const id = touchDragIdRef.current;
+          if (!id) return;
+          const t    = e.changedTouches[0];
+          const cell = getTouchCell(t);
+          if (cell) {
+            const occupant = cellMap[`${cell.x},${cell.y}`];
+            if (!occupant || occupant.id === id) updatePosition.mutate({ id, x: cell.x, y: cell.y });
+          } else if (isOverUnplaced(t)) {
+            updatePosition.mutate({ id, x: null, y: null });
+          }
+          touchDragIdRef.current = null;
+          setDraggingId(null); setOverCell(null); setTouchPos(null);
+        }
+
+        function onTouchCancel() {
+          touchDragIdRef.current = null;
+          setDraggingId(null); setOverCell(null); setTouchPos(null);
+        }
+
         function handleCellDrop(x, y) {
           if (!draggingId) return;
           const occupant = cellMap[`${x},${y}`];
@@ -187,6 +235,7 @@ export default function Tables() {
           <div className="space-y-4">
             {/* Unplaced strip */}
             <div
+              ref={unplacedRef}
               className="min-h-[72px] rounded-[6px] p-3"
               style={{
                 border: `2px dashed ${draggingId && placed.find((t) => t.id === draggingId) ? 'var(--warn)' : 'var(--line-2)'}`,
@@ -205,10 +254,15 @@ export default function Tables() {
                     key={t.id} draggable
                     onDragStart={() => setDraggingId(t.id)}
                     onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
+                    onTouchStart={(e) => { touchDragIdRef.current = t.id; setDraggingId(t.id); setTouchPos({ x: e.touches[0].clientX, y: e.touches[0].clientY, label: t.number }); }}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                    onTouchCancel={onTouchCancel}
                     className="flex h-14 w-14 cursor-grab flex-col items-center justify-center rounded-[6px] select-none"
                     style={{
                       border: '1px solid var(--line-2)', background: 'var(--paper)',
                       opacity: draggingId === t.id ? 0.4 : 1,
+                      touchAction: 'none',
                     }}
                   >
                     <span className="mono num font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{t.number}</span>
@@ -242,7 +296,7 @@ export default function Tables() {
                   </span>
                 </div>
               </div>
-              <div style={{
+              <div ref={gridRef} style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${gridCols}, 64px)`,
                 gridTemplateRows: `repeat(${gridRows}, 64px)`,
@@ -272,10 +326,15 @@ export default function Tables() {
                             draggable
                             onDragStart={(e) => { e.stopPropagation(); setDraggingId(table.id); }}
                             onDragEnd={() => { setDraggingId(null); setOverCell(null); }}
+                            onTouchStart={(e) => { touchDragIdRef.current = table.id; setDraggingId(table.id); setTouchPos({ x: e.touches[0].clientX, y: e.touches[0].clientY, label: table.number }); }}
+                            onTouchMove={onTouchMove}
+                            onTouchEnd={onTouchEnd}
+                            onTouchCancel={onTouchCancel}
                             className="h-full w-full flex flex-col items-center justify-center rounded-[6px] cursor-grab select-none"
                             style={{
                               border: '1px solid var(--line-2)', background: 'var(--paper)',
                               opacity: draggingId === table.id ? 0.4 : 1,
+                              touchAction: 'none',
                             }}
                           >
                             <span className="mono num font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{table.number}</span>
@@ -288,6 +347,30 @@ export default function Tables() {
                 )}
               </div>
             </div>
+
+            {/* Touch drag ghost */}
+            {touchPos && draggingId && (
+              <div
+                style={{
+                  position: 'fixed',
+                  left: touchPos.x - 28,
+                  top:  touchPos.y - 28,
+                  width: 56, height: 56,
+                  borderRadius: 8,
+                  background: 'var(--paper)',
+                  border: '2px solid var(--ink)',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 9999,
+                  opacity: 0.85,
+                }}
+              >
+                <span className="mono num font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>
+                  {touchPos.label}
+                </span>
+              </div>
+            )}
           </div>
         );
       })()}
