@@ -59,7 +59,7 @@ function MenuRow({ item, qty, hasGroups, onAdd, onRemove, format }) {
   );
 }
 
-export default function NewOrderModal({ onClose }) {
+export default function NewOrderModal({ onClose, initialTableId = null }) {
   const { data: menuItems = [] }  = useMenuItems();
   const { data: popular  = [] }  = usePopularMenuItems();
   const { data: tables   = [] }  = useTables();
@@ -67,7 +67,7 @@ export default function NewOrderModal({ onClose }) {
   const { format }                = useCurrency();
 
   const [channel,        setChannel]     = useState('dining');
-  const [tableId,        setTableId]     = useState(null);
+  const [tableId,        setTableId]     = useState(initialTableId);
   const [customerRef,    setCRef]        = useState('');
   const [cart,           setCart]        = useState({});
   const [pickerItem,     setPickerItem]  = useState(null);
@@ -75,7 +75,7 @@ export default function NewOrderModal({ onClose }) {
   const [openCategories, setOpenCats]    = useState(new Set());
   const [mobileTab,      setMobileTab]   = useState('menu');
 
-  useEffect(() => { setTableId(null); setCRef(''); setError(''); }, [channel]);
+  useEffect(() => { setTableId(channel === 'dining' ? initialTableId : null); setCRef(''); setError(''); }, [channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };

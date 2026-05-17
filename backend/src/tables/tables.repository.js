@@ -2,7 +2,13 @@ const db = require('../shared/db');
 
 const getAll = (restaurantId) =>
   db
-    .query('SELECT * FROM tables WHERE restaurant_id = $1 ORDER BY number', [restaurantId])
+    .query(
+      `SELECT t.*, u.id AS assigned_staff_id, u.email AS assigned_staff_email, u.name AS assigned_staff_name
+       FROM tables t
+       LEFT JOIN users u ON u.id = t.assigned_staff_id
+       WHERE t.restaurant_id = $1 ORDER BY t.number`,
+      [restaurantId],
+    )
     .then((r) => r.rows);
 
 const getById = (id, restaurantId) =>
@@ -47,4 +53,12 @@ const remove = (id, restaurantId) =>
     .query('DELETE FROM tables WHERE id = $1 AND restaurant_id = $2 RETURNING *', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove };
+const assignStaff = (id, staffId, restaurantId) =>
+  db
+    .query(
+      'UPDATE tables SET assigned_staff_id = $1 WHERE id = $2 AND restaurant_id = $3 RETURNING *',
+      [staffId, id, restaurantId],
+    )
+    .then((r) => r.rows[0]);
+
+module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove, assignStaff };

@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag } from 'lucide-react';
 import QRCode from 'qrcode';
-import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition } from '../hooks/useTables';
-import { useActiveOrders, useAssignStaff } from '../hooks/useOrders';
+import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
+import { useActiveOrders } from '../hooks/useOrders';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
 import Modal from '../components/Modal';
+import NewOrderModal from '../components/NewOrderModal';
 
 const GRID_COLS_MIN = 4;  const GRID_COLS_MAX = 20;
 const GRID_ROWS_MIN = 3;  const GRID_ROWS_MAX = 14;
@@ -41,17 +42,17 @@ export default function Tables() {
   const updateStatus   = useUpdateTableStatus();
   const updatePosition = useUpdateTablePosition();
   const createTable    = useCreateTable();
-  const assignStaff    = useAssignStaff();
+  const assignTableStaff = useAssignTableStaff();
   const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
   const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
 
-  // map tableId → assigned staff email (from active dining orders)
-  const staffByTable = activeOrders.reduce((acc, order) => {
-    if (order.table_id && order.assigned_staff_email) {
-      acc[order.table_id] = {
-        email: order.assigned_staff_email,
-        name:  order.assigned_staff_name || null,
+  // map tableId → assigned staff (from table record directly)
+  const staffByTable = tables.reduce((acc, t) => {
+    if (t.assigned_staff_id) {
+      acc[t.id] = {
+        email: t.assigned_staff_email || null,
+        name:  t.assigned_staff_name  || null,
       };
     }
     return acc;
@@ -59,6 +60,8 @@ export default function Tables() {
 
   const [view,     setView]     = useState('grid');
   const [selected, setSelected] = useState(null);
+
+const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [addModal, setAddModal] = useState(false);
   const [newTable, setNewTable] = useState({ number: '', seats: '' });
   const [addError, setAddError] = useState('');
@@ -425,7 +428,7 @@ export default function Tables() {
                 <TableStatusDot status={t.status} />
                 {staffAssignmentEnabled && t.status === 'occupied' && (() => {
                   const staff = staffByTable[t.id];
-                  const label = staff ? (staff.name || staff.email.split('@')[0]) : null;
+                  const label = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
                   if (isAdmin) {
                     return (
                       <span className="flex items-center gap-1 truncate w-full" style={{ fontSize: 10, color: staff ? 'var(--ok)' : 'var(--mute-2)' }}>
@@ -471,7 +474,7 @@ export default function Tables() {
           </div>
           {[...tables].sort((a, b) => a.number - b.number).map((t) => {
             const staff = staffByTable[t.id];
-            const staffLabel = staff ? (staff.name || staff.email.split('@')[0]) : null;
+            const staffLabel = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
             return (
               <button
                 key={t.id}
@@ -518,8 +521,7 @@ export default function Tables() {
 
       {/* Change Status Modal */}
       {selected && canEdit && (() => {
-        const activeOrder = activeOrders.find((o) => o.table_id === selected.id);
-        const staffUsers  = allUsers.filter((u) => u.role === 'staff' || u.role === 'cashier');
+        const staffUsers = allUsers.filter((u) => u.role === 'staff');
 
         return (
           <Modal title={`Table ${selected.number}`} onClose={() => setSelected(null)}>
@@ -546,18 +548,29 @@ export default function Tables() {
               ))}
             </div>
 
-            {/* Staff assignment — admin only, feature enabled, table occupied with an active order */}
-            {isAdmin && staffAssignmentEnabled && selected.status === 'occupied' && activeOrder && (
+            {/* New order + staff assignment — admin only, table occupied */}
+            {isAdmin && selected.status === 'occupied' && (
               <div style={{ borderTop: '1px solid var(--line)', marginTop: 18, paddingTop: 16 }}>
+
+                {/* New Order button */}
+                <button
+                  className="btn w-full mb-4"
+                  style={{ height: 36, justifyContent: 'center', gap: 6 }}
+                  onClick={() => { setSelected(null); setNewOrderForTable(selected); }}
+                >
+                  <ShoppingBag size={13} /> New Order
+                </button>
+
+                {/* Staff assignment */}
                 <div className="flex items-center gap-2 mb-3">
                   <UserCheck size={12} style={{ color: 'var(--mute)' }} />
                   <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', margin: 0 }}>
                     Assign Staff
                   </p>
-                  {activeOrder.assigned_staff_email && (
+                  {selected.assigned_staff_id && (
                     <button
-                      onClick={() => assignStaff.mutate({ orderId: activeOrder.id, staffId: null })}
-                      disabled={assignStaff.isPending}
+                      onClick={() => assignTableStaff.mutate({ tableId: selected.id, staffId: null })}
+                      disabled={assignTableStaff.isPending}
                       className="ml-auto btn btn-sm"
                       style={{ fontSize: 11, color: 'var(--mute)' }}
                     >
@@ -571,12 +584,12 @@ export default function Tables() {
                 ) : (
                   <div className="space-y-1">
                     {staffUsers.map((u) => {
-                      const isAssigned = u.email === activeOrder.assigned_staff_email;
+                      const isAssigned = u.id === selected.assigned_staff_id;
                       return (
                         <button
                           key={u.id}
-                          onClick={() => !isAssigned && assignStaff.mutate({ orderId: activeOrder.id, staffId: u.id })}
-                          disabled={assignStaff.isPending || isAssigned}
+                          onClick={() => !isAssigned && assignTableStaff.mutate({ tableId: selected.id, staffId: u.id })}
+                          disabled={assignTableStaff.isPending || isAssigned}
                           className="flex w-full items-center gap-2.5 rounded-[6px] px-3 transition-colors"
                           style={{
                             height: 36, border: 0, textAlign: 'left', cursor: isAssigned ? 'default' : 'pointer',
@@ -585,14 +598,12 @@ export default function Tables() {
                           onMouseEnter={(e) => { if (!isAssigned) e.currentTarget.style.background = 'var(--hover)'; }}
                           onMouseLeave={(e) => { if (!isAssigned) e.currentTarget.style.background = 'transparent'; }}
                         >
-                          <span
-                            style={{
-                              width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                              background: isAssigned ? 'var(--ok)' : 'var(--paper-2)',
-                              border: '1px solid var(--line-2)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                          >
+                          <span style={{
+                            width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                            background: isAssigned ? 'var(--ok)' : 'var(--paper-2)',
+                            border: '1px solid var(--line-2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
                             {isAssigned
                               ? <Check size={11} style={{ color: '#fff' }} />
                               : <User size={11} style={{ color: 'var(--mute)' }} />}
@@ -605,12 +616,10 @@ export default function Tables() {
                               {u.staff_pin}
                             </span>
                           )}
-                          <span
-                            style={{
-                              fontSize: 10, textTransform: 'capitalize', padding: '1px 6px', borderRadius: 4,
-                              background: 'var(--paper-2)', color: 'var(--mute)', border: '1px solid var(--line-2)',
-                            }}
-                          >
+                          <span style={{
+                            fontSize: 10, textTransform: 'capitalize', padding: '1px 6px', borderRadius: 4,
+                            background: 'var(--paper-2)', color: 'var(--mute)', border: '1px solid var(--line-2)',
+                          }}>
                             {u.role}
                           </span>
                         </button>
@@ -623,6 +632,14 @@ export default function Tables() {
           </Modal>
         );
       })()}
+
+      {/* New Order Modal (launched from table card) */}
+      {newOrderForTable && (
+        <NewOrderModal
+          initialTableId={newOrderForTable.id}
+          onClose={() => setNewOrderForTable(null)}
+        />
+      )}
 
       {/* Add Table Modal */}
       {addModal && isAdmin && (

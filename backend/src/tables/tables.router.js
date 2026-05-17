@@ -44,6 +44,15 @@ router.patch('/:id/position', authenticate, authorize('admin'), async (req, res,
   }
 });
 
+router.patch('/:id/assign', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const staffId = req.body.staffId ?? null;
+    res.json(await service.assignStaff(req.params.id, staffId, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.delete('/:id', authenticate, authorize('admin'), async (req, res, next) => {
   try {
     await service.remove(req.params.id, req.user.restaurantId);

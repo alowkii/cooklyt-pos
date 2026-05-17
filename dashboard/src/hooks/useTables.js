@@ -70,6 +70,20 @@ export function useUpdateTablePosition() {
   });
 }
 
+export function useAssignTableStaff() {
+  return useMutation({
+    mutationFn: async ({ tableId, staffId }) => {
+      const { data } = await api.patch(`/tables/${tableId}/assign`, { staffId: staffId ?? null });
+      return data;
+    },
+    onSuccess: (updatedTable) => {
+      queryClient.setQueryData(['tables'], (old) =>
+        old?.map((t) => (t.id === updatedTable.id ? { ...t, ...updatedTable } : t)) ?? old,
+      );
+    },
+  });
+}
+
 export function useCreateTable() {
   return useMutation({
     mutationFn: async (table) => {

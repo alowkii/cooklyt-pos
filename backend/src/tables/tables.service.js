@@ -1,4 +1,6 @@
 const repo = require('./tables.repository');
+const ws = require('../shared/websocket');
+const db = require('../shared/db');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
 async function getAll(restaurantId) {
@@ -45,4 +47,28 @@ async function remove(id, restaurantId) {
   return repo.remove(id, restaurantId);
 }
 
-module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove };
+async function assignStaff(tableId, staffId, restaurantId) {
+  await getById(tableId, restaurantId);
+  if (staffId !== null) {
+    const { rows } = await require('../shared/db').query(
+      'SELECT id FROM users WHERE id = $1 AND restaurant_id = $2 AND role = $3',
+      [staffId, restaurantId, 'staff'],
+    );
+    if (!rows[0]) throw new NotFoundError('Staff member');
+  }
+  const updated = await repo.assignStaff(tableId, staffId, restaurantId);
+  ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
+  if (staffId !== null) {
+    const payload = { tableId, tableNumber: updated.number };
+    // Persist notification so it survives logout/reload
+    await db.query(
+      `INSERT INTO staff_notifications (user_id, restaurant_id, event, data)
+       VALUES ($1, $2, 'STAFF_ASSIGNED', $3)`,
+      [staffId, restaurantId, JSON.stringify(payload)],
+    );
+    ws.sendToUser(staffId, 'STAFF_ASSIGNED', payload, restaurantId);
+  }
+  return updated;
+}
+
+module.exports = { getAll, getById, getByStatus, create, updateStatus, updatePosition, remove, assignStaff };
