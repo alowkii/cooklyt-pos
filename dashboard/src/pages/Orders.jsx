@@ -339,7 +339,7 @@ export default function Orders() {
   const canCancel   = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
   const canOrder    = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
   const canPrepare  = isAdmin || user?.role === 'staff';
-  const canAddItems = isAdmin || user?.role === 'staff';
+  const canAddItems = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
 
   const [expanded,      setExpanded]      = useState(null);
   const [showNewOrder,  setShowNewOrder]  = useState(false);
