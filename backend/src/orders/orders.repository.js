@@ -38,7 +38,7 @@ const getItemsByOrderId = (orderId) =>
     )
     .then((r) => r.rows);
 
-const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null }) => {
+const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) => {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -46,9 +46,9 @@ const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dini
     const {
       rows: [order],
     } = await client.query(
-      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref)
-       VALUES ($1, $2, $3, 'received', $4, $5) RETURNING *`,
-      [restaurantId, tableId || null, createdBy, channel, customerRef],
+      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref, assigned_staff_id)
+       VALUES ($1, $2, $3, 'received', $4, $5, $6) RETURNING *`,
+      [restaurantId, tableId || null, createdBy, channel, customerRef, assignedStaffId],
     );
 
     for (const item of items) {
@@ -136,6 +136,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        o.discount_value,
        t.number        AS table_number,
        u.email         AS created_by_email,
+       su.email        AS assigned_staff_email,
        p.method        AS payment_method,
        p.total_charged,
        p.subtotal      AS bill_subtotal,
@@ -158,6 +159,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        ) AS items
      FROM orders o
      LEFT JOIN users       u  ON u.id  = o.created_by
+     LEFT JOIN users       su ON su.id = o.assigned_staff_id
      LEFT JOIN tables      t  ON t.id  = o.table_id
      LEFT JOIN (
        SELECT
@@ -181,7 +183,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        AND (o.created_at AT TIME ZONE $2)::date <= $4::date
        AND ($5::text IS NULL OR o.status  = $5)
        AND ($6::text IS NULL OR o.channel = $6)
-     GROUP BY o.id, t.number, u.email,
+     GROUP BY o.id, t.number, u.email, su.email,
               p.method, p.total_charged, p.subtotal,
               p.tax_rate, p.tax_amount,
               p.service_charge_rate, p.service_charge_amount,

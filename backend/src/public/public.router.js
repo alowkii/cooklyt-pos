@@ -6,6 +6,8 @@ const ordersService = require('../orders/orders.service');
 const ws = require('../shared/websocket');
 const { currencies } = require('../../../shared/settings-options.json');
 
+const authRepo = require('../auth/auth.repository');
+
 const router = express.Router();
 // Allow any origin — customers scan from mobile phones on any network
 router.use(cors({ origin: '*' }));
@@ -22,10 +24,12 @@ router.get('/table/:tableId', async (req, res, next) => {
     const { rows } = await db.query(
       `SELECT t.id, t.number AS table_number, t.status, t.seats,
               r.id AS restaurant_id, r.name AS restaurant_name,
-              COALESCE(s.value, 'USD') AS currency_code
+              COALESCE(cur.value, 'USD') AS currency_code,
+              COALESCE(sae.value, 'false') AS staff_assignment_enabled
        FROM tables t
        JOIN restaurants r ON r.id = t.restaurant_id
-       LEFT JOIN settings s ON s.restaurant_id = t.restaurant_id AND s.key = 'currency'
+       LEFT JOIN settings cur ON cur.restaurant_id = t.restaurant_id AND cur.key = 'currency'
+       LEFT JOIN settings sae ON sae.restaurant_id = t.restaurant_id AND sae.key = 'staff_assignment_enabled'
        WHERE t.id = $1`,
       [tableId],
     );
@@ -37,6 +41,7 @@ router.get('/table/:tableId', async (req, res, next) => {
 
     res.json({
       ...row,
+      staff_assignment_enabled: row.staff_assignment_enabled === 'true',
       currency: {
         code: currencyInfo.code,
         symbol: currencyInfo.symbol,
@@ -58,12 +63,26 @@ router.get('/menu/:restaurantId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/public/staff/verify-pin/:restaurantId/:pin
+// Returns staff display name if PIN is valid for this restaurant
+router.get('/staff/verify-pin/:restaurantId/:pin', async (req, res, next) => {
+  try {
+    const { restaurantId, pin } = req.params;
+    if (!UUID_RE.test(restaurantId) || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+    const staff = await authRepo.findUserByPin(restaurantId, pin);
+    if (!staff) return res.status(404).json({ error: 'Staff not found' });
+    res.json({ id: staff.id, name: staff.email.split('@')[0] });
+  } catch (err) { next(err); }
+});
+
 // POST /api/public/orders
-// Body: { tableId, items: [{menuItemId, quantity, notes?}] }
+// Body: { tableId, items: [{menuItemId, quantity, notes?}], staffPin? }
 // Table UUID is the implicit authorization — only someone at the table can scan the QR
 router.post('/orders', async (req, res, next) => {
   try {
-    const { tableId, items } = req.body;
+    const { tableId, items, staffPin } = req.body;
     if (!tableId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'tableId and items are required' });
     }
@@ -75,10 +94,20 @@ router.post('/orders', async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
 
+    const restaurantId = rows[0].restaurant_id;
+
+    // Resolve staffPin → assignedStaffId (silently ignored if invalid)
+    let assignedStaffId = null;
+    if (staffPin && /^\d{4}$/.test(String(staffPin))) {
+      const staff = await authRepo.findUserByPin(restaurantId, String(staffPin));
+      if (staff) assignedStaffId = staff.id;
+    }
+
     const order = await ordersService.createOrder({
-      restaurantId: rows[0].restaurant_id,
+      restaurantId,
       tableId,
       createdBy: null,
+      assignedStaffId,
       items: items.map((i) => ({
         menuItemId: String(i.menuItemId),
         quantity: Math.max(1, parseInt(i.quantity) || 1),

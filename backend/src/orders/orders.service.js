@@ -16,7 +16,7 @@ async function getActiveByTable(tableId, restaurantId) {
   return repo.getActiveByTable(tableId, restaurantId);
 }
 
-async function createOrder({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null }) {
+async function createOrder({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) {
   const VALID_CHANNELS = ['dining', 'takeaway', 'delivery'];
   if (!VALID_CHANNELS.includes(channel)) {
     throw new ValidationError(`Invalid channel: ${channel}`);
@@ -37,7 +37,7 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     }
   }
 
-  const order = await repo.create({ restaurantId, tableId, createdBy, items, channel, customerRef });
+  const order = await repo.create({ restaurantId, tableId, createdBy, items, channel, customerRef, assignedStaffId });
 
   if (tableId) {
     await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);

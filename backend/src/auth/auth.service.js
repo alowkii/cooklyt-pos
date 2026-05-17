@@ -143,4 +143,11 @@ async function changePassword(userId, currentPassword, newPassword) {
   return { token };
 }
 
-module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, changePassword, signup };
+async function setStaffPin(targetId, pin, restaurantId) {
+  const user = await repo.findUserById(targetId);
+  if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
+  if (pin !== null && !/^\d{4}$/.test(pin)) throw new ValidationError('PIN must be exactly 4 digits');
+  return repo.setStaffPin(targetId, pin, restaurantId);
+}
+
+module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, changePassword, signup, setStaffPin };

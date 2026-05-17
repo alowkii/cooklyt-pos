@@ -1,7 +1,7 @@
 const repo = require('./settings.repository');
 const { ValidationError } = require('../shared/errors');
 
-const ALLOWED_KEYS = new Set(['timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee']);
+const ALLOWED_KEYS = new Set(['timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee', 'staff_assignment_enabled']);
 
 function validateTz(tz) {
   if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
@@ -37,6 +37,9 @@ async function update(key, value, restaurantId) {
   if (key === 'packaging_fee') {
     const n = parseFloat(value);
     if (isNaN(n) || n < 0) throw new ValidationError('packaging_fee must be a non-negative number');
+  }
+  if (key === 'staff_assignment_enabled') {
+    if (value !== 'true' && value !== 'false') throw new ValidationError('staff_assignment_enabled must be true or false');
   }
 
   await repo.set(restaurantId, key, value);

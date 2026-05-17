@@ -18,11 +18,13 @@ const getPendingItems = (restaurantId) =>
       o.customer_ref,
       o.status       AS order_status,
       t.number       AS table_number,
-      o.created_at   AS order_created_at
+      o.created_at   AS order_created_at,
+      su.email       AS assigned_staff_email
     FROM order_items oi
     JOIN orders o        ON o.id = oi.order_id
     JOIN menu_items mi   ON mi.id = oi.menu_item_id
     LEFT JOIN tables t   ON t.id = o.table_id
+    LEFT JOIN users su   ON su.id = o.assigned_staff_id
     WHERE o.status IN ('received', 'preparing', 'ready', 'served')
       AND o.restaurant_id = $1
       AND oi.status != 'cancelled'

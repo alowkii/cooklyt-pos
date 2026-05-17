@@ -102,6 +102,22 @@ router.post('/change-password', authenticate, writeLimiter, async (req, res, nex
   }
 });
 
+// Admin-only: set or clear a user's 4-digit staff PIN
+router.patch('/users/:id/pin', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const pin = req.body.pin === '' ? null : req.body.pin;
+    const user = await service.setStaffPin(req.params.id, pin, req.user.restaurantId);
+    audit.log({
+      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+      action: 'update', resourceType: 'user', resourceId: req.params.id,
+      description: pin ? `Set staff PIN for "${user.email}"` : `Cleared staff PIN for "${user.email}"`,
+    });
+    res.json(user);
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Admin-only: change a user's role (must belong to same restaurant)
 router.patch('/users/:id/role', authenticate, authorize('admin'), async (req, res, next) => {
   try {

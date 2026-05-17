@@ -34,14 +34,15 @@ router.get('/table/:tableId', authenticate, async (req, res, next) => {
 
 router.post('/', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
   try {
-    const { tableId, items, channel, customerRef } = req.body;
+    const { tableId, items, channel, customerRef, assignedStaffId } = req.body;
     const order = await service.createOrder({
-      restaurantId: req.user.restaurantId,
+      restaurantId:    req.user.restaurantId,
       tableId,
-      createdBy:   req.user.userId,
+      createdBy:       req.user.userId,
       items,
-      channel:     channel     || 'dining',
-      customerRef: customerRef || null,
+      channel:         channel          || 'dining',
+      customerRef:     customerRef      || null,
+      assignedStaffId: assignedStaffId  || null,
     });
     const loc = (channel === 'dining' || !channel)
       ? (tableId ? `table ${tableId}` : 'dine-in')

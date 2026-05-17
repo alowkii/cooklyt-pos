@@ -13,7 +13,7 @@ async function findUserByEmail(email) {
 
 async function findUserById(id) {
   const { rows } = await db.query(
-    'SELECT id, email, role, restaurant_id, created_at FROM users WHERE id = $1',
+    'SELECT id, email, role, staff_pin, restaurant_id, created_at FROM users WHERE id = $1',
     [id],
   );
   return rows[0];
@@ -31,12 +31,31 @@ async function createUser({ email, password, role, restaurantId }) {
 
 async function findAllUsers(restaurantId) {
   const { rows } = await db.query(
-    `SELECT id, email, role, created_at FROM users
+    `SELECT id, email, role, staff_pin, created_at FROM users
      WHERE restaurant_id = $1
      ORDER BY created_at DESC`,
     [restaurantId],
   );
   return rows;
+}
+
+async function setStaffPin(id, pin, restaurantId) {
+  const { rows } = await db.query(
+    `UPDATE users SET staff_pin = $1
+     WHERE id = $2 AND restaurant_id = $3
+     RETURNING id, email, role, staff_pin, created_at`,
+    [pin, id, restaurantId],
+  );
+  return rows[0];
+}
+
+async function findUserByPin(restaurantId, pin) {
+  const { rows } = await db.query(
+    `SELECT id, email, role FROM users
+     WHERE restaurant_id = $1 AND staff_pin = $2`,
+    [restaurantId, pin],
+  );
+  return rows[0];
 }
 
 async function deleteUser(id, restaurantId) {
@@ -111,5 +130,7 @@ module.exports = {
   deleteUser,
   updatePassword,
   updateUserRole,
+  setStaffPin,
+  findUserByPin,
   createRestaurantWithAdmin,
 };
