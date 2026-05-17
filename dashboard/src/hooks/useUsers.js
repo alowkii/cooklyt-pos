@@ -14,8 +14,8 @@ export function useUsers() {
 
 export function useCreateUser() {
   return useMutation({
-    mutationFn: async ({ email, password, role }) => {
-      const { data } = await api.post('/auth/register', { email, password, role });
+    mutationFn: async ({ email, password, role, name }) => {
+      const { data } = await api.post('/auth/register', { email, password, role, name: name || undefined });
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
@@ -48,7 +48,17 @@ export function useMeProfile() {
       const { data } = await api.get('/auth/me');
       return data;
     },
-    staleTime: 60_000,
+    staleTime: 0,
+  });
+}
+
+export function useUpdateUserName() {
+  return useMutation({
+    mutationFn: async ({ id, name }) => {
+      const { data } = await api.patch(`/auth/users/${id}/name`, { name: name || null });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 }
 
@@ -58,6 +68,9 @@ export function useSetStaffPin() {
       const { data } = await api.patch(`/auth/users/${id}/pin`, { pin: pin ?? '' });
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
   });
 }
