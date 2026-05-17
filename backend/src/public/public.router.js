@@ -73,7 +73,7 @@ router.get('/staff/verify-pin/:restaurantId/:pin', async (req, res, next) => {
     }
     const staff = await authRepo.findUserByPin(restaurantId, pin);
     if (!staff) return res.status(404).json({ error: 'Staff not found' });
-    res.json({ id: staff.id, name: staff.email.split('@')[0] });
+    res.json({ id: staff.id, name: staff.name || staff.email.split('@')[0] });
   } catch (err) { next(err); }
 });
 

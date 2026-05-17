@@ -277,7 +277,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
                   <span>·</span>
                   <span className="flex items-center gap-1" style={{ color: 'var(--ok)', fontWeight: 500 }}>
                     <User size={11} />
-                    {order.assigned_staff_email.split('@')[0]}
+                    {order.assigned_staff_name || order.assigned_staff_email.split('@')[0]}
                   </span>
                 </>
               )}

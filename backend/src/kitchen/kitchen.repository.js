@@ -19,7 +19,8 @@ const getPendingItems = (restaurantId) =>
       o.status       AS order_status,
       t.number       AS table_number,
       o.created_at   AS order_created_at,
-      su.email       AS assigned_staff_email
+      su.email       AS assigned_staff_email,
+      su.name        AS assigned_staff_name
     FROM order_items oi
     JOIN orders o        ON o.id = oi.order_id
     JOIN menu_items mi   ON mi.id = oi.menu_item_id
