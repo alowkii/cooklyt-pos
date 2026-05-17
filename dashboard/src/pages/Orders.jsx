@@ -173,7 +173,7 @@ function ItemRow({ orderId, item, canUpdate }) {
 
 /* ── OrderRow ────────────────────────────────────────────── */
 
-function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canCancel, onPay, onAddItems }) {
+function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAddItems, canCancel, onPay, onAddItems }) {
   const updateStatus  = useUpdateOrderStatus();
   const cancelPending = useCancelPendingItems();
 
@@ -273,7 +273,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canCan
               <button className="btn btn-sm" onClick={() => printKOT(order)}>
                 <Printer size={12} /> Print KOT
               </button>
-              {canOrder && (
+              {canAddItems && (
                 <button
                   onClick={() => onAddItems({ order, orderTitle })}
                   className="btn btn-sm"
@@ -336,9 +336,10 @@ export default function Orders() {
   const { data: tables = [] }            = useTables();
   const { isAdmin, user }                = useAuth();
 
-  const canCancel  = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
-  const canOrder   = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
-  const canPrepare = isAdmin || user?.role === 'staff';
+  const canCancel   = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canOrder    = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
+  const canPrepare  = isAdmin || user?.role === 'staff';
+  const canAddItems = isAdmin || user?.role === 'staff';
 
   const [expanded,      setExpanded]      = useState(null);
   const [showNewOrder,  setShowNewOrder]  = useState(false);
@@ -451,6 +452,7 @@ export default function Orders() {
               onToggle={() => setExpanded(expanded === order.id ? null : order.id)}
               canOrder={canOrder}
               canPrepare={canPrepare}
+              canAddItems={canAddItems}
               canCancel={canCancel}
               onPay={setPayingOrder}
               onAddItems={setAddingToOrder}
