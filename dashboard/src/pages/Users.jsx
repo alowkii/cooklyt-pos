@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound } from 'lucide-react';
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin } from '../hooks/useUsers';
+import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound, MapPin } from 'lucide-react';
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin, useSetUserActive, useSetUserPresent } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import QRCode from 'qrcode';
@@ -260,10 +260,12 @@ function PinModal({ user, onClose }) {
 
 export default function Users() {
   const { data: users = [], isLoading } = useUsers();
-  const createUser = useCreateUser();
-  const deleteUser = useDeleteUser();
-  const updateRole = useUpdateUserRole();
-  const updateName = useUpdateUserName();
+  const createUser    = useCreateUser();
+  const deleteUser    = useDeleteUser();
+  const updateRole    = useUpdateUserRole();
+  const updateName    = useUpdateUserName();
+  const setUserActive  = useSetUserActive();
+  const setUserPresent = useSetUserPresent();
 
   const [addModal,       setAddModal]       = useState(false);
   const [confirmDelete,  setConfirmDelete]  = useState(null);
@@ -325,6 +327,8 @@ export default function Users() {
                   <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to change)</span>
                 </th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Staff PIN</th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Present</th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Active</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Created</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -382,6 +386,36 @@ export default function Users() {
                           </>
                         )}
                       </button>
+                    </td>
+                    {/* Present — toggled by the user themselves (or admin) */}
+                    <td className="px-5 py-3.5">
+                      <button
+                        onClick={() => setUserPresent.mutate({ id: user.id, isPresent: !user.is_present })}
+                        disabled={setUserPresent.isPending}
+                        title={user.is_present ? 'Mark as away' : 'Mark as present'}
+                        className="inline-flex items-center gap-1.5"
+                        style={{ fontSize: 12, background: 'none', border: 0, cursor: 'pointer', padding: 0, color: user.is_present ? 'var(--ok)' : 'var(--mute-2)' }}
+                      >
+                        <MapPin size={13} />
+                        <span>{user.is_present ? 'Present' : 'Away'}</span>
+                      </button>
+                    </td>
+                    {/* Active — admin only, can't disable self */}
+                    <td className="px-5 py-3.5">
+                      {isSelf ? (
+                        <span style={{ fontSize: 12, color: 'var(--mute-2)' }}>—</span>
+                      ) : (
+                        <button
+                          onClick={() => setUserActive.mutate({ id: user.id, isActive: !user.is_active })}
+                          disabled={setUserActive.isPending}
+                          title={user.is_active ? 'Disable account' : 'Enable account'}
+                          className="inline-flex items-center gap-1.5"
+                          style={{ fontSize: 12, background: 'none', border: 0, cursor: 'pointer', padding: 0, color: user.is_active ? 'var(--ok)' : 'var(--bad)' }}
+                        >
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: user.is_active ? 'var(--ok)' : 'var(--bad)', display: 'inline-block', flexShrink: 0 }} />
+                          <span>{user.is_active ? 'Enabled' : 'Disabled'}</span>
+                        </button>
+                      )}
                     </td>
                     <td className="px-5 py-3.5" style={{ color: 'var(--mute)' }}>{formatDate(user.created_at)}</td>
                     <td className="px-5 py-3.5 text-right">

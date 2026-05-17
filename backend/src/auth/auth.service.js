@@ -20,6 +20,7 @@ async function login(email, password) {
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) throw new UnauthorizedError('Invalid credentials');
+  if (user.is_active === false) throw new UnauthorizedError('Account is disabled');
 
   const token = jwt.sign(
     {
@@ -157,4 +158,17 @@ async function setStaffPin(targetId, pin, restaurantId) {
   return repo.setStaffPin(targetId, pin, restaurantId);
 }
 
-module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName, changePassword, signup, setStaffPin };
+async function setUserActive(targetId, isActive, actorId, restaurantId) {
+  const user = await repo.findUserById(targetId);
+  if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
+  if (targetId === actorId) throw new ValidationError('Cannot disable your own account');
+  return repo.setUserActive(targetId, isActive, restaurantId);
+}
+
+async function setUserPresent(targetId, isPresent, restaurantId) {
+  const user = await repo.findUserById(targetId);
+  if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
+  return repo.setUserPresent(targetId, isPresent, restaurantId);
+}
+
+module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName, changePassword, signup, setStaffPin, setUserActive, setUserPresent };

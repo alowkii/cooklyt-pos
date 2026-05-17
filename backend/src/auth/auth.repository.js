@@ -13,7 +13,7 @@ async function findUserByEmail(email) {
 
 async function findUserById(id) {
   const { rows } = await db.query(
-    'SELECT id, email, name, role, staff_pin, restaurant_id, created_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, staff_pin, restaurant_id, created_at, is_active, is_present FROM users WHERE id = $1',
     [id],
   );
   return rows[0];
@@ -31,12 +31,30 @@ async function createUser({ email, password, role, name, restaurantId }) {
 
 async function findAllUsers(restaurantId) {
   const { rows } = await db.query(
-    `SELECT id, email, name, role, staff_pin, created_at FROM users
+    `SELECT id, email, name, role, staff_pin, created_at, is_active, is_present FROM users
      WHERE restaurant_id = $1
      ORDER BY created_at DESC`,
     [restaurantId],
   );
   return rows;
+}
+
+async function setUserActive(id, isActive, restaurantId) {
+  const { rows } = await db.query(
+    `UPDATE users SET is_active = $1 WHERE id = $2 AND restaurant_id = $3
+     RETURNING id, email, name, role, staff_pin, created_at, is_active, is_present`,
+    [isActive, id, restaurantId],
+  );
+  return rows[0];
+}
+
+async function setUserPresent(id, isPresent, restaurantId) {
+  const { rows } = await db.query(
+    `UPDATE users SET is_present = $1 WHERE id = $2 AND restaurant_id = $3
+     RETURNING id, email, name, role, staff_pin, created_at, is_active, is_present`,
+    [isPresent, id, restaurantId],
+  );
+  return rows[0];
 }
 
 async function updateUserName(id, name, restaurantId) {
@@ -143,5 +161,7 @@ module.exports = {
   updateUserRole,
   setStaffPin,
   findUserByPin,
+  setUserActive,
+  setUserPresent,
   createRestaurantWithAdmin,
 };

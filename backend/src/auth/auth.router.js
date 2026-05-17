@@ -151,4 +151,23 @@ router.patch('/users/:id/role', authenticate, authorize('admin'), async (req, re
   }
 });
 
+// Admin-only: enable or disable a user account
+router.patch('/users/:id/active', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const user = await service.setUserActive(req.params.id, !!req.body.is_active, req.user.userId, req.user.restaurantId);
+    res.json(user);
+  } catch (e) { next(e); }
+});
+
+// Self or admin: mark presence (in restaurant / away)
+router.patch('/users/:id/present', authenticate, async (req, res, next) => {
+  try {
+    const isSelf  = req.params.id === req.user.userId;
+    const isAdmin = req.user.role === 'admin';
+    if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
+    const user = await service.setUserPresent(req.params.id, !!req.body.is_present, req.user.restaurantId);
+    res.json(user);
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

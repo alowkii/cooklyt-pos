@@ -62,6 +62,29 @@ export function useUpdateUserName() {
   });
 }
 
+export function useSetUserActive() {
+  return useMutation({
+    mutationFn: async ({ id, isActive }) => {
+      const { data } = await api.patch(`/auth/users/${id}/active`, { is_active: isActive });
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export function useSetUserPresent() {
+  return useMutation({
+    mutationFn: async ({ id, isPresent }) => {
+      const { data } = await api.patch(`/auth/users/${id}/present`, { is_present: isPresent });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
 export function useSetStaffPin() {
   return useMutation({
     mutationFn: async ({ id, pin }) => {

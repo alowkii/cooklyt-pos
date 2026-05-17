@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Layers,
   QrCode,
+  MapPin,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import OfflineBanner from './OfflineBanner';
@@ -33,7 +34,7 @@ import Modal from './Modal';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
-import { useMeProfile } from '../hooks/useUsers';
+import { useMeProfile, useSetUserPresent } from '../hooks/useUsers';
 import { useSettings } from '../hooks/useSettings';
 
 const GROUP_PATHS = {
@@ -119,6 +120,7 @@ export default function Layout() {
   const { user, restaurant, isAdmin, isCashier } = useAuth();
   const { data: meProfile } = useMeProfile();
   const { data: settings } = useSettings();
+  const setUserPresent = useSetUserPresent();
   const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
 
   useWebSocket({
@@ -356,6 +358,20 @@ export default function Layout() {
               )}
             </button>
           )}
+          <button
+            onClick={() => {
+              if (meProfile?.id) {
+                setUserPresent.mutate({ id: meProfile.id, isPresent: !meProfile.is_present });
+              }
+            }}
+            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
+            style={{ height: 36, color: meProfile?.is_present ? 'var(--ok)' : 'var(--mute)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = meProfile?.is_present ? 'var(--ok)' : 'var(--mute)'; }}
+          >
+            <MapPin size={15} />
+            {meProfile?.is_present ? 'Present' : 'Mark as Present'}
+          </button>
           <button
             onClick={() => setShowChangePwd(true)}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[12px] transition-colors duration-75"
