@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, ChevronDown, Search, Zap } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, ChevronDown, Search, Zap, RefreshCw } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
@@ -142,6 +142,11 @@ export default function Settings() {
   const updateSetting = useUpdateSetting();
   const { data: settings } = useSettings();
 
+  const [fxRate,    setFxRate]    = useState(null);   // rate for current currency vs USD
+  const [fxDate,    setFxDate]    = useState(null);   // date string from Frankfurter
+  const [fxLoading, setFxLoading] = useState(false);
+  const [fxError,   setFxError]   = useState(false);
+
   const [saveError,       setSaveError]       = useState('');
   const [taxRate,         setTaxRate]         = useState('');
   const [serviceCharge,   setServiceCharge]   = useState('');
@@ -174,6 +179,34 @@ export default function Settings() {
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
+
+  /* Exchange rate — fetches from Frankfurter, cached per currency per day */
+  async function fetchRate(currencyCode) {
+    if (currencyCode === 'USD') { setFxRate(1); setFxDate(new Date().toISOString().slice(0, 10)); return; }
+    const cacheKey = `pos_fx_${currencyCode}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if (cached && cached.date === new Date().toISOString().slice(0, 10)) {
+        setFxRate(cached.rate); setFxDate(cached.date); return;
+      }
+    } catch { /* bad cache */ }
+    setFxLoading(true); setFxError(false);
+    try {
+      const res  = await fetch(`/frankfurter/latest?from=USD&to=${currencyCode}`);
+      const json = await res.json();
+      const rate = json.rates?.[currencyCode];
+      if (!rate) throw new Error('no rate');
+      const date = json.date;
+      localStorage.setItem(cacheKey, JSON.stringify({ rate, date }));
+      setFxRate(rate); setFxDate(date);
+    } catch {
+      setFxError(true);
+    } finally {
+      setFxLoading(false);
+    }
+  }
+
+  useEffect(() => { fetchRate(code); }, [code]);
 
   /* Save function — keep ref current so debounced calls always use latest state */
   async function doSave() {
@@ -293,9 +326,36 @@ export default function Settings() {
           dropdownWidth={300}
           disabled={updateSetting.isPending}
         />
-        <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>
-          {format(1)} · {format(100)} · {format(1000)}
-        </span>
+      </div>
+
+      {/* Exchange rate strip */}
+      <div className="flex items-center gap-2 mb-5" style={{ fontSize: 12 }}>
+        {fxLoading ? (
+          <span style={{ color: 'var(--mute)' }}>Fetching rate…</span>
+        ) : fxError ? (
+          <span style={{ color: 'var(--bad)' }}>Could not fetch exchange rate</span>
+        ) : fxRate != null && code !== 'USD' ? (<>
+          <span style={{ color: 'var(--mute)' }}>
+            <span style={{ color: 'var(--ink)', fontWeight: 600 }}>1 USD</span>
+            {' = '}
+            <span className="mono num" style={{ color: 'var(--ink)', fontWeight: 600 }}>
+              {fxRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} {code}
+            </span>
+          </span>
+          {fxDate && (
+            <span style={{ color: 'var(--mute-2)', fontSize: 11 }}>as of {fxDate}</span>
+          )}
+          <button
+            type="button"
+            title="Refresh rate"
+            onClick={() => { localStorage.removeItem(`pos_fx_${code}`); fetchRate(code); }}
+            style={{ background: 'none', border: 0, padding: 2, cursor: 'pointer', color: 'var(--mute)', lineHeight: 1 }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--ink)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--mute)'}
+          >
+            <RefreshCw size={11} />
+          </button>
+        </>) : null}
       </div>
 
       {/* ── Timezone ────────────────────────────────────────── */}

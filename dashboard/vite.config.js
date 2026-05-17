@@ -57,6 +57,11 @@ export default defineConfig({
         ws: true,
         changeOrigin: false,
       },
+      '/frankfurter': {
+        target: 'https://api.frankfurter.app',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/frankfurter/, ''),
+      },
     },
   },
 });
