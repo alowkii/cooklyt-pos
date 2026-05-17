@@ -88,6 +88,17 @@ router.patch('/:id/status', authenticate, authorize('admin', 'staff', 'kitchen')
   }
 });
 
+router.patch('/:id/assign', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
+  try {
+    const staffId = req.body.staffId ?? null;
+    const result = await service.assignStaff(req.params.id, staffId, req.user.restaurantId);
+    audit.log({ ...pos(req), action: 'update', resourceType: 'order', resourceId: req.params.id, description: staffId ? `Assigned staff ${staffId} to order` : 'Removed staff assignment from order' });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.patch('/:id/discount', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
   try {
     const { discountType, discountValue } = req.body;

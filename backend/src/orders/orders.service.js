@@ -207,6 +207,20 @@ async function getItems(orderId, restaurantId) {
   return repo.getItemsByOrderId(orderId);
 }
 
+async function assignStaff(orderId, staffId, restaurantId) {
+  await getById(orderId, restaurantId);
+  if (staffId !== null) {
+    const { rows } = await require('../shared/db').query(
+      'SELECT id FROM users WHERE id = $1 AND restaurant_id = $2',
+      [staffId, restaurantId],
+    );
+    if (!rows[0]) throw new NotFoundError('Staff member');
+  }
+  const updated = await repo.assignStaff(orderId, staffId, restaurantId);
+  ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
+  return updated;
+}
+
 async function applyDiscount(orderId, discountType, discountValue, restaurantId) {
   const VALID_TYPES = ['percent', 'flat'];
   if (discountType !== null && !VALID_TYPES.includes(discountType))
@@ -232,6 +246,7 @@ module.exports = {
   updateItemStatus,
   cancelPendingItems,
   updateStatus,
+  assignStaff,
   calculateTotal,
   markOrderPaid,
   getItems,

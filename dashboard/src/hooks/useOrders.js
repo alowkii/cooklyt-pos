@@ -44,6 +44,7 @@ export function useActiveOrders() {
           status:                item.order_status,
           created_at:            item.order_created_at,
           assigned_staff_email:  item.assigned_staff_email  || null,
+          assigned_staff_name:   item.assigned_staff_name   || null,
           items:                 [],
         };
       }
@@ -185,6 +186,18 @@ export function useAddItems() {
       }
       await enqueue('orders', 'items:POST', { orderId, items });
       return { orderId, items };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+    },
+  });
+}
+
+export function useAssignStaff() {
+  return useMutation({
+    mutationFn: async ({ orderId, staffId }) => {
+      const { data } = await api.patch(`/orders/${orderId}/assign`, { staffId: staffId ?? null });
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });

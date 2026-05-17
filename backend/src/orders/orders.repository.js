@@ -92,6 +92,16 @@ const updateStatus = (id, status) =>
     .query('UPDATE orders SET status = $1 WHERE id = $2 RETURNING *', [status, id])
     .then((r) => r.rows[0]);
 
+const assignStaff = (orderId, staffId, restaurantId) =>
+  db
+    .query(
+      `UPDATE orders SET assigned_staff_id = $1
+       WHERE id = $2 AND restaurant_id = $3
+       RETURNING id, assigned_staff_id`,
+      [staffId, orderId, restaurantId],
+    )
+    .then((r) => r.rows[0]);
+
 const updateItemStatus = (itemId, orderId, status) =>
   db
     .query(
@@ -137,6 +147,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        t.number        AS table_number,
        u.email         AS created_by_email,
        su.email        AS assigned_staff_email,
+       su.name         AS assigned_staff_name,
        p.method        AS payment_method,
        p.total_charged,
        p.subtotal      AS bill_subtotal,
@@ -199,6 +210,7 @@ module.exports = {
   create,
   addItems,
   updateStatus,
+  assignStaff,
   updateItemStatus,
   getItemStatuses,
   setDiscount,
