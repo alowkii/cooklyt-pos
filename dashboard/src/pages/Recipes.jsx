@@ -216,14 +216,12 @@ export default function Recipes() {
                   <div className="flex-1 min-w-0">
                     <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{recipe.name}</p>
                     <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 1 }}>
-                      yield {recipe.yield_quantity} {recipe.yield_unit}
+                      yield {parseFloat(recipe.yield_quantity).toFixed(2)} {recipe.yield_unit}
                       {recipe.prep_time_sec ? ` · ${Math.ceil(recipe.prep_time_sec / 60)} min prep` : ''}
                       {' · '}{(recipe.ingredients || []).length} ingredients
+                      {' · '}<span className="mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(cost)}</span>
                     </p>
                   </div>
-                  <span className="mono num shrink-0" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
-                    {format(cost)} cost
-                  </span>
                   <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleSnapshot(recipe.id)} className="btn btn-sm btn-ghost" title="Save cost snapshot">
                       <Camera size={12} />
@@ -245,7 +243,8 @@ export default function Recipes() {
                 {/* Expanded ingredient list */}
                 {isOpen && (recipe.ingredients || []).length > 0 && (
                   <div style={{ background: 'var(--paper-2)', borderTop: '1px solid var(--line)', padding: '10px 16px 14px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 380 }}>
                       <thead>
                         <tr>
                           {['Ingredient', 'Qty', 'Unit', 'Cost/unit', 'Line cost'].map((h) => (
@@ -270,6 +269,7 @@ export default function Recipes() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
