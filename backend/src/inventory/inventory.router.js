@@ -34,6 +34,20 @@ router.post('/adjustment', async (req, res, next) => {
   }
 });
 
+router.post('/import', async (req, res, next) => {
+  try {
+    res.status(201).json(
+      await service.importTransactions({
+        restaurantId: req.user.restaurantId,
+        performedBy:  req.user.userId,
+        rows:         req.body.rows,
+      }),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/waste-report', async (req, res, next) => {
   try {
     res.json(

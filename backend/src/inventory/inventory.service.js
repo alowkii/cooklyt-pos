@@ -80,4 +80,62 @@ async function returnStock(orderId, restaurantId, items) {
   }
 }
 
-module.exports = { getTransactions, recordAdjustment, getWasteReport, deductForOrder, returnStock };
+const IMPORT_VALID_TYPES = new Set(['PURCHASE', 'ADJUSTMENT', 'WASTE', 'RETURN']);
+
+async function importTransactions({ restaurantId, performedBy, rows }) {
+  if (!Array.isArray(rows) || rows.length === 0)
+    throw new ValidationError('rows must be a non-empty array');
+
+  const allIngredients = await ingredientsRepo.getAll(restaurantId);
+  const nameMap = {};
+  for (const ing of allIngredients) {
+    nameMap[ing.name.toLowerCase().trim()] = ing;
+  }
+
+  const created = [];
+  const errors  = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row    = rows[i];
+    const rowNum = i + 2; // +2 = 1-indexed + header row
+
+    const ing = nameMap[(row.ingredient_name || '').toLowerCase().trim()];
+    if (!ing) {
+      errors.push({ row: rowNum, error: `Unknown ingredient: "${row.ingredient_name}"` });
+      continue;
+    }
+
+    const txnType = (row.type || '').toUpperCase().trim();
+    if (!IMPORT_VALID_TYPES.has(txnType)) {
+      errors.push({ row: rowNum, error: `Invalid type "${row.type}" — use PURCHASE, ADJUSTMENT, WASTE, or RETURN` });
+      continue;
+    }
+
+    const delta = parseFloat(row.quantity_delta);
+    if (isNaN(delta) || delta === 0) {
+      errors.push({ row: rowNum, error: `Invalid quantity_delta "${row.quantity_delta}"` });
+      continue;
+    }
+
+    const rawCost = row.unit_cost !== undefined && row.unit_cost !== ''
+      ? parseFloat(row.unit_cost)
+      : parseFloat(ing.latest_unit_cost);
+    const unitCost = isNaN(rawCost) ? 0 : rawCost;
+
+    await ingredientsRepo.adjustStock(ing.id, delta, restaurantId);
+    const txn = await repo.createTransaction({
+      restaurantId,
+      ingredientId:  ing.id,
+      txnType,
+      quantityDelta: delta,
+      refId:         row.ref_id || 'IMPORT',
+      unitCost,
+      performedBy,
+    });
+    created.push(txn.id);
+  }
+
+  return { created: created.length, errors };
+}
+
+module.exports = { getTransactions, recordAdjustment, getWasteReport, deductForOrder, returnStock, importTransactions };

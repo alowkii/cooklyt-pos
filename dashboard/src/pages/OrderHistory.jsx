@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, UtensilsCrossed, ShoppingBag, Truck, Printer } from 'lucide-react';
+import { ChevronDown, ChevronRight, UtensilsCrossed, ShoppingBag, Truck, Printer, Download } from 'lucide-react';
 import { useOrderHistory } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
@@ -239,6 +239,43 @@ function OrderRow({ order, format, formatTime, currency }) {
   );
 }
 
+// ── CSV export ───────────────────────────────────────────────────────────────
+
+function escCsv(v) {
+  const s = String(v ?? '');
+  return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const ORDER_CSV_COLS = [
+  { label: 'Date',           get: (o) => new Date(o.created_at).toLocaleDateString() },
+  { label: 'Time',           get: (o) => new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+  { label: 'Token',          get: (o) => o.id.slice(-6).toUpperCase() },
+  { label: 'Channel',        get: (o) => o.channel ?? '' },
+  { label: 'Table / Ref',    get: (o) => o.channel === 'dining' ? (o.table_number ? `Table ${o.table_number}` : '') : (o.customer_ref ?? '') },
+  { label: 'Staff',          get: (o) => o.created_by_email?.split('@')[0] ?? '' },
+  { label: 'Status',         get: (o) => o.status },
+  { label: 'Items',          get: (o) => (o.items || []).map((i) => `${i.name} ×${i.quantity}`).join('; ') },
+  { label: 'Subtotal',       get: (o) => parseFloat(o.bill_subtotal ?? o.items_total ?? 0).toFixed(2) },
+  { label: 'Discount',       get: (o) => parseFloat(o.bill_discount_amount ?? 0).toFixed(2) },
+  { label: 'Tax',            get: (o) => parseFloat(o.tax_amount ?? 0).toFixed(2) },
+  { label: 'Service Charge', get: (o) => parseFloat(o.service_charge_amount ?? 0).toFixed(2) },
+  { label: 'Total',          get: (o) => parseFloat(o.total_charged ?? 0).toFixed(2) },
+  { label: 'Payment Method', get: (o) => o.payment_method ?? '' },
+];
+
+function downloadOrdersCsv(filename, orders) {
+  const lines = [
+    ORDER_CSV_COLS.map((c) => escCsv(c.label)).join(','),
+    ...orders.map((o) => ORDER_CSV_COLS.map((c) => escCsv(c.get(o))).join(',')),
+  ].join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(new Blob([lines], { type: 'text/csv;charset=utf-8;' })),
+    download: filename,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OrderHistory() {
@@ -284,6 +321,16 @@ export default function OrderHistory() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          {/* Export */}
+          <button
+            onClick={() => downloadOrdersCsv(`orders_${from}_${to}.csv`, orders)}
+            disabled={orders.length === 0}
+            className="btn-secondary disabled:opacity-40"
+            style={{ height: 32, fontSize: 12, gap: 5 }}
+          >
+            <Download size={13} /> Export CSV
+          </button>
+
           {/* Date presets */}
           <div className="flex overflow-x-auto" style={{ border: '1px solid var(--line-2)', borderRadius: 6 }}>
             {PRESETS.map((p) => (

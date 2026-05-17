@@ -31,6 +31,19 @@ export function useWasteReport(from, to) {
   });
 }
 
+export function useImportLedger() {
+  return useMutation({
+    mutationFn: async (rows) => {
+      const { data } = await api.post('/inventory/import', { rows });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
+    },
+  });
+}
+
 export function useRecordAdjustment() {
   return useMutation({
     mutationFn: async (body) => {
