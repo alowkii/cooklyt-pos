@@ -43,10 +43,10 @@ function IngredientRow({ row, onUpdate, onRemove, allIngredients }) {
       />
       <button
         type="button" onClick={onRemove}
-        className="shrink-0 rounded p-1"
+        className="shrink-0 rounded-md p-1 transition-colors"
         style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
       >
         <X size={14} />
       </button>

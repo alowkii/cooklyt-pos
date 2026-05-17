@@ -156,16 +156,6 @@ export default function Settings() {
         })}
       </div>
 
-      <p style={{ fontSize: 11, color: 'var(--mute)' }}>
-        Rates are approximate. To update them, edit{' '}
-        <code
-          className="rounded px-1 py-0.5"
-          style={{ fontSize: 11, background: 'var(--hover)', color: 'var(--ink)' }}
-        >
-          shared/settings-options.json
-        </code>.
-      </p>
-
       {/* Timezone */}
       <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="mb-1 flex items-center gap-2">

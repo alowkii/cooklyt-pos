@@ -63,10 +63,10 @@ function CustomizationGroupsEditor({ groups, onChange }) {
             <button
               type="button"
               onClick={() => onChange(groups.filter((_, idx) => idx !== gi))}
-              className="shrink-0 rounded p-1 transition-colors"
+              className="shrink-0 rounded-md p-1 transition-colors"
               style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
             >
               <X size={14} />
             </button>
@@ -128,10 +128,10 @@ function CustomizationGroupsEditor({ groups, onChange }) {
                   type="button"
                   onClick={() => setGroup(gi, { options: group.options.filter((_, idx) => idx !== oi) })}
                   disabled={group.options.length <= 1}
-                  className="shrink-0 rounded p-1 transition-colors disabled:opacity-30"
+                  className="shrink-0 rounded-md p-1 transition-colors disabled:opacity-30"
                   style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
                 >
                   <X size={13} />
                 </button>
@@ -248,9 +248,10 @@ export default function Menu() {
             {search && (
               <button
                 onClick={() => setSearch('')}
-                style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', padding: 0 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                className="rounded p-0.5 transition-colors"
+                style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer', display: 'flex' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
               >
                 <X size={11} />
               </button>

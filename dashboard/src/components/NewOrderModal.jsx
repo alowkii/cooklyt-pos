@@ -199,7 +199,13 @@ export default function NewOrderModal({ onClose }) {
               {createOrder.isPending ? 'Placing…' : `Place order${cartCount > 0 ? ` (${cartCount})` : ''}`}
             </button>
           </div>
-          <button onClick={onClose} className="btn btn-sm btn-ghost sm:hidden">
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 transition-colors sm:hidden"
+            style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+          >
             <X size={14} />
           </button>
         </div>

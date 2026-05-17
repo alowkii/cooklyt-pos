@@ -86,9 +86,10 @@ function DiscountSection({ orderId, bill, format }) {
         <div className="flex items-center gap-2">
           <span className="mono num">−{format(bill.discountAmount)}</span>
           <button type="button" onClick={handleRemove} disabled={applyDiscount.isPending}
-            style={{ color: 'var(--mute)', border: 0, background: 'transparent' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+            className="rounded-md p-0.5 transition-colors"
+            style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
           >
             <X size={13} />
           </button>
@@ -170,9 +171,10 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
                   <span>Service charge waived</span>
                   {onWaiveChange && (
                     <button type="button" onClick={() => onWaiveChange(false)}
-                      style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer', padding: 0 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                      className="rounded-md p-0.5 transition-colors"
+                      style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
                       title="Restore service charge">
                       <X size={13} />
                     </button>
@@ -185,9 +187,10 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
                     <span className="mono num">{format(bill.serviceChargeAmount)}</span>
                     {onWaiveChange && (
                       <button type="button" onClick={() => onWaiveChange(true)}
-                        style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer', padding: 0 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                        className="rounded-md p-0.5 transition-colors"
+                        style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
                         title="Waive service charge">
                         <X size={13} />
                       </button>
@@ -399,10 +402,10 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
                   <div className="flex items-center justify-between">
                     <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)' }}>Split Payment</p>
                     <button type="button" onClick={() => { setSplitTender(false); setTender1Amount(''); }}
-                      className="flex items-center gap-0.5"
-                      style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--bad)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors"
+                      style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
                       <X size={12} /> Remove
                     </button>
                   </div>

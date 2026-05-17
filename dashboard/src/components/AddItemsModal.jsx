@@ -150,7 +150,15 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
                 Cart {cartCount > 0 && `(${cartCount})`}
               </button>
             </div>
-            <button onClick={onClose} className="btn btn-sm btn-ghost"><X size={14} /></button>
+            <button
+              onClick={onClose}
+              className="rounded-md p-1 transition-colors"
+              style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              <X size={14} />
+            </button>
           </div>
         </div>
 

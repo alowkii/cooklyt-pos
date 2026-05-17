@@ -68,7 +68,10 @@ function RoleCell({ user, isSelf, onSave }) {
         </button>
         <button
           onClick={cancel}
-          className="btn btn-sm btn-ghost"
+          className="rounded-md p-1 transition-colors"
+          style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
           title="Cancel"
         >
           <X size={13} />
