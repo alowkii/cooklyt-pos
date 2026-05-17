@@ -2,13 +2,14 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
 import { queryClient } from '../lib/queryClient';
 
-export function useIngredients() {
+export function useIngredients(options = {}) {
   return useQuery({
     queryKey: ['ingredients'],
     queryFn: async () => {
       const { data } = await api.get('/ingredients');
       return data;
     },
+    ...options,
   });
 }
 

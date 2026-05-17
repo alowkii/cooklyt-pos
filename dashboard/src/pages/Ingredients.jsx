@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, AlertTriangle, ShoppingCart, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Pencil, AlertTriangle, ShoppingCart, X, ArrowUp, ArrowDown, ChevronsUpDown, Bell } from 'lucide-react';
 import {
   useIngredients,
   useCreateIngredient,
@@ -12,23 +12,80 @@ import { useCurrency } from '../context/CurrencyContext';
 const EMPTY_FORM = { name: '', unit: '', reorderLevel: '', reorderQty: '', latestUnitCost: '' };
 const EMPTY_PURCHASE = { quantity: '', unitCost: '' };
 
+function SortIcon({ col, sortCol, sortDir }) {
+  if (sortCol !== col) return <ChevronsUpDown size={11} style={{ color: 'var(--line-2)', marginLeft: 3, flexShrink: 0 }} />;
+  return sortDir === 'asc'
+    ? <ArrowUp  size={11} style={{ color: 'var(--ink)', marginLeft: 3, flexShrink: 0 }} />
+    : <ArrowDown size={11} style={{ color: 'var(--ink)', marginLeft: 3, flexShrink: 0 }} />;
+}
+
 export default function Ingredients() {
-  const { data: items = [], isLoading } = useIngredients();
+  const { data: items = [], isLoading } = useIngredients({ refetchInterval: 30_000 });
   const { format, currency }            = useCurrency();
   const createIngredient  = useCreateIngredient();
   const updateIngredient  = useUpdateIngredient();
   const recordPurchase    = useRecordPurchase();
 
-  const [modal,    setModal]    = useState(null); // null | 'add' | ingredient obj
-  const [purchase, setPurchase] = useState(null); // null | ingredient obj
+  const [modal,    setModal]    = useState(null);
+  const [purchase, setPurchase] = useState(null);
   const [form,     setForm]     = useState(EMPTY_FORM);
   const [purForm,  setPurForm]  = useState(EMPTY_PURCHASE);
 
-  function openAdd() {
-    setForm(EMPTY_FORM);
-    setModal('add');
+  const [sortCol,  setSortCol]  = useState('name');
+  const [sortDir,  setSortDir]  = useState('asc');
+  const [notification, setNotification] = useState(null);
+  const notifTimer  = useRef(null);
+  const prevLowIds  = useRef(null);
+
+  // Detect newly low-stock items on each refetch
+  useEffect(() => {
+    if (!items.length) return;
+    const lowNow = new Set(
+      items
+        .filter((i) => i.is_active && parseFloat(i.stock_on_hand) <= parseFloat(i.reorder_level))
+        .map((i) => i.id),
+    );
+    if (prevLowIds.current !== null) {
+      const newLow = [...lowNow].filter((id) => !prevLowIds.current.has(id));
+      if (newLow.length > 0) {
+        const names = newLow
+          .map((id) => items.find((i) => i.id === id)?.name)
+          .filter(Boolean)
+          .join(', ');
+        clearTimeout(notifTimer.current);
+        setNotification(names);
+        notifTimer.current = setTimeout(() => setNotification(null), 6000);
+      }
+    }
+    prevLowIds.current = lowNow;
+  }, [items]);
+
+  useEffect(() => () => clearTimeout(notifTimer.current), []);
+
+  function toggleSort(col) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
   }
 
+  const sorted = [...items].sort((a, b) => {
+    let av, bv;
+    switch (sortCol) {
+      case 'name':    av = a.name.toLowerCase();              bv = b.name.toLowerCase();              break;
+      case 'stock':   av = parseFloat(a.stock_on_hand);       bv = parseFloat(b.stock_on_hand);       break;
+      case 'reorder': av = parseFloat(a.reorder_level);       bv = parseFloat(b.reorder_level);       break;
+      case 'cost':    av = parseFloat(a.latest_unit_cost);    bv = parseFloat(b.latest_unit_cost);    break;
+      default: return 0;
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  function openAdd() { setForm(EMPTY_FORM); setModal('add'); }
   function openEdit(ing) {
     setForm({
       name:            ing.name,
@@ -39,7 +96,6 @@ export default function Ingredients() {
     });
     setModal(ing);
   }
-
   function openPurchase(ing) {
     setPurForm({ quantity: '', unitCost: parseFloat(ing.latest_unit_cost).toFixed(currency.decimals) });
     setPurchase(ing);
@@ -53,11 +109,8 @@ export default function Ingredients() {
       reorderLevel:   parseFloat(form.reorderLevel)   || 0,
       reorderQty:     parseFloat(form.reorderQty)     || 0,
     };
-    if (modal === 'add') {
-      await createIngredient.mutateAsync(payload);
-    } else {
-      await updateIngredient.mutateAsync({ id: modal.id, ...payload });
-    }
+    if (modal === 'add') await createIngredient.mutateAsync(payload);
+    else                 await updateIngredient.mutateAsync({ id: modal.id, ...payload });
     setModal(null);
   }
 
@@ -76,6 +129,15 @@ export default function Ingredients() {
     (i) => i.is_active && parseFloat(i.stock_on_hand) <= parseFloat(i.reorder_level),
   );
 
+  const COLS = [
+    { key: 'name',    label: 'Ingredient' },
+    { key: null,      label: 'Unit'       },
+    { key: 'stock',   label: 'Stock'      },
+    { key: 'reorder', label: 'Reorder at' },
+    { key: 'cost',    label: 'Unit cost'  },
+    { key: null,      label: ''           },
+  ];
+
   return (
     <div className="space-y-5">
 
@@ -83,7 +145,7 @@ export default function Ingredients() {
       <div className="flex items-center gap-3 flex-wrap">
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Ingredients</h1>
-          <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>{items.length} total</p>
+          <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>{items.length} total · refreshes every 30 s</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {lowStock.length > 0 && (
@@ -101,6 +163,26 @@ export default function Ingredients() {
         </div>
       </div>
 
+      {/* Low stock summary banner */}
+      {lowStock.length > 0 && (
+        <div
+          className="rounded-[8px] px-4 py-3"
+          style={{ background: 'rgba(180,83,9,.05)', border: '1px solid rgba(180,83,9,.2)' }}
+        >
+          <p style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>
+            <AlertTriangle size={12} style={{ display: 'inline', marginRight: 5, verticalAlign: 'middle' }} />
+            Low stock items — reorder soon
+          </p>
+          <p style={{ fontSize: 11.5, color: '#92400e', lineHeight: 1.6 }}>
+            {lowStock.map((i) => (
+              <span key={i.id} style={{ marginRight: 12 }}>
+                <strong>{i.name}</strong> — {parseFloat(i.stock_on_hand).toFixed(2)} {i.unit} remaining (reorder at {parseFloat(i.reorder_level).toFixed(2)})
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
+
       {/* Table */}
       {isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
@@ -117,22 +199,29 @@ export default function Ingredients() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
               <thead>
                 <tr style={{ background: 'var(--paper-2)', borderBottom: '1px solid var(--line)' }}>
-                  {['Ingredient', 'Unit', 'Stock', 'Reorder at', 'Unit cost', ''].map((h) => (
+                  {COLS.map(({ key, label }) => (
                     <th
-                      key={h}
+                      key={label}
+                      onClick={key ? () => toggleSort(key) : undefined}
                       style={{
                         padding: '8px 16px', textAlign: 'left',
-                        fontSize: 10, fontWeight: 600, color: 'var(--mute)',
+                        fontSize: 10, fontWeight: 600, color: key && sortCol === key ? 'var(--ink)' : 'var(--mute)',
                         textTransform: 'uppercase', letterSpacing: '.07em',
+                        cursor: key ? 'pointer' : 'default',
+                        userSelect: 'none',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {h}
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {label}
+                        {key && <SortIcon col={key} sortCol={sortCol} sortDir={sortDir} />}
+                      </span>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((ing) => {
+                {sorted.map((ing) => {
                   const isLow = ing.is_active && parseFloat(ing.stock_on_hand) <= parseFloat(ing.reorder_level);
                   return (
                     <tr
@@ -155,10 +244,7 @@ export default function Ingredients() {
                       <td style={{ padding: '10px 16px' }}>
                         <span
                           className="mono num"
-                          style={{
-                            fontSize: 13, fontWeight: 500,
-                            color: isLow ? '#b45309' : 'var(--ink)',
-                          }}
+                          style={{ fontSize: 13, fontWeight: 500, color: isLow ? '#b45309' : 'var(--ink)' }}
                         >
                           {parseFloat(ing.stock_on_hand).toFixed(2)}
                           {isLow && <AlertTriangle size={11} style={{ marginLeft: 4, verticalAlign: 'middle', color: '#b45309' }} />}
@@ -292,6 +378,31 @@ export default function Ingredients() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Low-stock toast notification */}
+      {notification && (
+        <div
+          style={{
+            position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+            background: 'var(--paper)', border: '1px solid rgba(180,83,9,.35)',
+            borderRadius: 10, padding: '14px 16px', maxWidth: 320,
+            boxShadow: '0 4px 20px rgba(0,0,0,.12)',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}
+        >
+          <Bell size={15} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 2 }}>Low Stock Alert</p>
+            <p style={{ fontSize: 11.5, color: 'var(--mute)', lineHeight: 1.4 }}>{notification} dropped below reorder level.</p>
+          </div>
+          <button
+            onClick={() => { clearTimeout(notifTimer.current); setNotification(null); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--mute)', flexShrink: 0 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
       )}
 
       <style>{`
