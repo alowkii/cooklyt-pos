@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound } from 'lucide-react';
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useSetStaffPin } from '../hooks/useUsers';
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import QRCode from 'qrcode';
@@ -21,7 +21,7 @@ const ROLE_ICON = {
   kitchen: ChefHat,
 };
 
-const EMPTY_FORM = { email: '', password: '', role: 'staff' };
+const EMPTY_FORM = { email: '', password: '', role: 'staff', name: '' };
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -102,6 +102,60 @@ function RoleCell({ user, isSelf, onSave }) {
         }}
       />
       {user.role}
+    </button>
+  );
+}
+
+function NameCell({ user, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [value,   setValue]   = useState(user.name || '');
+  const updateName = useUpdateUserName();
+
+  async function save() {
+    const trimmed = value.trim();
+    if (trimmed !== (user.name || '')) await onSave(user.id, trimmed || null);
+    setEditing(false);
+  }
+
+  function cancel() {
+    setValue(user.name || '');
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }}
+          className="input"
+          style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
+          placeholder="Display name"
+          maxLength={100}
+        />
+        <button onClick={save} disabled={updateName.isPending} className="btn btn-sm btn-ghost disabled:opacity-50" style={{ color: 'var(--ok)' }} title="Save">
+          <Check size={13} />
+        </button>
+        <button onClick={cancel} className="rounded-md p-1 transition-colors" style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+          title="Cancel">
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title="Click to edit name"
+      style={{ fontSize: 12, background: 'transparent', border: 0, padding: 0, cursor: 'pointer', color: user.name ? 'var(--ink)' : 'var(--mute-2)', textAlign: 'left' }}
+    >
+      {user.name || <span style={{ fontStyle: 'italic' }}>— add name</span>}
     </button>
   );
 }
@@ -209,6 +263,7 @@ export default function Users() {
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateRole = useUpdateUserRole();
+  const updateName = useUpdateUserName();
 
   const [addModal,       setAddModal]       = useState(false);
   const [confirmDelete,  setConfirmDelete]  = useState(null);
@@ -262,6 +317,10 @@ export default function Users() {
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Email</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
+                  Name
+                  <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to edit)</span>
+                </th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
                   Role
                   <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to change)</span>
                 </th>
@@ -290,6 +349,12 @@ export default function Users() {
                           you
                         </span>
                       )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <NameCell
+                        user={user}
+                        onSave={(id, name) => updateName.mutateAsync({ id, name })}
+                      />
                     </td>
                     <td className="px-5 py-3.5">
                       <RoleCell
@@ -343,6 +408,17 @@ export default function Users() {
       {addModal && (
         <Modal title="Add User" onClose={() => setAddModal(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
+            <div>
+              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Name</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                className="input"
+                placeholder="Display name (optional)"
+                maxLength={100}
+              />
+            </div>
             <div>
               <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Email</label>
               <input

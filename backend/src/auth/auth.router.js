@@ -38,8 +38,8 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 // Admin-only: register new staff/admin accounts within the same restaurant
 router.post('/register', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
   try {
-    const { email, password, role } = req.body;
-    const user = await service.register(email, password, role, req.user.restaurantId);
+    const { email, password, role, name } = req.body;
+    const user = await service.register(email, password, role, req.user.restaurantId, name);
     audit.log({
       actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
       action: 'create', resourceType: 'user', resourceId: user.id,
@@ -97,6 +97,19 @@ router.post('/change-password', authenticate, writeLimiter, async (req, res, nex
       description: 'Changed own password',
     });
     res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Admin or self: update a user's display name
+router.patch('/users/:id/name', authenticate, async (req, res, next) => {
+  try {
+    const isSelf  = req.params.id === req.user.userId;
+    const isAdmin = req.user.role === 'admin';
+    if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
+    const user = await service.updateUserName(req.params.id, req.body.name ?? null, req.user.restaurantId);
+    res.json(user);
   } catch (e) {
     next(e);
   }

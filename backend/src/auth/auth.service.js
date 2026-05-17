@@ -37,6 +37,7 @@ async function login(email, password) {
     user: {
       id: user.id,
       email: user.email,
+      name: user.name || null,
       role: user.role,
       restaurantId: user.restaurant_id,
       forcePasswordChange: user.force_password_change,
@@ -45,7 +46,7 @@ async function login(email, password) {
   };
 }
 
-async function register(email, password, role = 'staff', restaurantId) {
+async function register(email, password, role = 'staff', restaurantId, name) {
   if (!email || !password)
     throw new ValidationError('Email and password are required');
   if (!restaurantId)
@@ -56,7 +57,7 @@ async function register(email, password, role = 'staff', restaurantId) {
   if (existing) throw new ValidationError('Email already in use');
 
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  return repo.createUser({ email, password: hashed, role, restaurantId });
+  return repo.createUser({ email, password: hashed, role, name, restaurantId });
 }
 
 async function me(userId) {
@@ -143,6 +144,12 @@ async function changePassword(userId, currentPassword, newPassword) {
   return { token };
 }
 
+async function updateUserName(targetId, name, restaurantId) {
+  const user = await repo.findUserById(targetId);
+  if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
+  return repo.updateUserName(targetId, name, restaurantId);
+}
+
 async function setStaffPin(targetId, pin, restaurantId) {
   const user = await repo.findUserById(targetId);
   if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
@@ -150,4 +157,4 @@ async function setStaffPin(targetId, pin, restaurantId) {
   return repo.setStaffPin(targetId, pin, restaurantId);
 }
 
-module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, changePassword, signup, setStaffPin };
+module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName, changePassword, signup, setStaffPin };

@@ -13,30 +13,40 @@ async function findUserByEmail(email) {
 
 async function findUserById(id) {
   const { rows } = await db.query(
-    'SELECT id, email, role, staff_pin, restaurant_id, created_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, staff_pin, restaurant_id, created_at FROM users WHERE id = $1',
     [id],
   );
   return rows[0];
 }
 
-async function createUser({ email, password, role, restaurantId }) {
+async function createUser({ email, password, role, name, restaurantId }) {
   const { rows } = await db.query(
-    `INSERT INTO users (email, password, role, restaurant_id)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, email, role, restaurant_id, created_at`,
-    [email, password, role, restaurantId],
+    `INSERT INTO users (email, password, role, name, restaurant_id)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, email, name, role, restaurant_id, created_at`,
+    [email, password, role, name || null, restaurantId],
   );
   return rows[0];
 }
 
 async function findAllUsers(restaurantId) {
   const { rows } = await db.query(
-    `SELECT id, email, role, staff_pin, created_at FROM users
+    `SELECT id, email, name, role, staff_pin, created_at FROM users
      WHERE restaurant_id = $1
      ORDER BY created_at DESC`,
     [restaurantId],
   );
   return rows;
+}
+
+async function updateUserName(id, name, restaurantId) {
+  const { rows } = await db.query(
+    `UPDATE users SET name = $1
+     WHERE id = $2 AND restaurant_id = $3
+     RETURNING id, email, name, role, staff_pin, created_at`,
+    [name || null, id, restaurantId],
+  );
+  return rows[0];
 }
 
 async function setStaffPin(id, pin, restaurantId) {
@@ -51,7 +61,7 @@ async function setStaffPin(id, pin, restaurantId) {
 
 async function findUserByPin(restaurantId, pin) {
   const { rows } = await db.query(
-    `SELECT id, email, role FROM users
+    `SELECT id, email, name, role FROM users
      WHERE restaurant_id = $1 AND staff_pin = $2`,
     [restaurantId, pin],
   );
@@ -127,6 +137,7 @@ module.exports = {
   findUserById,
   createUser,
   findAllUsers,
+  updateUserName,
   deleteUser,
   updatePassword,
   updateUserRole,
