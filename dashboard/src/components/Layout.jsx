@@ -82,7 +82,7 @@ function MyQRModal({ user, onClose }) {
   }, [user?.staff_pin]);
 
   return (
-    <Modal title="My Staff QR" onClose={onClose}>
+    <Modal title={`My Staff QR${user?.name ? ` — ${user.name}` : ''}`} onClose={onClose}>
       {user?.staff_pin ? (
         <div className="flex flex-col items-center gap-4 py-2">
           <p style={{ fontSize: 12, color: 'var(--mute)', textAlign: 'center' }}>
@@ -384,10 +384,10 @@ export default function Layout() {
             </span>
             <div className="min-w-0">
               <p className="truncate text-[11.5px] font-medium" style={{ color: 'var(--ink)' }}>
-                {user?.email}
+                {user?.name || user?.email}
               </p>
-              <p className="text-[10.5px] capitalize" style={{ color: 'var(--mute)' }}>
-                {user?.role}
+              <p className="truncate text-[10.5px]" style={{ color: 'var(--mute)' }}>
+                {user?.name ? user.email : <span className="capitalize">{user?.role}</span>}
               </p>
             </div>
           </div>
