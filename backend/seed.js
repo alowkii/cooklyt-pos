@@ -10,49 +10,49 @@ const RESTAURANT_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID      = '00000000-0000-0000-0000-000000000002';
 const STAFF_ID      = '00000000-0000-0000-0000-000000000003';
 
-// Full menu across categories
+// Full menu across categories (prices in INR)
 const MENU = [
   // Starters
-  { name: 'Veg Spring Rolls',       price:  4.49, category: 'Starters' },
-  { name: 'Chicken Wings',          price:  6.99, category: 'Starters' },
-  { name: 'Garlic Bread',           price:  2.99, category: 'Starters' },
-  { name: 'Onion Rings',            price:  3.49, category: 'Starters' },
-  { name: 'Paneer Tikka',           price:  7.99, category: 'Starters' },
-  { name: 'Crispy Calamari',        price:  8.49, category: 'Starters' },
-  { name: 'Bruschetta',             price:  4.99, category: 'Starters' },
-  { name: 'Soup of the Day',        price:  3.99, category: 'Starters' },
+  { name: 'Veg Spring Rolls',       price:  280, category: 'Starters' },
+  { name: 'Chicken Wings',          price:  450, category: 'Starters' },
+  { name: 'Garlic Bread',           price:  180, category: 'Starters' },
+  { name: 'Onion Rings',            price:  220, category: 'Starters' },
+  { name: 'Paneer Tikka',           price:  380, category: 'Starters' },
+  { name: 'Crispy Calamari',        price:  480, category: 'Starters' },
+  { name: 'Bruschetta',             price:  250, category: 'Starters' },
+  { name: 'Soup of the Day',        price:  180, category: 'Starters' },
 
   // Mains
-  { name: 'Butter Chicken',         price: 11.99, category: 'Mains' },
-  { name: 'Dal Makhani',            price:  7.99, category: 'Mains' },
-  { name: 'Veg Fried Rice',         price:  8.49, category: 'Mains' },
-  { name: 'Chicken Biryani',        price: 13.99, category: 'Mains' },
-  { name: 'Grilled Chicken Steak',  price: 14.99, category: 'Mains' },
-  { name: 'Fish & Chips',           price: 12.99, category: 'Mains' },
-  { name: 'Veg Burger',             price:  8.99, category: 'Mains' },
-  { name: 'Chicken Burger',         price: 10.99, category: 'Mains' },
-  { name: 'Margherita Pizza',       price: 10.49, category: 'Mains' },
-  { name: 'BBQ Chicken Pizza',      price: 12.49, category: 'Mains' },
-  { name: 'Pasta Arrabbiata',       price:  9.49, category: 'Mains' },
-  { name: 'Paneer Butter Masala',   price: 10.99, category: 'Mains' },
+  { name: 'Butter Chicken',         price:  380, category: 'Mains' },
+  { name: 'Dal Makhani',            price:  280, category: 'Mains' },
+  { name: 'Veg Fried Rice',         price:  220, category: 'Mains' },
+  { name: 'Chicken Biryani',        price:  420, category: 'Mains' },
+  { name: 'Grilled Chicken Steak',  price:  599, category: 'Mains' },
+  { name: 'Fish & Chips',           price:  480, category: 'Mains' },
+  { name: 'Veg Burger',             price:  280, category: 'Mains' },
+  { name: 'Chicken Burger',         price:  320, category: 'Mains' },
+  { name: 'Margherita Pizza',       price:  380, category: 'Mains' },
+  { name: 'BBQ Chicken Pizza',      price:  450, category: 'Mains' },
+  { name: 'Pasta Arrabbiata',       price:  320, category: 'Mains' },
+  { name: 'Paneer Butter Masala',   price:  340, category: 'Mains' },
 
   // Desserts
-  { name: 'Chocolate Lava Cake',    price:  5.99, category: 'Desserts' },
-  { name: 'Gulab Jamun (2 pcs)',    price:  3.49, category: 'Desserts' },
-  { name: 'Vanilla Ice Cream',      price:  2.99, category: 'Desserts' },
-  { name: 'Mango Sorbet',           price:  3.49, category: 'Desserts' },
-  { name: 'Cheesecake',             price:  4.99, category: 'Desserts' },
-  { name: 'Tiramisu',               price:  5.49, category: 'Desserts' },
+  { name: 'Chocolate Lava Cake',    price:  280, category: 'Desserts' },
+  { name: 'Gulab Jamun (2 pcs)',    price:  120, category: 'Desserts' },
+  { name: 'Vanilla Ice Cream',      price:  140, category: 'Desserts' },
+  { name: 'Mango Sorbet',           price:  160, category: 'Desserts' },
+  { name: 'Cheesecake',             price:  220, category: 'Desserts' },
+  { name: 'Tiramisu',               price:  260, category: 'Desserts' },
 
   // Drinks
-  { name: 'Mango Lassi',            price:  2.49, category: 'Drinks' },
-  { name: 'Fresh Lime Soda',        price:  1.99, category: 'Drinks' },
-  { name: 'Masala Chai',            price:  1.49, category: 'Drinks' },
-  { name: 'Cold Coffee',            price:  2.99, category: 'Drinks' },
-  { name: 'Fresh Orange Juice',     price:  2.99, category: 'Drinks' },
-  { name: 'Mineral Water',          price:  0.99, category: 'Drinks' },
-  { name: 'Soft Drink (Can)',       price:  1.49, category: 'Drinks' },
-  { name: 'Sparkling Water',        price:  1.49, category: 'Drinks' },
+  { name: 'Mango Lassi',            price:  120, category: 'Drinks' },
+  { name: 'Fresh Lime Soda',        price:   80, category: 'Drinks' },
+  { name: 'Masala Chai',            price:   60, category: 'Drinks' },
+  { name: 'Cold Coffee',            price:  140, category: 'Drinks' },
+  { name: 'Fresh Orange Juice',     price:  140, category: 'Drinks' },
+  { name: 'Mineral Water',          price:   40, category: 'Drinks' },
+  { name: 'Soft Drink (Can)',       price:   60, category: 'Drinks' },
+  { name: 'Sparkling Water',        price:   80, category: 'Drinks' },
 ];
 
 // Orders spread through today — [hour, minute, tableIndex, [[itemName, qty], ...]]
@@ -77,45 +77,45 @@ const ORDER_SCHEDULE = [
   [ 21, 45, 4, [['Chicken Burger', 3], ['BBQ Chicken Pizza', 1], ['Tiramisu', 3], ['Soft Drink (Can)', 3]]                             ],
 ];
 
-// ── Ingredients catalogue ──────────────────────────────────────────────────
+// ── Ingredients catalogue (costs in INR per unit) ─────────────────────────
 // [name, unit, opening_stock, reorder_level, reorder_qty, latest_unit_cost]
 // opening_stock is the amount received as initial stock (used for PURCHASE txn).
 // stock_on_hand in the DB is set to 0 on insert and reconciled at the end.
 const INGREDIENTS = [
-  ['Chicken',              'kg',  10.000,  2.0,  5.0,  3.5000],
-  ['Butter',               'kg',   5.000,  1.0,  3.0,  4.0000],
-  ['Tomatoes',             'kg',   8.000,  2.0,  5.0,  1.2000],
-  ['Black Lentils',        'kg',   5.000,  1.0,  3.0,  1.8000],
-  ['Basmati Rice',         'kg',  15.000,  3.0, 10.0,  1.5000],
-  ['Milk',                 'L',   10.000,  2.0,  5.0,  1.2000],
-  ['Tea Leaves',           'kg',   2.000,  0.3,  1.0,  8.0000],
-  ['Coffee',               'kg',   2.000,  0.3,  1.0, 12.0000],
-  ['Mango Pulp',           'L',    5.000,  1.0,  3.0,  2.5000],
-  ['Oranges',              'kg',   6.000,  1.5,  4.0,  1.8000],
-  ['Cooking Cream',        'L',    4.000,  1.0,  3.0,  3.0000],
-  ['Onions',               'kg',  10.000,  2.0,  5.0,  0.8000],
-  ['Garlic',               'kg',   3.000,  0.5,  2.0,  3.0000],
-  ['Spice Blend',          'kg',   2.000,  0.3,  1.0,  5.0000],
-  ['Paneer',               'kg',   4.000,  0.8,  2.0,  5.0000],
-  ['All-Purpose Flour',    'kg',  10.000,  2.0,  5.0,  0.6000],
-  ['Chicken Breast',       'kg',   8.000,  2.0,  5.0,  5.0000],
-  ['Fish Fillet',          'kg',   5.000,  1.0,  3.0,  7.0000],
-  ['Potatoes',             'kg',  10.000,  2.0,  5.0,  0.7000],
-  ['Mozzarella Cheese',    'kg',   3.000,  0.5,  2.0,  6.0000],
-  ['Pizza Dough',          'pcs', 20.000,  5.0, 10.0,  0.8000],
-  ['Pasta',                'kg',   5.000,  1.0,  3.0,  1.0000],
-  ['Dark Chocolate',       'kg',   2.000,  0.3,  1.0,  8.0000],
-  ['Sugar',                'kg',   5.000,  1.0,  3.0,  0.8000],
-  ['Yogurt',               'L',    5.000,  1.0,  3.0,  1.5000],
-  ['Burger Bun',           'pcs', 50.000, 10.0, 20.0,  0.3000],
+  ['Chicken',              'kg',  10.000,  2.0,  5.0, 280.0000],
+  ['Butter',               'kg',   5.000,  1.0,  3.0, 450.0000],
+  ['Tomatoes',             'kg',   8.000,  2.0,  5.0,  60.0000],
+  ['Black Lentils',        'kg',   5.000,  1.0,  3.0, 120.0000],
+  ['Basmati Rice',         'kg',  15.000,  3.0, 10.0, 100.0000],
+  ['Milk',                 'L',   10.000,  2.0,  5.0,  60.0000],
+  ['Tea Leaves',           'kg',   2.000,  0.3,  1.0, 600.0000],
+  ['Coffee',               'kg',   2.000,  0.3,  1.0, 900.0000],
+  ['Mango Pulp',           'L',    5.000,  1.0,  3.0, 200.0000],
+  ['Oranges',              'kg',   6.000,  1.5,  4.0, 100.0000],
+  ['Cooking Cream',        'L',    4.000,  1.0,  3.0, 280.0000],
+  ['Onions',               'kg',  10.000,  2.0,  5.0,  40.0000],
+  ['Garlic',               'kg',   3.000,  0.5,  2.0, 200.0000],
+  ['Spice Blend',          'kg',   2.000,  0.3,  1.0, 350.0000],
+  ['Paneer',               'kg',   4.000,  0.8,  2.0, 340.0000],
+  ['All-Purpose Flour',    'kg',  10.000,  2.0,  5.0,  45.0000],
+  ['Chicken Breast',       'kg',   8.000,  2.0,  5.0, 380.0000],
+  ['Fish Fillet',          'kg',   5.000,  1.0,  3.0, 550.0000],
+  ['Potatoes',             'kg',  10.000,  2.0,  5.0,  30.0000],
+  ['Mozzarella Cheese',    'kg',   3.000,  0.5,  2.0, 480.0000],
+  ['Pizza Dough',          'pcs', 20.000,  5.0, 10.0,  45.0000],
+  ['Pasta',                'kg',   5.000,  1.0,  3.0,  80.0000],
+  ['Dark Chocolate',       'kg',   2.000,  0.3,  1.0, 600.0000],
+  ['Sugar',                'kg',   5.000,  1.0,  3.0,  45.0000],
+  ['Yogurt',               'L',    5.000,  1.0,  3.0,  80.0000],
+  ['Burger Bun',           'pcs', 50.000, 10.0, 20.0,  20.0000],
   // Additional ingredients for full menu coverage
-  ['Bread Loaf',           'pcs', 30.000,  8.0, 20.0,  0.5000],
-  ['Vegetable Mix',        'kg',   5.000,  1.5,  3.0,  1.2000],
-  ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,  0.1000],
-  ['Calamari',             'kg',   3.000,  0.8,  2.0,  8.0000],
-  ['Heavy Cream',          'L',    2.000,  0.5,  1.5,  2.5000],
-  ['BBQ Sauce',            'L',    2.000,  0.5,  1.5,  3.0000],
-  ['Eggs',                 'pcs', 30.000,  8.0, 20.0,  0.2500],
+  ['Bread Loaf',           'pcs', 30.000,  8.0, 20.0,  30.0000],
+  ['Vegetable Mix',        'kg',   5.000,  1.5,  3.0,  80.0000],
+  ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,   8.0000],
+  ['Calamari',             'kg',   3.000,  0.8,  2.0, 650.0000],
+  ['Heavy Cream',          'L',    2.000,  0.5,  1.5, 180.0000],
+  ['BBQ Sauce',            'L',    2.000,  0.5,  1.5, 250.0000],
+  ['Eggs',                 'pcs', 30.000,  8.0, 20.0,  12.0000],
 ];
 
 // ── Recipes & ingredients ──────────────────────────────────────────────────
@@ -306,15 +306,15 @@ const RECIPES = [
   ]],
 ];
 
-// ── Combo meals ────────────────────────────────────────────────────────────
+// ── Combo meals (prices in INR) ────────────────────────────────────────────
 // [name, sku, price, [[menuItemName, qty, sort_order], ...]]
 const COMBOS = [
-  ['Veg Lunch Special', 'COMBO-VEG-01', 14.99, [
+  ['Veg Lunch Special', 'COMBO-VEG-01', 649, [
     ['Paneer Tikka', 1, 0],
     ['Dal Makhani',  1, 1],
     ['Masala Chai',  1, 2],
   ]],
-  ["Chef's Non-Veg Combo", 'COMBO-NV-01', 18.99, [
+  ["Chef's Non-Veg Combo", 'COMBO-NV-01', 899, [
     ['Chicken Wings',  1, 0],
     ['Butter Chicken', 1, 1],
     ['Cold Coffee',    1, 2],
@@ -372,9 +372,9 @@ async function main() {
   console.log('Seeding settings…');
   await client.query(`
     INSERT INTO settings (restaurant_id, key, value) VALUES
-      ($1, 'timezone',       'UTC'),
-      ($1, 'currency',       'USD'),
-      ($1, 'tax_rate',       '0'),
+      ($1, 'timezone',       'Asia/Kolkata'),
+      ($1, 'currency',       'INR'),
+      ($1, 'tax_rate',       '5'),
       ($1, 'service_charge', '0')
   `, [RESTAURANT_ID]);
 
