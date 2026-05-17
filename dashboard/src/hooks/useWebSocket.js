@@ -42,6 +42,13 @@ export function useWebSocket({ onEvent } = {}) {
               qc.invalidateQueries({ queryKey: ['tables'] });
               qc.invalidateQueries({ queryKey: ['reports'] });
               break;
+            case 'TABLE_UPDATED':
+              qc.invalidateQueries({ queryKey: ['tables'] });
+              break;
+            case 'STAFF_ASSIGNED':
+              qc.invalidateQueries({ queryKey: ['orders'] });
+              qc.invalidateQueries({ queryKey: ['tables'] });
+              break;
           }
           onEventRef.current?.(event, payload ?? {});
         } catch {

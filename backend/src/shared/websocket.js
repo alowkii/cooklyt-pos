@@ -22,6 +22,7 @@ function init(server) {
 
   wss.on('connection', (ws) => {
     ws.restaurantId = null; // unauthenticated until AUTH message arrives
+    ws.userId = null;
 
     const killUnauthed = setTimeout(() => {
       if (!ws.restaurantId) ws.terminate();
@@ -38,6 +39,7 @@ function init(server) {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
           if (!decoded.restaurantId) return;
           ws.restaurantId = decoded.restaurantId;
+          ws.userId = decoded.userId ?? null;
           clearTimeout(killUnauthed);
           ws.send(JSON.stringify({ event: 'CONNECTED', data: {}, timestamp: Date.now() }));
         }
@@ -62,4 +64,19 @@ function broadcast(event, data, restaurantId) {
   });
 }
 
-module.exports = { init, broadcast };
+// Delivers to a specific user (all open tabs/connections for that user)
+function sendToUser(userId, event, data, restaurantId) {
+  if (!wss || !userId) return;
+  const message = JSON.stringify({ event, data, timestamp: Date.now() });
+  wss.clients.forEach((client) => {
+    if (
+      client.readyState === 1 &&
+      client.userId === userId &&
+      client.restaurantId === restaurantId
+    ) {
+      client.send(message);
+    }
+  });
+}
+
+module.exports = { init, broadcast, sendToUser };
