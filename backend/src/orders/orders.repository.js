@@ -9,6 +9,8 @@ const getActiveByTable = (tableId, restaurantId) =>
   db
     .query(
       `SELECT o.*,
+              su.email AS assigned_staff_email,
+              su.name  AS assigned_staff_name,
               json_agg(json_build_object(
                 'id', oi.id,
                 'menu_item_id', oi.menu_item_id,
@@ -20,9 +22,10 @@ const getActiveByTable = (tableId, restaurantId) =>
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN menu_items mi  ON mi.id = oi.menu_item_id
+       LEFT JOIN users su        ON su.id = o.assigned_staff_id
        WHERE o.table_id = $1 AND o.restaurant_id = $2
          AND o.status NOT IN ('paid', 'cancelled')
-       GROUP BY o.id`,
+       GROUP BY o.id, su.email, su.name`,
       [tableId, restaurantId],
     )
     .then((r) => r.rows);

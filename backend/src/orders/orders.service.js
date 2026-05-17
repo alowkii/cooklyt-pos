@@ -208,7 +208,7 @@ async function getItems(orderId, restaurantId) {
 }
 
 async function assignStaff(orderId, staffId, restaurantId) {
-  await getById(orderId, restaurantId);
+  const order = await getById(orderId, restaurantId);
   if (staffId !== null) {
     const { rows } = await require('../shared/db').query(
       'SELECT id FROM users WHERE id = $1 AND restaurant_id = $2',
@@ -218,6 +218,12 @@ async function assignStaff(orderId, staffId, restaurantId) {
   }
   const updated = await repo.assignStaff(orderId, staffId, restaurantId);
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
+  if (staffId !== null) {
+    ws.sendToUser(staffId, 'STAFF_ASSIGNED', {
+      orderId,
+      tableNumber: order.table_number ?? null,
+    }, restaurantId);
+  }
   return updated;
 }
 

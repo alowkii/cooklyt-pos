@@ -11,6 +11,17 @@ function isNetworkError(err) {
   return !err.response;
 }
 
+export function useActiveOrderByTable(tableId) {
+  return useQuery({
+    queryKey: ['orders', 'table', tableId],
+    queryFn: async () => {
+      const { data } = await api.get(`/orders/table/${tableId}`);
+      return data ?? null;
+    },
+    enabled: !!tableId,
+  });
+}
+
 export function useKitchenQueue() {
   return useQuery({
     queryKey: ['kitchen', 'queue'],
@@ -201,6 +212,7 @@ export function useAssignStaff() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'table'] });
     },
   });
 }
