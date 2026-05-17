@@ -197,7 +197,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        AND (o.created_at AT TIME ZONE $2)::date <= $4::date
        AND ($5::text IS NULL OR o.status  = $5)
        AND ($6::text IS NULL OR o.channel = $6)
-     GROUP BY o.id, t.number, u.email, su.email,
+     GROUP BY o.id, t.number, u.email, su.email, su.name,
               p.method, p.total_charged, p.subtotal,
               p.tax_rate, p.tax_amount,
               p.service_charge_rate, p.service_charge_amount,
