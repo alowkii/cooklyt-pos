@@ -2,7 +2,7 @@ const router = require('express').Router();
 const service = require('./kitchen.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 
-router.get('/queue', authenticate, authorize('admin', 'kitchen', 'staff'), async (req, res, next) => {
+router.get('/queue', authenticate, authorize('admin', 'kitchen', 'staff', 'cashier'), async (req, res, next) => {
   try {
     res.json(await service.getKitchenQueue(req.user.restaurantId));
   } catch (e) {

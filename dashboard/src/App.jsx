@@ -78,7 +78,7 @@ function SettingsSync() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SyncWatcher />
       <Routes>
         <Route path="/"               element={<Landing />} />
@@ -103,7 +103,7 @@ export default function App() {
           <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
           <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
-          <Route path="/history"  element={<RequireAdmin><OrderHistory /></RequireAdmin>} />
+          <Route path="/history"  element={<RequireNotKitchen><OrderHistory /></RequireNotKitchen>} />
           <Route path="/shift"       element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
           <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
           <Route path="/inventory"   element={<RequireAdmin><InventoryLedger /></RequireAdmin>} />
