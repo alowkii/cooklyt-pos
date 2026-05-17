@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Clock, ChefHat, ChevronDown, ChevronUp,
-  Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer,
+  Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer, User,
 } from 'lucide-react';
 import { printKOT } from '../utils/printReceipt';
 import { useActiveOrders, useUpdateOrderStatus, useUpdateItemStatus, useCancelPendingItems } from '../hooks/useOrders';
@@ -211,8 +211,12 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
       {/* Row header */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 text-left transition-colors duration-75"
+        className="w-full text-left transition-colors duration-75"
         style={{
+          display: 'grid',
+          gridTemplateColumns: '44px 1fr 110px 70px 16px',
+          alignItems: 'center',
+          gap: 12,
           minHeight: 44,
           padding: '6px 8px',
           background: isOpen ? 'var(--paper-2)' : 'transparent',
@@ -222,7 +226,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
         }}
       >
         {/* Channel glyph */}
-        <span className="shrink-0 flex items-center justify-center" style={{ width: 36, color: 'var(--ink)' }}>
+        <span className="flex items-center justify-center" style={{ color: 'var(--ink)' }}>
           {order.channel === 'dining' ? (
             <span className="mono num font-bold" style={{ fontSize: 13 }}>
               T{String(table?.number ?? '?').padStart(2, '0')}
@@ -233,7 +237,7 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
         </span>
 
         {/* Title + summary */}
-        <span className="flex-1 min-w-0">
+        <span className="min-w-0 truncate">
           <span className="font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>
             {orderTitle}
           </span>
@@ -245,13 +249,13 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
         <StatusDot status={order.status} />
 
         <span
-          className="mono num shrink-0"
-          style={{ fontSize: 11.5, color: time.color, fontWeight: time.weight ?? 500, minWidth: 44, textAlign: 'right' }}
+          className="mono num"
+          style={{ fontSize: 11.5, color: time.color, fontWeight: time.weight ?? 500, textAlign: 'right' }}
         >
           {time.label}
         </span>
 
-        <span className="shrink-0" style={{ color: 'var(--mute)' }}>
+        <span style={{ color: 'var(--mute)', display: 'flex', justifyContent: 'center' }}>
           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
@@ -268,6 +272,15 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
                 <Clock size={11} />
                 {elapsed(order.created_at).label} ago
               </span>
+              {order.assigned_staff_email && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1" style={{ color: 'var(--ok)', fontWeight: 500 }}>
+                    <User size={11} />
+                    {order.assigned_staff_email.split('@')[0]}
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button className="btn btn-sm" onClick={() => printKOT(order)}>
