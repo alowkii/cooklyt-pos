@@ -42,7 +42,7 @@ router.post('/', authenticate, authorize('admin', 'staff'), async (req, res, nex
       items,
       channel:         channel          || 'dining',
       customerRef:     customerRef      || null,
-      assignedStaffId: assignedStaffId  || null,
+      assignedStaffId: assignedStaffId  || req.user.userId,
     });
     const loc = (channel === 'dining' || !channel)
       ? (tableId ? `table ${tableId}` : 'dine-in')

@@ -162,6 +162,7 @@ export function useCancelPendingItems() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
   });
 }
@@ -183,6 +184,7 @@ export function useUpdateItemStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
   });
 }
@@ -237,6 +239,7 @@ export function useUpdateOrderStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
   });
 }

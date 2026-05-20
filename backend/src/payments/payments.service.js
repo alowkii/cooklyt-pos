@@ -130,6 +130,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   await ordersInterface.markOrderPaid(orderId, restaurantId);
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+    await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
   }
 
   ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
@@ -245,6 +246,7 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
   await ordersInterface.markOrderPaid(orderId, restaurantId);
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+    await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
   }
 
   const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));

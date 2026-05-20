@@ -16,6 +16,16 @@ async function getActiveByTable(tableId, restaurantId) {
   return repo.getActiveByTable(tableId, restaurantId);
 }
 
+async function _resetTableIfEmpty(tableId, restaurantId) {
+  if (!tableId) return;
+  const remaining = await repo.getActiveByTable(tableId, restaurantId);
+  if (remaining.length === 0) {
+    await tablesInterface.setTableStatus(tableId, 'available', restaurantId);
+    await tablesInterface.setTableStaff(tableId, null, restaurantId);
+    ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
+  }
+}
+
 async function createOrder({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) {
   const VALID_CHANNELS = ['dining', 'takeaway', 'delivery'];
   if (!VALID_CHANNELS.includes(channel)) {
@@ -47,6 +57,9 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
 
   if (tableId) {
     await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
+    if (assignedStaffId) {
+      await tablesInterface.setTableStaff(tableId, assignedStaffId, restaurantId);
+    }
   }
 
   inventoryService.deductForOrder(
@@ -115,7 +128,10 @@ async function updateItemStatus(orderId, itemId, status, restaurantId) {
     } else if (remaining.every((i) => ['ready', 'served'].includes(i.status ?? 'pending'))) {
       nextOrderStatus = 'ready';
     }
-    if (nextOrderStatus) await repo.updateStatus(orderId, nextOrderStatus);
+    if (nextOrderStatus) {
+      await repo.updateStatus(orderId, nextOrderStatus);
+      if (nextOrderStatus === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
+    }
 
     ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
     return getById(orderId, restaurantId);
@@ -180,6 +196,7 @@ async function cancelPendingItems(orderId, restaurantId) {
     nextStatus = 'ready';
   }
   await repo.updateStatus(orderId, nextStatus);
+  if (nextStatus === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
 
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
@@ -189,9 +206,10 @@ async function updateStatus(orderId, status, restaurantId) {
   const VALID = ['received', 'preparing', 'ready', 'served', 'paid', 'cancelled'];
   if (!VALID.includes(status))
     throw new ValidationError(`Invalid status: ${status}`);
-  await getById(orderId, restaurantId);
+  const order = await getById(orderId, restaurantId);
   const updated = await repo.updateStatus(orderId, status);
   ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status }, restaurantId);
+  if (status === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
   return updated;
 }
 

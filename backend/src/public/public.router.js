@@ -77,6 +77,31 @@ router.get('/staff/verify-pin/:restaurantId/:pin', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PATCH /api/public/table/:tableId/staff
+// Assigns a staff member to a table by PIN — no order required
+router.patch('/table/:tableId/staff', async (req, res, next) => {
+  try {
+    const { tableId } = req.params;
+    const { staffPin } = req.body;
+    if (!UUID_RE.test(tableId)) return res.status(404).json({ error: 'Table not found' });
+    if (!staffPin || !/^\d{4}$/.test(String(staffPin))) {
+      return res.status(400).json({ error: 'Invalid staff PIN' });
+    }
+
+    const { rows } = await db.query('SELECT id, restaurant_id FROM tables WHERE id = $1', [tableId]);
+    if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
+    const restaurantId = rows[0].restaurant_id;
+
+    const staff = await authRepo.findUserByPin(restaurantId, String(staffPin));
+    if (!staff) return res.status(404).json({ error: 'Staff not found' });
+
+    await db.query('UPDATE tables SET assigned_staff_id = $1 WHERE id = $2', [staff.id, tableId]);
+    ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 // POST /api/public/orders
 // Body: { tableId, items: [{menuItemId, quantity, notes?}], staffPin? }
 // Table UUID is the implicit authorization — only someone at the table can scan the QR

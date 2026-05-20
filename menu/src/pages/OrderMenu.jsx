@@ -45,6 +45,8 @@ export default function OrderMenu() {
   const [staffPin,      setStaffPin]      = useState(() => searchParams.get('staff') || '');
   const [staffName,     setStaffName]     = useState('');
   const [pinVerifying,  setPinVerifying]  = useState(false);
+  const [staffAssigning, setStaffAssigning] = useState(false);
+  const [staffAssigned,  setStaffAssigned]  = useState(false);
 
   const BILL_COOLDOWN_MS = 5 * 60 * 1000;
   const billKey  = `bill_requested_at_${tableId}`;
@@ -67,6 +69,25 @@ export default function OrderMenu() {
       }
     } catch { setStaffName(''); }
     finally { setPinVerifying(false); }
+  }
+
+  async function assignStaffToTable() {
+    if (!staffPin || !staffName || staffAssigning) return;
+    setStaffAssigning(true);
+    try {
+      const res = await fetch(`/api/public/table/${tableId}/staff`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffPin }),
+      });
+      if (!res.ok) throw new Error();
+      setStaffAssigned(true);
+      setTimeout(() => setStaffAssigned(false), 3000);
+    } catch {
+      showToast('Could not assign staff. Please try again.');
+    } finally {
+      setStaffAssigning(false);
+    }
   }
 
   useEffect(() => {
@@ -1051,6 +1072,49 @@ export default function OrderMenu() {
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
+              {staffName && !pinVerifying && (
+                <button
+                  onClick={assignStaffToTable}
+                  disabled={staffAssigning || staffAssigned}
+                  style={{
+                    marginLeft: 'auto', flexShrink: 0,
+                    height: 26, padding: '0 10px', borderRadius: 6,
+                    border: staffAssigned ? '1px solid var(--ok)' : '1px solid var(--line-2)',
+                    background: staffAssigned ? 'rgba(31,138,91,.08)' : 'var(--paper-2)',
+                    color: staffAssigned ? 'var(--ok)' : 'var(--ink)',
+                    fontSize: 11.5, fontWeight: 600,
+                    cursor: staffAssigning || staffAssigned ? 'default' : 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'all .15s',
+                    opacity: staffAssigning ? 0.6 : 1,
+                  }}
+                >
+                  {staffAssigning ? 'Assigning…' : staffAssigned ? '✓ Assigned' : 'Set'}
+                </button>
+              )}
+            </>
+          ) : staffAssigned ? (
+            /* Locked after customer sets the code */
+            <>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 70, height: 28,
+                border: '1px solid var(--line-2)', borderRadius: 6,
+                background: 'var(--paper-2)',
+                fontSize: 14, fontFamily: 'monospace', letterSpacing: '0.2em',
+                color: 'var(--mute-2)', userSelect: 'none',
+              }}>
+                {'·'.repeat(staffPin.length || 4)}
+              </span>
+              <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
+                ✓ {staffName}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--mute-2)" strokeWidth="2"
+                   strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, flexShrink: 0 }}
+                   aria-label="Locked">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
             </>
           ) : (
             /* Editable — customer-entered PIN */
@@ -1060,8 +1124,10 @@ export default function OrderMenu() {
                 inputMode="numeric"
                 maxLength={4}
                 value={staffPin}
-                onChange={(e) => { setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setStaffName(''); }}
-                onBlur={() => tableInfo?.restaurant_id && verifyPin(staffPin, tableInfo.restaurant_id)}
+                onChange={(e) => {
+                  setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4));
+                  setStaffName('');
+                }}
                 placeholder="1234"
                 style={{
                   width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
@@ -1070,15 +1136,44 @@ export default function OrderMenu() {
                   background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
                 }}
               />
-              {pinVerifying && (
-                <span style={{ fontSize: 11, color: 'var(--mute)' }}>Checking…</span>
-              )}
-              {staffName && !pinVerifying && (
-                <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
-                  ✓ {staffName}
-                </span>
-              )}
-              {staffPin.length === 4 && !staffName && !pinVerifying && (
+              <button
+                onClick={async () => {
+                  if (staffAssigning || staffPin.length !== 4) return;
+                  setStaffAssigning(true);
+                  try {
+                    const vRes = await fetch(`/api/public/staff/verify-pin/${tableInfo.restaurant_id}/${staffPin}`);
+                    if (!vRes.ok) { setStaffName(''); setStaffAssigning(false); return; }
+                    const { name } = await vRes.json();
+                    setStaffName(name);
+                    const aRes = await fetch(`/api/public/table/${tableId}/staff`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ staffPin }),
+                    });
+                    if (!aRes.ok) throw new Error();
+                    setStaffAssigned(true);
+                  } catch {
+                    showToast('Could not assign staff. Please try again.');
+                  } finally {
+                    setStaffAssigning(false);
+                  }
+                }}
+                disabled={staffPin.length !== 4 || staffAssigning}
+                style={{
+                  flexShrink: 0,
+                  height: 28, padding: '0 10px', borderRadius: 6,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--paper-2)',
+                  color: staffPin.length === 4 ? 'var(--ink)' : 'var(--mute-2)',
+                  fontSize: 11.5, fontWeight: 600,
+                  cursor: staffPin.length !== 4 || staffAssigning ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  opacity: staffAssigning ? 0.6 : 1,
+                }}
+              >
+                {staffAssigning ? 'Setting…' : 'Set'}
+              </button>
+              {staffPin.length === 4 && !staffName && !staffAssigning && (
                 <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
               )}
             </>
