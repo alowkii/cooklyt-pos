@@ -62,7 +62,8 @@ export default function Tables() {
   const [selected, setSelected] = useState(null);
 
 const [newOrderForTable, setNewOrderForTable] = useState(null);
-  const [addModal, setAddModal] = useState(false);
+  const [addModal,       setAddModal]       = useState(false);
+  const [expandedStaff, setExpandedStaff] = useState(null);
   const [newTable, setNewTable] = useState({ number: '', seats: '' });
   const [addError, setAddError] = useState('');
 
@@ -91,6 +92,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [touchPos, setTouchPos] = useState(null);
 
   const sortedTables = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
+  const staffUsers   = useMemo(() => allUsers.filter((u) => u.role === 'staff'), [allUsers]);
 
   const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
 
@@ -509,82 +511,131 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
       ) : view === 'grid' ? (
-        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))' }}>
           {sortedTables.map((t) => {
-            const order   = ordersByTable[t.id];
-            const staff   = staffByTable[t.id];
-            const waiter  = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
-            const timeStr = order ? elapsed(order.created_at) : null;
-            const amount  = order?.total > 0 ? fmtAmt(order.total) : null;
-            const isOcc   = t.status === 'occupied';
+            const order        = ordersByTable[t.id];
+            const staff        = staffByTable[t.id];
+            const waiter       = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
+            const timeStr      = order ? elapsed(order.created_at) : null;
+            const amount       = order?.total > 0 ? fmtAmt(order.total) : null;
+            const isOcc        = t.status === 'occupied';
+            const statusColor  = STATUS_DOT[t.status] ?? 'var(--mute-2)';
+            const isStaffOpen  = expandedStaff === t.id;
+
             return (
-              <div key={t.id} style={{ position: 'relative' }}>
-                <button
-                  onClick={() => canEdit && setSelected(t)}
-                  disabled={!canEdit}
-                  className="flex w-full flex-col rounded-[6px] text-left transition-colors duration-75"
-                  style={{
-                    border: `1.5px solid ${isOcc ? 'rgba(179,55,43,0.2)' : 'var(--line-2)'}`,
-                    background: 'var(--paper)',
-                    padding: '12px 12px 11px',
-                    minHeight: isOcc ? 130 : 84,
-                  }}
-                  onMouseEnter={(e) => canEdit && (e.currentTarget.style.background = 'var(--hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--paper)')}
-                >
-                  {/* Number + seats */}
-                  <div className="flex items-baseline justify-between w-full" style={{ marginBottom: 7 }}>
-                    <span className="mono num font-bold" style={{ fontSize: 30, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>
-                      {String(t.number).padStart(2, '0')}
-                    </span>
-                    <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)', paddingRight: canEdit ? 22 : 0 }}>
-                      {t.seats}p
-                    </span>
-                  </div>
-                  <TableStatusDot status={t.status} />
-                  {/* Occupied extras */}
-                  {isOcc && (
-                    <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--line)', width: '100%' }}>
-                      <div className="flex items-center gap-1.5 w-full" style={{ marginBottom: 5, minWidth: 0 }}>
-                        <User size={9} style={{ color: waiter ? 'var(--ok)' : 'var(--mute-2)', flexShrink: 0 }} />
-                        <span className="truncate" style={{ fontSize: 11, color: waiter ? 'var(--ink-2)' : 'var(--mute-2)' }}>
-                          {waiter ?? (staffAssignmentEnabled ? 'Unassigned' : '—')}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between w-full">
-                        <span style={{ fontSize: 11, color: 'var(--mute)', fontVariantNumeric: 'tabular-nums' }}>
-                          {timeStr ?? '—'}
-                        </span>
-                        {amount && (
-                          <span className="mono num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-                            {amount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </button>
-                {/* Action buttons */}
-                {canEdit && (
-                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 2 }}>
+              <div
+                key={t.id}
+                style={{
+                  border: '1px solid var(--line-2)',
+                  borderTop: `3px solid ${statusColor}`,
+                  background: 'var(--paper)',
+                  borderRadius: 10,
+                  padding: '14px 14px 13px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                  display: 'flex', flexDirection: 'column',
+                }}
+              >
+                {/* Header: number + icon buttons */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span className="mono num font-bold" style={{ fontSize: 42, letterSpacing: '-.03em', lineHeight: 1, color: 'var(--ink)' }}>
+                    {String(t.number).padStart(2, '0')}
+                  </span>
+                  <div style={{ display: 'flex', gap: 4, paddingTop: 2 }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); window.open(`${menuBase}/order/${t.id}`, '_blank'); }}
+                      onClick={() => window.open(`${menuBase}/order/${t.id}`, '_blank')}
                       title="Open menu"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute-2)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      <ExternalLink size={11} />
-                    </button>
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--line-2)', background: 'var(--paper)', cursor: 'pointer', color: 'var(--mute)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--paper-2)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'var(--paper)'; }}
+                    ><ExternalLink size={12} /></button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleQrClick(t); }}
-                      title="Show QR code"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute-2)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+                      onClick={() => handleQrClick(t)}
+                      title="QR code"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--line-2)', background: 'var(--paper)', cursor: 'pointer', color: 'var(--mute)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--paper-2)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'var(--paper)'; }}
+                    ><QrCode size={12} /></button>
+                  </div>
+                </div>
+
+                {/* Status + seats */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <TableStatusDot status={t.status} />
+                  <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}p</span>
+                </div>
+
+                {/* Occupied: waiter + time/amount */}
+                {isOcc && (
+                  <div style={{ marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--line)' }}>
+                    {/* Waiter row — tap to toggle staff picker (admin) */}
+                    <button
+                      onClick={() => isAdmin && staffAssignmentEnabled && setExpandedStaff(isStaffOpen ? null : t.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginBottom: 7, background: 'transparent', border: 0, padding: 0, cursor: isAdmin && staffAssignmentEnabled ? 'pointer' : 'default', textAlign: 'left' }}
                     >
-                      <QrCode size={11} />
+                      <User size={11} style={{ color: waiter ? 'var(--ok)' : 'var(--mute-2)', flexShrink: 0 }} />
+                      <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: waiter ? 'var(--ink-2)' : 'var(--mute-2)', flex: 1 }}>
+                        {waiter ?? (staffAssignmentEnabled ? 'Unassigned' : '—')}
+                      </span>
+                      {isAdmin && staffAssignmentEnabled && (
+                        <span style={{ fontSize: 9, color: 'var(--mute-2)', flexShrink: 0 }}>{isStaffOpen ? '▲' : '▼'}</span>
+                      )}
                     </button>
+
+                    {/* Inline staff picker */}
+                    {isStaffOpen && (
+                      <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {t.assigned_staff_id && (
+                          <button
+                            onClick={() => { assignTableStaff.mutate({ tableId: t.id, staffId: null }); setExpandedStaff(null); }}
+                            style={{ fontSize: 10, color: 'var(--mute)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--line-2)', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                          >Clear assignment</button>
+                        )}
+                        {staffUsers.map((u) => {
+                          const isAssigned = u.id === t.assigned_staff_id;
+                          return (
+                            <button
+                              key={u.id}
+                              onClick={() => { if (!isAssigned) { assignTableStaff.mutate({ tableId: t.id, staffId: u.id }); setExpandedStaff(null); } }}
+                              disabled={isAssigned}
+                              style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, textAlign: 'left', border: `1px solid ${isAssigned ? 'var(--ok)' : 'var(--line-2)'}`, background: isAssigned ? 'rgba(31,138,91,0.07)' : 'transparent', color: isAssigned ? 'var(--ok)' : 'var(--ink-2)', cursor: isAssigned ? 'default' : 'pointer', fontWeight: isAssigned ? 600 : 400 }}
+                              onMouseEnter={(e) => { if (!isAssigned) e.currentTarget.style.background = 'var(--hover)'; }}
+                              onMouseLeave={(e) => { if (!isAssigned) e.currentTarget.style.background = 'transparent'; }}
+                            >{u.name || u.email.split('@')[0]}{isAssigned ? ' ✓' : ''}</button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Time + amount */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: 'var(--mute)', fontVariantNumeric: 'tabular-nums' }}>{timeStr ?? '—'}</span>
+                      {amount && <span className="mono num font-semibold" style={{ fontSize: 14, color: 'var(--ink)' }}>{amount}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin actions */}
+                {isAdmin && (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {isOcc && (
+                      <button
+                        onClick={() => setNewOrderForTable(t)}
+                        className="btn w-full"
+                        style={{ height: 30, justifyContent: 'center', fontSize: 12, gap: 5 }}
+                      ><ShoppingBag size={12} /> New Order</button>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {STATUSES.filter((s) => s !== t.status).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => updateStatus.mutate({ id: t.id, status: s })}
+                          disabled={updateStatus.isPending}
+                          style={{ fontSize: 10, fontWeight: 500, padding: '3px 9px', borderRadius: 20, border: `1px solid ${STATUS_DOT[s]}`, color: STATUS_DOT[s], background: 'transparent', cursor: 'pointer', transition: 'background 75ms' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = `${STATUS_DOT[s]}18`; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >{s[0].toUpperCase() + s.slice(1)}</button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
