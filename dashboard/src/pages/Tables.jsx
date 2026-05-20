@@ -101,7 +101,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
     const offsetY = e.clientY - fpPos.y;
     function onMove(ev) {
       setFpPos({
-        x: Math.max(0, Math.min(window.innerWidth  - 20,  ev.clientX - offsetX)),
+        x: Math.max(0, Math.min(window.innerWidth  - 200, ev.clientX - offsetX)),
         y: Math.max(0, Math.min(window.innerHeight - 48,  ev.clientY - offsetY)),
       });
     }
