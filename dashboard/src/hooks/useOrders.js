@@ -57,10 +57,12 @@ export function useActiveOrders() {
           created_at:            item.order_created_at,
           assigned_staff_email:  item.assigned_staff_email  || null,
           assigned_staff_name:   item.assigned_staff_name   || null,
+          total:                 0,
           items:                 [],
         };
       }
       acc[item.order_id].items.push(item);
+      acc[item.order_id].total += (item.quantity || 0) * (parseFloat(item.item_price) || 0);
       return acc;
     }, {}),
   ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));

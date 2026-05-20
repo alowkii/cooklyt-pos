@@ -12,6 +12,7 @@ const getPendingItems = (restaurantId) =>
       oi.customizations,
       oi.status         AS item_status,
       mi.name        AS item_name,
+      mi.price       AS item_price,
       mi.category,
       o.table_id,
       o.channel,

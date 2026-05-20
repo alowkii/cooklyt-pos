@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal } from 'lucide-react';
+import { useState, useRef, useMemo, useLayoutEffect } from 'react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal, ExternalLink } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
 import { useActiveOrders } from '../hooks/useOrders';
@@ -68,7 +68,18 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
   const [layoutMode, setLayoutMode] = useState(false);
   const [showFloorPlan, setShowFloorPlan] = useState(false);
-  const [fpPos, setFpPos] = useState(() => ({ x: Math.max(8, window.innerWidth - 320), y: 80 }));
+  const [fpPos, setFpPos] = useState({ x: 0, y: 0 });
+  const fpWindowRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (showFloorPlan && fpWindowRef.current) {
+      const { offsetWidth: w, offsetHeight: h } = fpWindowRef.current;
+      setFpPos({
+        x: Math.max(0, (window.innerWidth  - w) / 2),
+        y: Math.max(0, (window.innerHeight - h) / 2),
+      });
+    }
+  }, [showFloorPlan]);
   const [draggingId, setDraggingId] = useState(null);
   const [overCell,   setOverCell]   = useState(null);
   const [gridCols,   setGridCols]   = useState(() => parseInt(localStorage.getItem('layoutGridCols') || '12'));
@@ -80,6 +91,37 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [touchPos, setTouchPos] = useState(null);
 
   const sortedTables = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
+
+  const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
+
+  const ordersByTable = useMemo(() =>
+    activeOrders.reduce((acc, o) => {
+      if (!o.table_id) return acc;
+      if (!acc[o.table_id] || new Date(o.created_at) < new Date(acc[o.table_id].created_at)) {
+        acc[o.table_id] = { created_at: o.created_at, total: 0 };
+      }
+      acc[o.table_id].total += o.total || 0;
+      return acc;
+    }, {})
+  , [activeOrders]);
+
+  function elapsed(iso) {
+    const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+    if (mins < 1) return '< 1m';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    if (h < 24) return m ? `${h}h ${m}m` : `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  }
+
+  function fmtAmt(amount) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: settings?.currency || 'USD',
+        minimumFractionDigits: 0, maximumFractionDigits: 0,
+      }).format(amount);
+    } catch { return String(Math.round(amount)); }
+  }
 
   const cellMap = useMemo(() => Object.fromEntries(
     tables.filter((t) => t.x_pos != null && t.y_pos != null).map((t) => [`${t.x_pos},${t.y_pos}`, t])
@@ -136,14 +178,12 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
   async function handleQrClick(t) {
     setQrDataUrl(''); setCopied(false); setQrTable(t);
-    const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
     const url = `${menuBase}/order/${t.id}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#0A0A0A' } });
     setQrDataUrl(dataUrl);
   }
 
   function handleCopyUrl() {
-    const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
     const url = `${menuBase}/order/${qrTable.id}`;
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }
@@ -469,61 +509,87 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
       ) : view === 'grid' ? (
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
-          {sortedTables.map((t) => (
-            <div key={t.id} className="relative">
-              <button
-                onClick={() => canEdit && setSelected(t)}
-                disabled={!canEdit}
-                className="flex w-full flex-col items-start gap-1.5 p-3.5 rounded-[6px] text-left transition-colors duration-75"
-                style={{
-                  border: '1px solid var(--line-2)',
-                  background: 'var(--paper)',
-                  cursor: canEdit ? 'default' : 'default',
-                  minHeight: 88,
-                }}
-                onMouseEnter={(e) => canEdit && (e.currentTarget.style.background = 'var(--hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--paper)')}
-              >
-                <span className="flex items-baseline justify-between w-full">
-                  <span className="mono num font-bold" style={{ fontSize: 22, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>
-                    {String(t.number).padStart(2, '0')}
-                  </span>
-                  <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)' }}>{t.seats}p</span>
-                </span>
-                <TableStatusDot status={t.status} />
-                {staffAssignmentEnabled && t.status === 'occupied' && (() => {
-                  const staff = staffByTable[t.id];
-                  const label = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
-                  if (isAdmin) {
-                    return (
-                      <span className="flex items-center gap-1 truncate w-full" style={{ fontSize: 10, color: staff ? 'var(--ok)' : 'var(--mute-2)' }}>
-                        <User size={9} style={{ flexShrink: 0 }} />
-                        <span className="truncate">{label ?? 'Unassigned'}</span>
-                      </span>
-                    );
-                  }
-                  return (
-                    <span style={{ fontSize: 10, color: staff ? 'var(--ok)' : 'var(--mute-2)' }}>
-                      {staff ? 'Assigned' : 'Unassigned'}
-                    </span>
-                  );
-                })()}
-              </button>
-              {canEdit && (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))' }}>
+          {sortedTables.map((t) => {
+            const order   = ordersByTable[t.id];
+            const staff   = staffByTable[t.id];
+            const waiter  = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
+            const timeStr = order ? elapsed(order.created_at) : null;
+            const amount  = order?.total > 0 ? fmtAmt(order.total) : null;
+            const isOcc   = t.status === 'occupied';
+            return (
+              <div key={t.id} style={{ position: 'relative' }}>
                 <button
-                  onClick={() => handleQrClick(t)}
-                  title="Show QR code"
-                  className="absolute top-1.5 right-1.5 rounded p-0.5 transition-colors"
-                  style={{ color: 'var(--mute-2)', background: 'transparent', border: 0 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+                  onClick={() => canEdit && setSelected(t)}
+                  disabled={!canEdit}
+                  className="flex w-full flex-col rounded-[6px] text-left transition-colors duration-75"
+                  style={{
+                    border: `1.5px solid ${isOcc ? 'rgba(179,55,43,0.2)' : 'var(--line-2)'}`,
+                    background: 'var(--paper)',
+                    padding: '12px 12px 11px',
+                    minHeight: isOcc ? 130 : 84,
+                  }}
+                  onMouseEnter={(e) => canEdit && (e.currentTarget.style.background = 'var(--hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--paper)')}
                 >
-                  <QrCode size={12} />
+                  {/* Number + seats */}
+                  <div className="flex items-baseline justify-between w-full" style={{ marginBottom: 7 }}>
+                    <span className="mono num font-bold" style={{ fontSize: 30, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>
+                      {String(t.number).padStart(2, '0')}
+                    </span>
+                    <span className="mono num" style={{ fontSize: 11, color: 'var(--mute)', paddingRight: canEdit ? 22 : 0 }}>
+                      {t.seats}p
+                    </span>
+                  </div>
+                  <TableStatusDot status={t.status} />
+                  {/* Occupied extras */}
+                  {isOcc && (
+                    <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--line)', width: '100%' }}>
+                      <div className="flex items-center gap-1.5 w-full" style={{ marginBottom: 5, minWidth: 0 }}>
+                        <User size={9} style={{ color: waiter ? 'var(--ok)' : 'var(--mute-2)', flexShrink: 0 }} />
+                        <span className="truncate" style={{ fontSize: 11, color: waiter ? 'var(--ink-2)' : 'var(--mute-2)' }}>
+                          {waiter ?? (staffAssignmentEnabled ? 'Unassigned' : '—')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between w-full">
+                        <span style={{ fontSize: 11, color: 'var(--mute)', fontVariantNumeric: 'tabular-nums' }}>
+                          {timeStr ?? '—'}
+                        </span>
+                        {amount && (
+                          <span className="mono num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+                            {amount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </button>
-              )}
-            </div>
-          ))}
+                {/* Action buttons */}
+                {canEdit && (
+                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 2 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.open(`${menuBase}/order/${t.id}`, '_blank'); }}
+                      title="Open menu"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute-2)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <ExternalLink size={11} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleQrClick(t); }}
+                      title="Show QR code"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 4, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute-2)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <QrCode size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         /* List view */
@@ -771,7 +837,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         );
 
         return (
-          <div style={{
+          <div ref={fpWindowRef} style={{
             position: 'fixed',
             left: fpPos.x,
             top: fpPos.y,
