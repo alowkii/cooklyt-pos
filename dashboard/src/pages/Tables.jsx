@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
 import { useActiveOrders } from '../hooks/useOrders';
@@ -67,6 +67,8 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [addError, setAddError] = useState('');
 
   const [layoutMode, setLayoutMode] = useState(false);
+  const [showFloorPlan, setShowFloorPlan] = useState(false);
+  const [fpPos, setFpPos] = useState(() => ({ x: Math.max(240, window.innerWidth - 440), y: 80 }));
   const [draggingId, setDraggingId] = useState(null);
   const [overCell,   setOverCell]   = useState(null);
   const [gridCols,   setGridCols]   = useState(() => parseInt(localStorage.getItem('layoutGridCols') || '12'));
@@ -91,6 +93,24 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
       const next = Math.min(GRID_ROWS_MAX, Math.max(GRID_ROWS_MIN, gridRows + delta));
       setGridRows(next); localStorage.setItem('layoutGridRows', next);
     }
+  }
+
+  function onFpDragStart(e) {
+    e.preventDefault();
+    const offsetX = e.clientX - fpPos.x;
+    const offsetY = e.clientY - fpPos.y;
+    function onMove(ev) {
+      setFpPos({
+        x: Math.max(0, Math.min(window.innerWidth  - 400, ev.clientX - offsetX)),
+        y: Math.max(0, Math.min(window.innerHeight - 48,  ev.clientY - offsetY)),
+      });
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   const [qrTable,   setQrTable]   = useState(null);
@@ -167,8 +187,17 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
               <List size={13} />
             </button>
           </div>
+          {!layoutMode && tables.some((t) => t.x_pos != null) && (
+            <button
+              onClick={() => setShowFloorPlan((v) => !v)}
+              className="btn"
+              style={{ background: showFloorPlan ? 'var(--paper-2)' : undefined }}
+            >
+              <Map size={13} /> Floor Plan
+            </button>
+          )}
           {isAdmin && !layoutMode && (
-            <button onClick={() => setLayoutMode(true)} className="btn">
+            <button onClick={() => { setLayoutMode(true); setShowFloorPlan(false); }} className="btn">
               <LayoutGrid size={13} /> Arrange
             </button>
           )}
@@ -526,70 +555,6 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         </div>
       ))}
 
-      {/* Floor plan — read-only, shown when at least one table has a position */}
-      {!layoutMode && tables.some((t) => t.x_pos != null && t.y_pos != null) && (
-        <div style={{ marginTop: 24 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 10 }}>
-            Floor Plan
-          </p>
-          <div className="overflow-x-auto rounded-[6px] p-3" style={{ border: '1px solid var(--line)', background: 'var(--paper)' }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${gridCols}, 56px)`,
-              gridTemplateRows: `repeat(${gridRows}, 56px)`,
-              gap: 4,
-              width: `${gridCols * 60}px`,
-            }}>
-              {Array.from({ length: gridRows }, (_, row) =>
-                Array.from({ length: gridCols }, (_, col) => {
-                  const key   = `${col},${row}`;
-                  const table = cellMap[key];
-                  const staff = table ? staffByTable[table.id] : null;
-                  return (
-                    <div
-                      key={key}
-                      className="rounded-[6px]"
-                      style={{
-                        width: 56, height: 56,
-                        border: table ? `2px solid ${STATUS_DOT[table.status] ?? 'var(--line-2)'}` : '1px dashed var(--line-2)',
-                        background: table ? 'var(--paper)' : 'transparent',
-                        cursor: table && canEdit ? 'pointer' : 'default',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center', gap: 1,
-                        transition: 'background 75ms',
-                      }}
-                      onClick={() => table && canEdit && setSelected(table)}
-                      onMouseEnter={(e) => { if (table && canEdit) e.currentTarget.style.background = 'var(--hover)'; }}
-                      onMouseLeave={(e) => { if (table) e.currentTarget.style.background = 'var(--paper)'; }}
-                    >
-                      {table && (<>
-                        <span className="mono num font-bold" style={{ fontSize: 15, lineHeight: 1, color: 'var(--ink)' }}>{table.number}</span>
-                        <span style={{ fontSize: 9, color: 'var(--mute)', lineHeight: 1 }}>{table.seats}p</span>
-                        {staffAssignmentEnabled && table.status === 'occupied' && (
-                          <span style={{ fontSize: 8, color: staff ? 'var(--ok)' : 'var(--mute-2)', lineHeight: 1, marginTop: 1, maxWidth: 50, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {isAdmin
-                              ? (staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : '—')
-                              : (staff ? '●' : '○')}
-                          </span>
-                        )}
-                      </>)}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mt-2 flex-wrap" style={{ fontSize: 11, color: 'var(--mute)' }}>
-            {Object.entries(STATUS_DOT).map(([s, color]) => (
-              <span key={s} className="flex items-center gap-1.5">
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
-                {s[0].toUpperCase() + s.slice(1)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Change Status Modal */}
       {selected && canEdit && (() => {
         const staffUsers = allUsers.filter((u) => u.role === 'staff');
@@ -742,6 +707,169 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           </form>
         </Modal>
       )}
+
+      {/* Floating Floor Plan Window */}
+      {showFloorPlan && !layoutMode && (() => {
+        const placed = tables.filter((t) => t.x_pos != null && t.y_pos != null);
+        if (placed.length === 0) return null;
+
+        const minCol = Math.min(...placed.map((t) => t.x_pos));
+        const maxCol = Math.max(...placed.map((t) => t.x_pos));
+        const minRow = Math.min(...placed.map((t) => t.y_pos));
+        const maxRow = Math.max(...placed.map((t) => t.y_pos));
+        const fpCols = maxCol - minCol + 1;
+        const fpRows = maxRow - minRow + 1;
+
+        const GAP = 4;
+        const cellSize = Math.max(28, Math.min(48, Math.floor((380 - (fpCols - 1) * GAP) / fpCols)));
+
+        const STATUS_BG = {
+          available: 'rgba(31,138,91,0.08)',
+          occupied:  'rgba(179,55,43,0.08)',
+          reserved:  'rgba(179,120,31,0.08)',
+          cleaning:  'rgba(31,91,179,0.08)',
+        };
+        const STATUS_BG_HOV = {
+          available: 'rgba(31,138,91,0.16)',
+          occupied:  'rgba(179,55,43,0.16)',
+          reserved:  'rgba(179,120,31,0.16)',
+          cleaning:  'rgba(31,91,179,0.16)',
+        };
+
+        const activeCounts = Object.fromEntries(
+          STATUSES.map((s) => [s, placed.filter((t) => t.status === s).length])
+        );
+
+        return (
+          <div style={{
+            position: 'fixed',
+            left: fpPos.x,
+            top: fpPos.y,
+            zIndex: 200,
+            background: 'var(--paper)',
+            border: '1px solid var(--line-2)',
+            borderRadius: 10,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            minWidth: 180,
+          }}>
+            {/* Title bar */}
+            <div
+              onMouseDown={onFpDragStart}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '9px 10px 9px 11px',
+                borderBottom: '1px solid var(--line)',
+                background: 'var(--paper-2)',
+                cursor: 'grab',
+                userSelect: 'none',
+              }}
+            >
+              <GripHorizontal size={13} style={{ color: 'var(--mute-2)', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--ink-2)', flex: 1 }}>
+                Floor Plan
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--mute)', background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 4, padding: '1px 6px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {placed.length} tables
+              </span>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setShowFloorPlan(false)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 5, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute)', flexShrink: 0 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(179,55,43,0.1)'; e.currentTarget.style.color = 'var(--bad)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+
+            {/* Grid */}
+            <div style={{ padding: 12 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${fpCols}, ${cellSize}px)`,
+                gridTemplateRows: `repeat(${fpRows}, ${cellSize}px)`,
+                gap: GAP,
+              }}>
+                {Array.from({ length: fpRows }, (_, r) =>
+                  Array.from({ length: fpCols }, (_, c) => {
+                    const key   = `${minCol + c},${minRow + r}`;
+                    const table = cellMap[key];
+                    const staff = table ? staffByTable[table.id] : null;
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          width: cellSize, height: cellSize,
+                          borderRadius: cellSize > 36 ? 7 : 4,
+                          border: table
+                            ? `1.5px solid ${STATUS_DOT[table.status]}`
+                            : '1px dashed rgba(10,10,10,0.1)',
+                          background: table ? (STATUS_BG[table.status] ?? 'var(--paper)') : 'transparent',
+                          cursor: table && canEdit ? 'pointer' : 'default',
+                          display: 'flex', flexDirection: 'column',
+                          alignItems: 'center', justifyContent: 'center', gap: 1,
+                          position: 'relative',
+                          transition: 'background 100ms, transform 100ms',
+                        }}
+                        onClick={() => table && canEdit && setSelected(table)}
+                        onMouseEnter={(e) => {
+                          if (table && canEdit) {
+                            e.currentTarget.style.background = STATUS_BG_HOV[table.status] ?? 'var(--hover)';
+                            e.currentTarget.style.transform = 'scale(1.06)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (table) {
+                            e.currentTarget.style.background = STATUS_BG[table.status] ?? 'transparent';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }
+                        }}
+                      >
+                        {table && (<>
+                          <span className="mono num font-bold" style={{ fontSize: Math.max(9, Math.floor(cellSize * 0.3)), lineHeight: 1, color: 'var(--ink)' }}>
+                            {table.number}
+                          </span>
+                          {cellSize >= 36 && (
+                            <span style={{ fontSize: 8, color: 'var(--mute-2)', lineHeight: 1 }}>{table.seats}p</span>
+                          )}
+                          {staffAssignmentEnabled && table.status === 'occupied' && staff && (
+                            <span style={{
+                              width: 5, height: 5, borderRadius: '50%',
+                              background: 'var(--ok)',
+                              position: 'absolute',
+                              bottom: cellSize > 36 ? 4 : 2,
+                              right: cellSize > 36 ? 4 : 2,
+                              boxShadow: '0 0 0 1.5px var(--paper)',
+                            }} />
+                          )}
+                        </>)}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Legend — only statuses present on the floor */}
+            <div style={{ padding: '7px 12px 9px', borderTop: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+              {STATUSES.filter((s) => activeCounts[s] > 0).map((s) => (
+                <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--mute)' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: STATUS_DOT[s], display: 'inline-block', flexShrink: 0 }} />
+                  {s[0].toUpperCase() + s.slice(1)}
+                  <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{activeCounts[s]}</span>
+                </span>
+              ))}
+              {staffAssignmentEnabled && placed.some((t) => t.status === 'occupied' && staffByTable[t.id]) && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--mute)' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ok)', display: 'inline-block', flexShrink: 0 }} />
+                  Staffed
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* QR Code Modal */}
       {qrTable && (
