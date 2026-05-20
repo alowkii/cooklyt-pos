@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useLayoutEffect } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal, ExternalLink } from 'lucide-react';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal, ExternalLink, Clock } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
 import { useActiveOrders } from '../hooks/useOrders';
@@ -20,6 +20,25 @@ const STATUS_DOT = {
   reserved:  'var(--warn)',
   cleaning:  'var(--info)',
 };
+
+const STATUS_SOFT = {
+  available: 'var(--ok-soft)',
+  occupied:  'var(--bad-soft)',
+  reserved:  'var(--warn-soft)',
+  cleaning:  'var(--info-soft)',
+};
+
+const STAFF_PALETTE = ['#B3372B', '#1F5BB3', '#1F8A5B', '#B3781F', '#7A4AE0', '#1F7AB3'];
+function staffColor(name) {
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h) ^ name.charCodeAt(i);
+  return STAFF_PALETTE[Math.abs(h) % STAFF_PALETTE.length];
+}
+function staffInitials(name) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 function TableStatusDot({ status }) {
   return (
@@ -91,8 +110,13 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const touchDragIdRef = useRef(null);
   const [touchPos, setTouchPos] = useState(null);
 
-  const sortedTables = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
-  const staffUsers   = useMemo(() => allUsers.filter((u) => u.role === 'staff'), [allUsers]);
+  const [filter, setFilter] = useState('all');
+
+  const sortedTables   = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
+  const filteredTables = useMemo(() =>
+    filter === 'all' ? sortedTables : sortedTables.filter((t) => t.status === filter),
+  [sortedTables, filter]);
+  const staffUsers     = useMemo(() => allUsers.filter((u) => u.role === 'staff'), [allUsers]);
 
   const menuBase = import.meta.env.VITE_MENU_URL || `${window.location.protocol}//${window.location.hostname}:5175`;
 
@@ -286,16 +310,62 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5" style={{ fontSize: 12 }}>
-        {STATUSES.map((s) => (
-          <span key={s} className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-2)' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[s], display: 'inline-block' }} />
-            {s[0].toUpperCase() + s.slice(1)}
-            <span className="mono num ml-0.5" style={{ color: 'var(--mute-2)', fontSize: 11 }}>{counts[s]}</span>
-          </span>
-        ))}
-      </div>
+      {/* Stats strip */}
+      {!layoutMode && (() => {
+        const occupiedTables = tables.filter((t) => t.status === 'occupied');
+        const activeSpend    = Object.values(ordersByTable).reduce((s, o) => s + (o.total || 0), 0);
+        const seatsTotal     = tables.reduce((s, t) => s + t.seats, 0);
+        const avgDwellMins   = occupiedTables.length
+          ? Math.round(occupiedTables.reduce((s, t) => {
+              const ord = ordersByTable[t.id];
+              return s + (ord ? (Date.now() - new Date(ord.created_at)) / 60000 : 0);
+            }, 0) / occupiedTables.length)
+          : 0;
+        const pct = tables.length ? Math.round((occupiedTables.length / tables.length) * 100) : 0;
+        const tiles = [
+          { label: 'Occupancy', value: `${pct}%`, sub: `${occupiedTables.length} of ${tables.length} tables` },
+          { label: 'Seats total', value: seatsTotal, sub: `Across ${tables.length} tables` },
+          { label: 'Active spend', value: fmtAmt(activeSpend), sub: `${occupiedTables.length} open tab${occupiedTables.length === 1 ? '' : 's'}` },
+          { label: 'Avg dwell', value: avgDwellMins ? `${avgDwellMins}m` : '—', sub: 'Current sitting' },
+        ];
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10 }}>
+            {tiles.map((tile) => (
+              <div key={tile.label} className="strip-tile" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>{tile.label}</span>
+                <span className="mono num" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--ink)' }}>{tile.value}</span>
+                <span style={{ fontSize: 11, color: 'var(--mute)' }}>{tile.sub}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Filter chips */}
+      {!layoutMode && (
+        <div className="flex flex-wrap items-center gap-2">
+          {[{ id: 'all', label: 'All', count: tables.length }, ...STATUSES.map((s) => ({ id: s, label: s[0].toUpperCase() + s.slice(1), count: counts[s] }))].map(({ id, label, count }) => {
+            const active = filter === id;
+            const color  = id === 'all' ? 'var(--ink)' : STATUS_DOT[id];
+            const soft   = id === 'all' ? 'var(--paper-2)' : STATUS_SOFT[id];
+            return (
+              <button key={id} onClick={() => setFilter(id)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 28, padding: '0 10px', borderRadius: 999,
+                border: active ? `1px solid ${color}` : '1px solid var(--line-2)',
+                background: active ? soft : 'var(--paper)',
+                color: active ? color : 'var(--ink-2)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                transition: 'background 100ms, border-color 100ms',
+              }}>
+                {id !== 'all' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />}
+                {label}
+                <span className="mono num" style={{ fontSize: 11, fontWeight: 500, opacity: .75 }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Layout editor */}
       {layoutMode && (() => {
@@ -511,90 +581,142 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
       ) : view === 'grid' ? (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))' }}>
-          {sortedTables.map((t) => {
-            const order        = ordersByTable[t.id];
-            const staff        = staffByTable[t.id];
-            const waiter       = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
-            const timeStr      = order ? elapsed(order.created_at) : null;
-            const amount       = order?.total > 0 ? fmtAmt(order.total) : null;
-            const isOcc        = t.status === 'occupied';
-            const statusColor  = STATUS_DOT[t.status] ?? 'var(--mute-2)';
-            const isStaffOpen  = expandedStaff === t.id;
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+          {filteredTables.map((t) => {
+            const order       = ordersByTable[t.id];
+            const staff       = staffByTable[t.id];
+            const staffName   = staff?.name || staff?.email?.split('@')[0] || null;
+            const timeStr     = order ? elapsed(order.created_at) : null;
+            const amount      = order?.total > 0 ? fmtAmt(order.total) : null;
+            const isOcc       = t.status === 'occupied';
+            const isCleaning  = t.status === 'cleaning';
+            const isAvail     = t.status === 'available';
+            const statusColor = STATUS_DOT[t.status] ?? 'var(--mute-2)';
+            const statusSoft  = STATUS_SOFT[t.status] ?? 'transparent';
+            const isStaffOpen = expandedStaff === t.id;
+
+            const iconBtn = {
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 26, height: 26, borderRadius: 7,
+              border: '1px solid var(--line-2)', background: 'var(--paper)',
+              cursor: 'pointer', color: 'var(--mute)',
+              transition: 'background 120ms, color 120ms',
+            };
 
             return (
-              <div
-                key={t.id}
-                style={{
-                  border: '1px solid var(--line-2)',
-                  borderTop: `3px solid ${statusColor}`,
-                  background: 'var(--paper)',
-                  borderRadius: 10,
-                  padding: '14px 14px 13px',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                  display: 'flex', flexDirection: 'column',
-                }}
-              >
-                {/* Header: number + icon buttons */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span className="mono num font-bold" style={{ fontSize: 42, letterSpacing: '-.03em', lineHeight: 1, color: 'var(--ink)' }}>
-                    {String(t.number).padStart(2, '0')}
-                  </span>
-                  <div style={{ display: 'flex', gap: 4, paddingTop: 2 }}>
-                    <button
-                      onClick={() => window.open(`${menuBase}/order/${t.id}`, '_blank')}
-                      title="Open menu"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--line-2)', background: 'var(--paper)', cursor: 'pointer', color: 'var(--mute)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--paper-2)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'var(--paper)'; }}
+              <div key={t.id} className="table-card" style={{
+                position: 'relative',
+                borderRadius: 14,
+                background: 'var(--paper)',
+                border: '1px solid var(--line-2)',
+                padding: '16px 16px 14px',
+                display: 'flex', flexDirection: 'column',
+                gap: 11, overflow: 'hidden',
+                boxShadow: '0 1px 2px rgba(20,18,10,0.03), 0 1px 0 rgba(255,255,255,0.5) inset',
+              }}>
+                {/* Left gradient edge */}
+                <span style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+                  background: `linear-gradient(180deg, ${statusColor} 0%, ${statusColor} 60%, ${statusColor}00 100%)`,
+                  opacity: 0.9, pointerEvents: 'none',
+                }} />
+
+                {/* Header: eyebrow + number + icon buttons */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--mute-2)' }}>Table</span>
+                    <span className="mono num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-.04em', lineHeight: 0.88, color: 'var(--ink)', marginTop: 3 }}>
+                      {String(t.number).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    <button onClick={() => window.open(`${menuBase}/order/${t.id}`, '_blank')} title="Open menu" style={iconBtn}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--paper-2)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
                     ><ExternalLink size={12} /></button>
-                    <button
-                      onClick={() => handleQrClick(t)}
-                      title="QR code"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--line-2)', background: 'var(--paper)', cursor: 'pointer', color: 'var(--mute)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--paper-2)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'var(--paper)'; }}
+                    <button onClick={() => handleQrClick(t)} title="QR code" style={iconBtn}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--paper-2)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
                     ><QrCode size={12} /></button>
                   </div>
                 </div>
 
-                {/* Status + seats */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <TableStatusDot status={t.status} />
-                  <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}p</span>
+                {/* Status pill + seat dots */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '3px 9px 3px 8px', borderRadius: 999,
+                    background: statusSoft, color: statusColor,
+                    fontSize: 11.5, fontWeight: 600,
+                  }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0,
+                      ...(isOcc ? { boxShadow: `0 0 0 2.5px ${statusColor}33` } : {}),
+                    }} className={isOcc ? 'live-dot' : ''} />
+                    {t.status[0].toUpperCase() + t.status.slice(1)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2.5 }} title={`${t.seats} seats`}>
+                    {Array.from({ length: Math.min(t.seats, 8) }).map((_, i) => (
+                      <span key={i} className="seat-dot" style={{ background: 'var(--mute-2)' }} />
+                    ))}
+                    {t.seats > 8 && <span style={{ fontSize: 9, color: 'var(--mute-2)' }}>+{t.seats - 8}</span>}
+                  </span>
                 </div>
 
-                {/* Occupied: waiter + time/amount */}
+                {/* Occupied body */}
                 {isOcc && (
-                  <div style={{ marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--line)' }}>
-                    {/* Waiter row — tap to toggle staff picker (admin) */}
-                    <button
-                      onClick={() => isAdmin && staffAssignmentEnabled && setExpandedStaff(isStaffOpen ? null : t.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginBottom: 7, background: 'transparent', border: 0, padding: 0, cursor: isAdmin && staffAssignmentEnabled ? 'pointer' : 'default', textAlign: 'left' }}
-                    >
-                      <User size={11} style={{ color: waiter ? 'var(--ok)' : 'var(--mute-2)', flexShrink: 0 }} />
-                      <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: waiter ? 'var(--ink-2)' : 'var(--mute-2)', flex: 1 }}>
-                        {waiter ?? (staffAssignmentEnabled ? 'Unassigned' : '—')}
-                      </span>
-                      {isAdmin && staffAssignmentEnabled && (
-                        <span style={{ fontSize: 9, color: 'var(--mute-2)', flexShrink: 0 }}>{isStaffOpen ? '▲' : '▼'}</span>
+                  <div style={{
+                    position: 'relative',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, var(--paper-2) 100%)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 10, padding: '10px 12px 11px',
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
+                  }}>
+                    {/* Staff chip + toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                      {staffName ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '2px 9px 2px 2px', borderRadius: 999,
+                          background: 'var(--paper)', border: '1px solid var(--line-2)',
+                          fontSize: 11.5, color: 'var(--ink-2)', fontWeight: 500,
+                          boxShadow: '0 1px 2px rgba(20,18,10,0.04)',
+                        }}>
+                          <span style={{
+                            width: 20, height: 20, borderRadius: '50%',
+                            background: staffColor(staffName), color: '#fff',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 9, fontWeight: 700, letterSpacing: '.04em', flexShrink: 0,
+                          }}>{staffInitials(staffName)}</span>
+                          {staffName}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11.5, color: 'var(--mute-2)' }}>
+                          {staffAssignmentEnabled ? 'Unassigned' : '—'}
+                        </span>
                       )}
-                    </button>
+                      {isAdmin && staffAssignmentEnabled && (
+                        <button onClick={() => setExpandedStaff(isStaffOpen ? null : t.id)}
+                          style={{ background: 'transparent', border: 0, cursor: 'pointer', padding: '2px 4px', color: 'var(--mute-2)', fontSize: 9, flexShrink: 0 }}>
+                          {isStaffOpen ? '▲' : '▼'}
+                        </button>
+                      )}
+                    </div>
 
                     {/* Inline staff picker */}
                     {isStaffOpen && (
-                      <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         {t.assigned_staff_id && (
-                          <button
-                            onClick={() => { assignTableStaff.mutate({ tableId: t.id, staffId: null }); setExpandedStaff(null); }}
-                            style={{ fontSize: 10, color: 'var(--mute)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--line-2)', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-                          >Clear assignment</button>
+                          <button onClick={() => { assignTableStaff.mutate({ tableId: t.id, staffId: null }); setExpandedStaff(null); }}
+                            style={{ fontSize: 10, color: 'var(--mute)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--line-2)', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+                            Clear assignment
+                          </button>
                         )}
                         {staffUsers.map((u) => {
                           const isAssigned = u.id === t.assigned_staff_id;
                           return (
-                            <button
-                              key={u.id}
+                            <button key={u.id}
                               onClick={() => { if (!isAssigned) { assignTableStaff.mutate({ tableId: t.id, staffId: u.id }); setExpandedStaff(null); } }}
                               disabled={isAssigned}
                               style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, textAlign: 'left', border: `1px solid ${isAssigned ? 'var(--ok)' : 'var(--line-2)'}`, background: isAssigned ? 'rgba(31,138,91,0.07)' : 'transparent', color: isAssigned ? 'var(--ok)' : 'var(--ink-2)', cursor: isAssigned ? 'default' : 'pointer', fontWeight: isAssigned ? 600 : 400 }}
@@ -607,33 +729,68 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                     )}
 
                     {/* Time + amount */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: 'var(--mute)', fontVariantNumeric: 'tabular-nums' }}>{timeStr ?? '—'}</span>
-                      {amount && <span className="mono num font-semibold" style={{ fontSize: 14, color: 'var(--ink)' }}>{amount}</span>}
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--mute)' }}>
+                        <Clock size={11} style={{ flexShrink: 0 }} />
+                        <span className="mono num">{timeStr ?? '—'}</span>
+                      </span>
+                      {amount && (
+                        <span className="mono num" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.025em', color: 'var(--ink)' }}>
+                          {amount}
+                        </span>
+                      )}
                     </div>
+
+                    {/* New Order */}
+                    {isAdmin && (
+                      <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
+                        style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
+                        <ShoppingBag size={12} /> New Order
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {/* Admin actions */}
+                {/* Available: seat CTA */}
+                {isAvail && isAdmin && (
+                  <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
+                    <User size={12} /> Seat guests
+                  </button>
+                )}
+
+                {/* Cleaning: mark ready CTA */}
+                {isCleaning && isAdmin && (
+                  <button onClick={() => updateStatus.mutate({ id: t.id, status: 'available' })}
+                    disabled={updateStatus.isPending}
+                    className="btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
+                    <Check size={12} /> Mark ready
+                  </button>
+                )}
+
+                {/* Status change footer */}
                 {isAdmin && (
-                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                    {isOcc && (
-                      <button
-                        onClick={() => setNewOrderForTable(t)}
-                        className="btn w-full"
-                        style={{ height: 30, justifyContent: 'center', fontSize: 12, gap: 5 }}
-                      ><ShoppingBag size={12} /> New Order</button>
-                    )}
+                  <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px dashed var(--line)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {STATUSES.filter((s) => s !== t.status).map((s) => (
-                        <button
-                          key={s}
+                        <button key={s}
                           onClick={() => updateStatus.mutate({ id: t.id, status: s })}
                           disabled={updateStatus.isPending}
-                          style={{ fontSize: 10, fontWeight: 500, padding: '3px 9px', borderRadius: 20, border: `1px solid ${STATUS_DOT[s]}`, color: STATUS_DOT[s], background: 'transparent', cursor: 'pointer', transition: 'background 75ms' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = `${STATUS_DOT[s]}18`; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                        >{s[0].toUpperCase() + s.slice(1)}</button>
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            height: 22, padding: '0 8px', borderRadius: 999,
+                            border: `1px solid ${STATUS_DOT[s]}33`,
+                            background: 'transparent', color: STATUS_DOT[s],
+                            fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                            transition: 'background 100ms, border-color 100ms',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = STATUS_SOFT[s]; e.currentTarget.style.borderColor = `${STATUS_DOT[s]}66`; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = `${STATUS_DOT[s]}33`; }}
+                        >
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: STATUS_DOT[s], display: 'inline-block', flexShrink: 0 }} />
+                          {s[0].toUpperCase() + s.slice(1)}
+                        </button>
                       ))}
                     </div>
                   </div>
