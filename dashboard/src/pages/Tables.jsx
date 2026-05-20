@@ -9,7 +9,7 @@ import { useSettings } from '../hooks/useSettings';
 import Modal from '../components/Modal';
 import NewOrderModal from '../components/NewOrderModal';
 
-const GRID_COLS_MIN = 4;  const GRID_COLS_MAX = 20;
+const GRID_COLS_MIN = 3;  const GRID_COLS_MAX = 20;
 const GRID_ROWS_MIN = 3;  const GRID_ROWS_MAX = 14;
 
 const STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
@@ -101,7 +101,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
     const offsetY = e.clientY - fpPos.y;
     function onMove(ev) {
       setFpPos({
-        x: Math.max(0, Math.min(window.innerWidth  - 400, ev.clientX - offsetX)),
+        x: Math.max(0, Math.min(window.innerWidth  - 20,  ev.clientX - offsetX)),
         y: Math.max(0, Math.min(window.innerHeight - 48,  ev.clientY - offsetY)),
       });
     }
