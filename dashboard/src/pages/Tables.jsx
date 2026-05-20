@@ -68,7 +68,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
   const [layoutMode, setLayoutMode] = useState(false);
   const [showFloorPlan, setShowFloorPlan] = useState(false);
-  const [fpPos, setFpPos] = useState(() => ({ x: Math.max(240, window.innerWidth - 440), y: 80 }));
+  const [fpPos, setFpPos] = useState(() => ({ x: Math.max(8, window.innerWidth - 320), y: 80 }));
   const [draggingId, setDraggingId] = useState(null);
   const [overCell,   setOverCell]   = useState(null);
   const [gridCols,   setGridCols]   = useState(() => parseInt(localStorage.getItem('layoutGridCols') || '12'));
@@ -162,12 +162,14 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   return (
     <div className="space-y-5">
       {/* Page head */}
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <h1 className="text-[22px] font-semibold m-0" style={{ letterSpacing: '-.015em', color: 'var(--ink)' }}>
-          Tables
-        </h1>
-        <span style={{ fontSize: 12, color: 'var(--mute)' }}>{tables.length} total</span>
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-[22px] font-semibold m-0" style={{ letterSpacing: '-.015em', color: 'var(--ink)' }}>
+            Tables
+          </h1>
+          <span style={{ fontSize: 12, color: 'var(--mute)' }}>{tables.length} total</span>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
           {/* View toggle */}
           <div className="flex overflow-hidden rounded-[6px]" style={{ border: '1px solid var(--line-2)' }}>
             <button
@@ -226,24 +228,24 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           )}
           {isAdmin && !layoutMode && (
             <button onClick={() => { setLayoutMode(true); setShowFloorPlan(false); }} className="btn">
-              <LayoutGrid size={13} /> Arrange
+              <LayoutGrid size={13} /><span className="hidden sm:inline"> Arrange</span>
             </button>
           )}
           {isAdmin && layoutMode && (
             <button onClick={() => setLayoutMode(false)} className="btn">
-              <X size={13} /> Done
+              <X size={13} /><span className="hidden sm:inline"> Done</span>
             </button>
           )}
           {isAdmin && !layoutMode && (
             <button onClick={() => { setAddError(''); setAddModal(true); }} className="btn-primary">
-              <Plus size={13} /> Add table
+              <Plus size={13} /><span className="hidden sm:inline"> Add table</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-5" style={{ fontSize: 12 }}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5" style={{ fontSize: 12 }}>
         {STATUSES.map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-2)' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[s], display: 'inline-block' }} />
@@ -467,7 +469,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
       ) : view === 'grid' ? (
-        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
           {sortedTables.map((t) => (
             <div key={t.id} className="relative">
               <button
