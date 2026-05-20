@@ -593,7 +593,9 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             const isAvail     = t.status === 'available';
             const statusColor = STATUS_DOT[t.status] ?? 'var(--mute-2)';
             const statusSoft  = STATUS_SOFT[t.status] ?? 'transparent';
-            const isStaffOpen = expandedStaff === t.id;
+            const isStaffOpen  = expandedStaff === t.id;
+            const assignedPin  = staffUsers.find((u) => u.id === t.assigned_staff_id)?.staff_pin;
+            const menuUrl      = `${menuBase}/order/${t.id}${assignedPin ? `?staff=${assignedPin}` : ''}`;
 
             const iconBtn = {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -630,7 +632,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 5 }}>
-                    <button onClick={() => window.open(`${menuBase}/order/${t.id}`, '_blank')} title="Open menu" style={iconBtn}
+                    <button onClick={() => window.open(menuUrl, '_blank')} title="Open menu" style={iconBtn}
                       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--paper-2)'; e.currentTarget.style.color = 'var(--ink)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
                     ><ExternalLink size={12} /></button>

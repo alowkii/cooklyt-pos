@@ -41,6 +41,7 @@ export default function OrderMenu() {
   const [inlineNoteItemId, setInlineNoteItemId] = useState(null);
 
   // Staff PIN assignment
+  const pinFromUrl                        = !!searchParams.get('staff');
   const [staffPin,      setStaffPin]      = useState(() => searchParams.get('staff') || '');
   const [staffName,     setStaffName]     = useState('');
   const [pinVerifying,  setPinVerifying]  = useState(false);
@@ -1019,31 +1020,68 @@ export default function OrderMenu() {
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--mute)', whiteSpace: 'nowrap' }}>
             Staff code
           </span>
-          <input
-            type="text"
-            inputMode="numeric"
-            maxLength={4}
-            value={staffPin}
-            onChange={(e) => { setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setStaffName(''); }}
-            onBlur={() => tableInfo?.restaurant_id && verifyPin(staffPin, tableInfo.restaurant_id)}
-            placeholder="1234"
-            style={{
-              width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
-              padding: '4px 8px', fontSize: 14, fontFamily: 'monospace',
-              letterSpacing: '0.2em', textAlign: 'center',
-              background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
-            }}
-          />
-          {pinVerifying && (
-            <span style={{ fontSize: 11, color: 'var(--mute)' }}>Checking…</span>
-          )}
-          {staffName && !pinVerifying && (
-            <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
-              ✓ {staffName}
-            </span>
-          )}
-          {staffPin.length === 4 && !staffName && !pinVerifying && (
-            <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
+
+          {pinFromUrl ? (
+            /* Locked — pre-set via URL, customer cannot change */
+            <>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 70, height: 28,
+                border: '1px solid var(--line-2)', borderRadius: 6,
+                background: 'var(--paper-2)',
+                fontSize: 14, fontFamily: 'monospace', letterSpacing: '0.2em',
+                color: 'var(--mute-2)', userSelect: 'none',
+              }}>
+                {'·'.repeat(staffPin.length || 4)}
+              </span>
+              {pinVerifying && (
+                <span style={{ fontSize: 11, color: 'var(--mute)' }}>Verifying…</span>
+              )}
+              {staffName && !pinVerifying && (
+                <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
+                  ✓ {staffName}
+                </span>
+              )}
+              {staffPin && !staffName && !pinVerifying && (
+                <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Set by staff</span>
+              )}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--mute-2)" strokeWidth="2"
+                   strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, flexShrink: 0 }}
+                   aria-label="Locked">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </>
+          ) : (
+            /* Editable — customer-entered PIN */
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={staffPin}
+                onChange={(e) => { setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setStaffName(''); }}
+                onBlur={() => tableInfo?.restaurant_id && verifyPin(staffPin, tableInfo.restaurant_id)}
+                placeholder="1234"
+                style={{
+                  width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
+                  padding: '4px 8px', fontSize: 14, fontFamily: 'monospace',
+                  letterSpacing: '0.2em', textAlign: 'center',
+                  background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
+                }}
+              />
+              {pinVerifying && (
+                <span style={{ fontSize: 11, color: 'var(--mute)' }}>Checking…</span>
+              )}
+              {staffName && !pinVerifying && (
+                <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
+                  ✓ {staffName}
+                </span>
+              )}
+              {staffPin.length === 4 && !staffName && !pinVerifying && (
+                <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
+              )}
+            </>
           )}
         </div>
       )}
