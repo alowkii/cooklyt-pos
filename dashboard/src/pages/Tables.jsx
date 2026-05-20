@@ -190,10 +190,38 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           {!layoutMode && tables.some((t) => t.x_pos != null) && (
             <button
               onClick={() => setShowFloorPlan((v) => !v)}
-              className="btn"
-              style={{ background: showFloorPlan ? 'var(--paper-2)' : undefined }}
+              style={{
+                position: 'relative',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 108, height: 28, borderRadius: 999,
+                border: 0, padding: 0, cursor: 'pointer',
+                background: showFloorPlan ? '#0A0A0A' : 'rgba(10,10,10,0.07)',
+                boxShadow: showFloorPlan
+                  ? '0 2px 10px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.07)'
+                  : 'inset 0 0 0 1px rgba(10,10,10,0.12)',
+                transition: 'background 260ms cubic-bezier(0.4,0,0.2,1), box-shadow 260ms',
+                overflow: 'hidden',
+              }}
             >
-              <Map size={13} /> Floor Plan
+              <span style={{
+                position: 'absolute', top: 4,
+                left: showFloorPlan ? 84 : 4,
+                width: 20, height: 20, borderRadius: '50%',
+                background: showFloorPlan ? 'rgba(255,255,255,0.14)' : 'rgba(10,10,10,0.11)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'left 260ms cubic-bezier(0.4,0,0.2,1), background 260ms',
+                pointerEvents: 'none',
+              }}>
+                <Map size={10} style={{ color: showFloorPlan ? '#fff' : 'rgba(10,10,10,0.5)', transition: 'color 260ms' }} />
+              </span>
+              <span style={{
+                fontSize: 11.5, fontWeight: 600, letterSpacing: '0.01em',
+                color: showFloorPlan ? 'rgba(250,250,248,0.92)' : 'rgba(10,10,10,0.45)',
+                transition: 'color 260ms',
+                pointerEvents: 'none', userSelect: 'none',
+              }}>
+                Floor Plan
+              </span>
             </button>
           )}
           {isAdmin && !layoutMode && (
@@ -724,16 +752,16 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         const cellSize = Math.max(28, Math.min(48, Math.floor((380 - (fpCols - 1) * GAP) / fpCols)));
 
         const STATUS_BG = {
-          available: 'rgba(31,138,91,0.08)',
-          occupied:  'rgba(179,55,43,0.08)',
-          reserved:  'rgba(179,120,31,0.08)',
-          cleaning:  'rgba(31,91,179,0.08)',
+          available: 'rgba(31,138,91,0.11)',
+          occupied:  'rgba(179,55,43,0.11)',
+          reserved:  'rgba(179,120,31,0.11)',
+          cleaning:  'rgba(31,91,179,0.11)',
         };
         const STATUS_BG_HOV = {
-          available: 'rgba(31,138,91,0.16)',
-          occupied:  'rgba(179,55,43,0.16)',
-          reserved:  'rgba(179,120,31,0.16)',
-          cleaning:  'rgba(31,91,179,0.16)',
+          available: 'rgba(31,138,91,0.22)',
+          occupied:  'rgba(179,55,43,0.22)',
+          reserved:  'rgba(179,120,31,0.22)',
+          cleaning:  'rgba(31,91,179,0.22)',
         };
 
         const activeCounts = Object.fromEntries(
@@ -746,40 +774,39 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             left: fpPos.x,
             top: fpPos.y,
             zIndex: 200,
-            background: 'var(--paper)',
-            border: '1px solid var(--line-2)',
-            borderRadius: 10,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+            background: 'rgba(250,250,248,0.70)',
+            backdropFilter: 'blur(20px) saturate(1.5)',
+            WebkitBackdropFilter: 'blur(20px) saturate(1.5)',
+            border: '1px solid rgba(255,255,255,0.65)',
+            borderRadius: 12,
+            boxShadow: '0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.85)',
             overflow: 'hidden',
             minWidth: 180,
           }}>
-            {/* Title bar */}
+            {/* Minimal drag strip */}
             <div
               onMouseDown={onFpDragStart}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '9px 10px 9px 11px',
-                borderBottom: '1px solid var(--line)',
-                background: 'var(--paper-2)',
-                cursor: 'grab',
-                userSelect: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: 20, cursor: 'grab', userSelect: 'none',
+                position: 'relative',
               }}
             >
-              <GripHorizontal size={13} style={{ color: 'var(--mute-2)', flexShrink: 0 }} />
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--ink-2)', flex: 1 }}>
-                Floor Plan
-              </span>
-              <span style={{ fontSize: 10, color: 'var(--mute)', background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 4, padding: '1px 6px', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                {placed.length} tables
-              </span>
+              <GripHorizontal size={11} style={{ color: 'rgba(10,10,10,0.22)' }} />
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => setShowFloorPlan(false)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 5, border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute)', flexShrink: 0 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(179,55,43,0.1)'; e.currentTarget.style.color = 'var(--bad)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+                style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 16, height: 16, borderRadius: '50%',
+                  border: 0, background: 'transparent', cursor: 'pointer',
+                  color: 'rgba(10,10,10,0.25)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(179,55,43,0.12)'; e.currentTarget.style.color = 'var(--bad)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(10,10,10,0.25)'; }}
               >
-                <X size={13} />
+                <X size={10} />
               </button>
             </div>
 
@@ -852,7 +879,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             </div>
 
             {/* Legend — only statuses present on the floor */}
-            <div style={{ padding: '7px 12px 9px', borderTop: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+            <div style={{ padding: '7px 12px 9px', borderTop: '1px solid rgba(10,10,10,0.07)', display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
               {STATUSES.filter((s) => activeCounts[s] > 0).map((s) => (
                 <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--mute)' }}>
                   <span style={{ width: 7, height: 7, borderRadius: 2, background: STATUS_DOT[s], display: 'inline-block', flexShrink: 0 }} />
