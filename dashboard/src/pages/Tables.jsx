@@ -110,7 +110,8 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const touchDragIdRef = useRef(null);
   const [touchPos, setTouchPos] = useState(null);
 
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter]           = useState('all');
+  const [seatNumTables, setSeatNumTables] = useState(new Set());
 
   const sortedTables   = useMemo(() => [...tables].sort((a, b) => a.number - b.number), [tables]);
   const filteredTables = useMemo(() =>
@@ -657,12 +658,26 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                     }} className={isOcc ? 'live-dot' : ''} />
                     {t.status[0].toUpperCase() + t.status.slice(1)}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2.5 }} title={`${t.seats} seats`}>
-                    {Array.from({ length: Math.min(t.seats, 8) }).map((_, i) => (
-                      <span key={i} className="seat-dot" style={{ background: 'var(--mute-2)' }} />
-                    ))}
-                    {t.seats > 8 && <span style={{ fontSize: 9, color: 'var(--mute-2)' }}>+{t.seats - 8}</span>}
-                  </span>
+                  <button
+                    onClick={() => setSeatNumTables((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                      return next;
+                    })}
+                    title="Toggle seat count"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 2.5, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+                  >
+                    {seatNumTables.has(t.id) ? (
+                      <span className="mono num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--mute)' }}>{t.seats}p</span>
+                    ) : (
+                      <>
+                        {Array.from({ length: Math.min(t.seats, 8) }).map((_, i) => (
+                          <span key={i} className="seat-dot" style={{ background: 'var(--mute-2)' }} />
+                        ))}
+                        {t.seats > 8 && <span style={{ fontSize: 9, color: 'var(--mute-2)' }}>+{t.seats - 8}</span>}
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Occupied body */}
@@ -743,11 +758,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                       )}
                     </div>
 
-                    {/* New Order */}
+                    {/* Add Items */}
                     {isAdmin && (
                       <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
                         style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
-                        <ShoppingBag size={12} /> New Order
+                        <Plus size={12} /> Add Items
                       </button>
                     )}
                   </div>
@@ -975,10 +990,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         );
       })()}
 
-      {/* New Order Modal (launched from table card) */}
+      {/* New Order / Add Items Modal (launched from table card) */}
       {newOrderForTable && (
         <NewOrderModal
           initialTableId={newOrderForTable.id}
+          addItems={newOrderForTable.status === 'occupied'}
           onClose={() => setNewOrderForTable(null)}
         />
       )}

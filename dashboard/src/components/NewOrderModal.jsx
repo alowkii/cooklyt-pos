@@ -59,7 +59,7 @@ function MenuRow({ item, qty, hasGroups, onAdd, onRemove, format }) {
   );
 }
 
-export default function NewOrderModal({ onClose, initialTableId = null }) {
+export default function NewOrderModal({ onClose, initialTableId = null, addItems = false }) {
   const { data: menuItems = [] }  = useMenuItems();
   const { data: popular  = [] }  = usePopularMenuItems();
   const { data: tables   = [] }  = useTables();
@@ -171,7 +171,7 @@ export default function NewOrderModal({ onClose, initialTableId = null }) {
           className="flex shrink-0 items-center gap-3 px-5 h-12"
           style={{ borderBottom: '1px solid var(--line)' }}
         >
-          <span className="font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>New order</span>
+          <span className="font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>{addItems ? 'Add items' : 'New order'}</span>
           <span style={{ color: 'var(--mute)', fontSize: 12 }}>·</span>
           <span style={{ color: 'var(--mute)', fontSize: 12 }}>
             {channel === 'dining'
@@ -196,7 +196,7 @@ export default function NewOrderModal({ onClose, initialTableId = null }) {
             <button onClick={onClose} className="btn btn-sm btn-ghost"><X size={13} /> Cancel</button>
             <button onClick={handleSubmit} disabled={createOrder.isPending || cartCount === 0} className="btn-primary btn-sm">
               <ChevronRight size={13} />
-              {createOrder.isPending ? 'Placing…' : `Place order${cartCount > 0 ? ` (${cartCount})` : ''}`}
+              {createOrder.isPending ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
             </button>
           </div>
           <button
@@ -414,7 +414,7 @@ export default function NewOrderModal({ onClose, initialTableId = null }) {
                 style={{ height: 36 }}
               >
                 <ChevronRight size={14} />
-                {createOrder.isPending ? 'Placing…' : `Place order${cartCount > 0 ? ` (${cartCount})` : ''}`}
+                {createOrder.isPending ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
               </button>
             </div>
           </div>
