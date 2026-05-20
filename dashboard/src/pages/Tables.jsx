@@ -615,6 +615,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                 padding: '16px 16px 14px',
                 display: 'flex', flexDirection: 'column',
                 gap: 11, overflow: 'hidden',
+                minHeight: 280,
                 boxShadow: '0 1px 2px rgba(20,18,10,0.03), 0 1px 0 rgba(255,255,255,0.5) inset',
               }}>
                 {/* Left gradient edge */}
