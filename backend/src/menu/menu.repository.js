@@ -21,15 +21,15 @@ const getById = (id, restaurantId) =>
     .query('SELECT * FROM menu_items WHERE id = $1 AND restaurant_id = $2', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-const create = ({ name, price, category, sku, restaurantId, customizationGroups, recipeId }) =>
+const create = ({ name, price, category, sku, restaurantId, customizationGroups, recipeId, description }) =>
   db
     .query(
-      'INSERT INTO menu_items (name, price, category, sku, restaurant_id, customization_groups, recipe_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, price, category, sku || null, restaurantId, JSON.stringify(customizationGroups || []), recipeId || null],
+      'INSERT INTO menu_items (name, price, category, sku, restaurant_id, customization_groups, recipe_id, description) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [name, price, category, sku || null, restaurantId, JSON.stringify(customizationGroups || []), recipeId || null, description || null],
     )
     .then((r) => r.rows[0]);
 
-const update = (id, { name, price, category, available, sku, customizationGroups, recipeId }, restaurantId) =>
+const update = (id, { name, price, category, available, sku, customizationGroups, recipeId, description }, restaurantId) =>
   db
     .query(
       `UPDATE menu_items
@@ -39,12 +39,14 @@ const update = (id, { name, price, category, available, sku, customizationGroups
            available            = COALESCE($4, available),
            sku                  = COALESCE($5, sku),
            customization_groups = COALESCE($6, customization_groups),
-           recipe_id            = CASE WHEN $7::boolean THEN $8::uuid ELSE recipe_id END
-       WHERE id = $9 AND restaurant_id = $10
+           recipe_id            = CASE WHEN $7::boolean THEN $8::uuid ELSE recipe_id END,
+           description          = CASE WHEN $9::boolean THEN $10 ELSE description END
+       WHERE id = $11 AND restaurant_id = $12
        RETURNING *`,
       [name, price, category, available, sku || null,
        customizationGroups !== undefined ? JSON.stringify(customizationGroups) : null,
        recipeId !== undefined, recipeId || null,
+       description !== undefined, description || null,
        id, restaurantId],
     )
     .then((r) => r.rows[0]);

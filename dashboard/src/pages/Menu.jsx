@@ -12,7 +12,7 @@ import Modal from '../components/Modal';
 import { useCurrency } from '../context/CurrencyContext';
 
 const FORM_CATEGORIES = ['starters', 'mains', 'desserts', 'drinks', 'sides', 'other'];
-const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', recipeId: '', customizationGroups: [] };
+const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', recipeId: '', description: '', customizationGroups: [] };
 
 function newGroup() {
   return { name: '', type: 'single', required: false, options: [{ label: '', priceAdd: 0 }] };
@@ -203,6 +203,7 @@ export default function Menu() {
       available:           item.available,
       sku:                 item.sku || '',
       recipeId:            item.recipe_id || '',
+      description:         item.description || '',
       customizationGroups: item.customization_groups || [],
     });
     setModal(item);
@@ -210,7 +211,7 @@ export default function Menu() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = { ...form, price: parseFloat(form.price), sku: form.sku.trim() || undefined, recipeId: form.recipeId || undefined };
+    const payload = { ...form, price: parseFloat(form.price), sku: form.sku.trim() || undefined, recipeId: form.recipeId || undefined, description: form.description.trim() || undefined };
     if (modal === 'add') { await createItem.mutateAsync(payload); }
     else                 { await updateItem.mutateAsync({ id: modal.id, ...payload }); }
     setModal(null);
@@ -461,6 +462,20 @@ export default function Menu() {
                 className="input"
                 placeholder="e.g. Grilled Salmon"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
+                Description <span style={{ fontWeight: 400, color: 'var(--mute-2)' }}>(optional — shown to customers)</span>
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="input"
+                placeholder="e.g. Pan-seared salmon fillet with lemon butter sauce and seasonal vegetables."
+                rows={2}
+                style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
               />
             </div>
 

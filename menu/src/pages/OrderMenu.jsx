@@ -40,6 +40,9 @@ export default function OrderMenu() {
   // Inline note below menu item row (only one item at a time)
   const [inlineNoteItemId, setInlineNoteItemId] = useState(null);
 
+  // Item detail sheet
+  const [detailItem, setDetailItem] = useState(null);
+
   // Staff PIN assignment
   const pinFromUrl                        = !!searchParams.get('staff');
   const [staffPin,      setStaffPin]      = useState(() => searchParams.get('staff') || '');
@@ -377,6 +380,86 @@ export default function OrderMenu() {
       </div>
     );
   }
+
+  // ── Item detail sheet ────────────────────────────────────────────────────────
+
+  const ItemDetailSheet = detailItem && (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(10,10,10,.5)' }}
+        onClick={() => setDetailItem(null)}
+      />
+      <div className="relative flex flex-col" style={{
+        maxHeight: '80vh',
+        background: 'var(--paper)',
+        borderRadius: '16px 16px 0 0',
+      }}>
+        <div className="flex items-start justify-between" style={{
+          padding: '18px 20px 14px',
+          borderBottom: '1px solid var(--line)',
+        }}>
+          <div className="flex-1 min-w-0 pr-3">
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0, lineHeight: 1.25 }}>
+              {detailItem.name}
+            </h2>
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '6px 0 0' }}>
+              {fmt(detailItem.price)}
+            </p>
+          </div>
+          <button
+            onClick={() => setDetailItem(null)}
+            style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: 0, color: 'var(--mute)', cursor: 'pointer',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto" style={{ padding: '16px 20px 20px' }}>
+          {detailItem.description ? (
+            <p style={{ fontSize: 14, color: 'var(--mute)', lineHeight: 1.65, margin: 0 }}>
+              {detailItem.description}
+            </p>
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--mute-2)', fontStyle: 'italic', margin: 0 }}>
+              No description available.
+            </p>
+          )}
+          {(detailItem.customization_groups || []).length > 0 && (
+            <p className="flex items-center gap-1.5" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 14 }}>
+              <SlidersHorizontal size={11} /> Customizable — options available when you add
+            </p>
+          )}
+        </div>
+
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--line)' }}>
+          <button
+            onClick={() => {
+              if ((detailItem.customization_groups || []).length > 0) {
+                openCustomization(detailItem);
+              } else {
+                addSimple(detailItem);
+                setInlineNoteItemId(detailItem.id);
+              }
+              setDetailItem(null);
+            }}
+            style={{
+              width: '100%', borderRadius: 10, padding: '14px 0',
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              border: 0, fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Add to order · {fmt(detailItem.price)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // ── Customization modal ──────────────────────────────────────────────────────
 
@@ -878,7 +961,11 @@ export default function OrderMenu() {
                 >
                   {/* Item row */}
                   <div className="flex items-start gap-4" style={{ padding: '14px 16px' }}>
-                    <div className="flex-1 min-w-0">
+                    <button
+                      className="flex-1 min-w-0 text-left"
+                      onClick={() => setDetailItem(item)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
                       <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
                         {item.name}
                       </p>
@@ -892,14 +979,11 @@ export default function OrderMenu() {
                       )}
                       {/* Show note preview below item name when inline note is closed */}
                       {!hasCustom && !inlineOpen && simpleNote && (
-                        <p
-                          style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 3, fontStyle: 'italic', cursor: 'pointer' }}
-                          onClick={() => setInlineNoteItemId(item.id)}
-                        >
+                        <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 3, fontStyle: 'italic' }}>
                           {simpleNote}
                         </p>
                       )}
-                    </div>
+                    </button>
 
                     {hasCustom ? (
                       <div className="flex items-center gap-2 shrink-0 pt-0.5">
@@ -1014,6 +1098,7 @@ export default function OrderMenu() {
 
   return (
     <div className="flex h-screen flex-col" style={{ background: 'var(--paper-2)' }}>
+      {ItemDetailSheet}
       {CustModal}
       {CartSheet}
 
