@@ -1,5 +1,5 @@
-exports.up = async (db) => {
-  await db.query(`
+exports.up = (pgm) => {
+  pgm.sql(`
     ALTER TABLE tables
       ADD COLUMN IF NOT EXISTS reservation_name  text,
       ADD COLUMN IF NOT EXISTS reservation_time  timestamptz,
@@ -8,8 +8,8 @@ exports.up = async (db) => {
   `);
 };
 
-exports.down = async (db) => {
-  await db.query(`
+exports.down = (pgm) => {
+  pgm.sql(`
     ALTER TABLE tables
       DROP COLUMN IF EXISTS reservation_name,
       DROP COLUMN IF EXISTS reservation_time,

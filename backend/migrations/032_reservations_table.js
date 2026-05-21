@@ -1,5 +1,5 @@
-exports.up = async (db) => {
-  await db.query(`
+exports.up = (pgm) => {
+  pgm.sql(`
     CREATE TABLE IF NOT EXISTS reservations (
       id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
       restaurant_id UUID        NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -13,12 +13,12 @@ exports.up = async (db) => {
       created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
-  await db.query(`
+  pgm.sql(`
     CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_date
     ON reservations(restaurant_id, reserved_at)
   `);
 };
 
-exports.down = async (db) => {
-  await db.query('DROP TABLE IF EXISTS reservations');
+exports.down = (pgm) => {
+  pgm.sql('DROP TABLE IF EXISTS reservations');
 };
