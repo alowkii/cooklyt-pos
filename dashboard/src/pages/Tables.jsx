@@ -1,11 +1,13 @@
 import { useState, useRef, useMemo, useLayoutEffect } from 'react';
-import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck, ShoppingBag, Map, GripHorizontal, ExternalLink, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, User, UserCheck, ShoppingBag, Map, GripHorizontal, ExternalLink, Clock, CalendarClock } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
 import { useActiveOrders } from '../hooks/useOrders';
 import { useUsers, useMeProfile } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
+import { useCreateReservation } from '../hooks/useReservations';
 import Modal from '../components/Modal';
 import NewOrderModal from '../components/NewOrderModal';
 
@@ -54,6 +56,7 @@ function TableStatusDot({ status }) {
 }
 
 export default function Tables() {
+  const navigate = useNavigate();
   const { data: tables = [], isLoading } = useTables();
   const { data: activeOrders = [] } = useActiveOrders();
   const { data: settings } = useSettings();
@@ -63,9 +66,11 @@ export default function Tables() {
   const updatePosition = useUpdateTablePosition();
   const createTable    = useCreateTable();
   const assignTableStaff = useAssignTableStaff();
+  const createReservation = useCreateReservation();
   const { isAdmin, user } = useAuth();
   const canEdit = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
   const staffAssignmentEnabled = settings?.staff_assignment_enabled === true || settings?.staff_assignment_enabled === 'true';
+  const reservationsEnabled    = settings?.reservations_enabled    === true || settings?.reservations_enabled    === 'true';
 
   // map tableId → assigned staff (from table record directly)
   const staffByTable = tables.reduce((acc, t) => {
@@ -78,10 +83,12 @@ export default function Tables() {
     return acc;
   }, {});
 
-  const [view,     setView]     = useState('grid');
   const [selected, setSelected] = useState(null);
 
 const [newOrderForTable, setNewOrderForTable] = useState(null);
+  const [reservationForTable, setReservationForTable] = useState(null);
+  const [reservationForm, setReservationForm] = useState({ name: '', time: '', party: '', notes: '' });
+  const [reservationError, setReservationError] = useState('');
   const [addModal,       setAddModal]       = useState(false);
   const [expandedStaff, setExpandedStaff] = useState(null);
   const [newTable, setNewTable] = useState({ number: '', seats: '' });
@@ -188,8 +195,34 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [copied,    setCopied]    = useState(false);
 
   async function handleStatusChange(status) {
+    if (status === 'reserved' && reservationsEnabled) {
+      setReservationForTable(selected);
+      setReservationForm({ name: '', phone: '', time: '', party: '', notes: '' });
+      setReservationError('');
+      setSelected(null);
+      return;
+    }
     await updateStatus.mutateAsync({ id: selected.id, status });
     setSelected(null);
+  }
+
+  async function handleReservationSubmit() {
+    if (!reservationForm.name.trim()) { setReservationError('Guest name is required.'); return; }
+    if (!reservationForm.time)        { setReservationError('Arrival time is required.'); return; }
+    setReservationError('');
+    try {
+      await createReservation.mutateAsync({
+        tableId:    reservationForTable.id,
+        guestName:  reservationForm.name.trim(),
+        guestPhone: reservationForm.phone?.trim() || null,
+        partySize:  reservationForm.party ? parseInt(reservationForm.party) : null,
+        reservedAt: new Date(reservationForm.time).toISOString(),
+        notes:      reservationForm.notes.trim() || null,
+      });
+      setReservationForTable(null);
+    } catch (e) {
+      setReservationError(e.response?.data?.error || e.message || 'Failed to save');
+    }
   }
 
   async function handleCreate(e) {
@@ -238,25 +271,6 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           <span style={{ fontSize: 12, color: 'var(--mute)' }}>{tables.length} total</span>
         </div>
         <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
-          {/* View toggle */}
-          <div className="flex overflow-hidden rounded-[6px]" style={{ border: '1px solid var(--line-2)' }}>
-            <button
-              onClick={() => setView('grid')}
-              className="btn"
-              style={{ borderRadius: 0, border: 0, height: 28, background: view === 'grid' ? 'var(--paper-2)' : 'transparent' }}
-              title="Grid view"
-            >
-              <LayoutGrid size={13} />
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className="btn"
-              style={{ borderRadius: 0, border: 0, height: 28, background: view === 'list' ? 'var(--paper-2)' : 'transparent' }}
-              title="List view"
-            >
-              <List size={13} />
-            </button>
-          </div>
           {!layoutMode && tables.some((t) => t.x_pos != null) && (
             <button
               onClick={() => setShowFloorPlan((v) => !v)}
@@ -302,6 +316,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           {isAdmin && layoutMode && (
             <button onClick={() => setLayoutMode(false)} className="btn">
               <X size={13} /><span className="hidden sm:inline"> Done</span>
+            </button>
+          )}
+          {isAdmin && !layoutMode && reservationsEnabled && (
+            <button onClick={() => navigate('/tables/reservations')} className="btn">
+              <CalendarClock size={13} /><span className="hidden sm:inline"> Reservations</span>
             </button>
           )}
           {isAdmin && !layoutMode && (
@@ -592,7 +611,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
-      ) : view === 'grid' ? (
+      ) : (
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {filteredTables.map((t) => {
             const order       = ordersByTable[t.id];
@@ -624,10 +643,10 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                 borderRadius: 14,
                 background: 'var(--paper)',
                 border: '1px solid var(--line-2)',
-                padding: '16px 16px 14px',
+                padding: '20px 18px 17px',
                 display: 'flex', flexDirection: 'column',
-                gap: 11, overflow: 'hidden',
-                minHeight: 280,
+                gap: 13, overflow: 'hidden',
+                minHeight: 300,
                 boxShadow: '0 1px 2px rgba(20,18,10,0.03), 0 1px 0 rgba(255,255,255,0.5) inset',
               }}>
                 {/* Left gradient edge */}
@@ -781,6 +800,37 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                   </div>
                 )}
 
+                {/* Reserved body */}
+                {t.status === 'reserved' && (t.reservation_name || t.reservation_time || t.reservation_party) && (
+                  <div style={{
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, var(--paper-2) 100%)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 10, padding: '10px 12px',
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
+                  }}>
+                    {t.reservation_name && (
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{t.reservation_name}</span>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {t.reservation_party && (
+                        <span style={{ fontSize: 11, color: 'var(--mute)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <User size={10} /> {t.reservation_party} guests
+                        </span>
+                      )}
+                      {t.reservation_time && (
+                        <span style={{ fontSize: 11, color: 'var(--mute)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={10} />
+                          {new Date(t.reservation_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    {t.reservation_notes && (
+                      <span style={{ fontSize: 11, color: 'var(--mute-2)', fontStyle: 'italic' }}>{t.reservation_notes}</span>
+                    )}
+                  </div>
+                )}
+
                 {/* Available: seat CTA */}
                 {isAvail && isAdmin && (
                   <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
@@ -803,9 +853,17 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                 {isAdmin && (
                   <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px dashed var(--line)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {STATUSES.filter((s) => s !== t.status).map((s) => (
+                      {STATUSES.filter((s) => s !== t.status && (s !== 'reserved' || reservationsEnabled)).map((s) => (
                         <button key={s}
-                          onClick={() => updateStatus.mutate({ id: t.id, status: s })}
+                          onClick={() => {
+                            if (s === 'reserved' && reservationsEnabled) {
+                              setReservationForTable(t);
+                              setReservationForm({ name: '', phone: '', time: '', party: '', notes: '' });
+                              setReservationError('');
+                            } else {
+                              updateStatus.mutate({ id: t.id, status: s });
+                            }
+                          }}
                           disabled={updateStatus.isPending}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -829,64 +887,6 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             );
           })}
         </div>
-      ) : (
-        /* List view */
-        <div style={{ borderTop: '1px solid var(--line)' }}>
-          <div
-            className="grid gap-3 px-2 py-1.5"
-            style={{
-              gridTemplateColumns: staffAssignmentEnabled ? '60px 1fr 60px 1fr' : '60px 1fr 60px',
-              fontSize: 10, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.08em',
-            }}
-          >
-            <span>Table</span><span>Status</span><span>Seats</span>
-            {staffAssignmentEnabled && <span>Staff</span>}
-          </div>
-          {sortedTables.map((t) => {
-            const staff = staffByTable[t.id];
-            const staffLabel = staff ? (staff.name || staff.email?.split('@')[0] || 'Staff') : null;
-            return (
-              <button
-                key={t.id}
-                onClick={() => canEdit && setSelected(t)}
-                className="grid gap-3 w-full text-left transition-colors duration-75"
-                style={{
-                  gridTemplateColumns: staffAssignmentEnabled ? '60px 1fr 60px 1fr' : '60px 1fr 60px',
-                  padding: '8px 8px',
-                  borderBottom: '1px solid var(--line)',
-                  background: 'transparent',
-                  cursor: 'default',
-                  minHeight: 44,
-                  alignItems: 'center',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <span className="mono num font-bold" style={{ color: 'var(--ink)' }}>
-                  T{String(t.number).padStart(2, '0')}
-                </span>
-                <TableStatusDot status={t.status} />
-                <span className="mono num" style={{ fontSize: 12, color: 'var(--mute)' }}>{t.seats}</span>
-                {staffAssignmentEnabled && (
-                  t.status === 'occupied' ? (
-                    isAdmin ? (
-                      <span className="flex items-center gap-1 truncate" style={{ fontSize: 12, color: staff ? 'var(--ok)' : 'var(--mute-2)' }}>
-                        <User size={11} style={{ flexShrink: 0 }} />
-                        <span className="truncate">{staffLabel ?? 'Unassigned'}</span>
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: staff ? 'var(--ok)' : 'var(--mute-2)' }}>
-                        {staff ? 'Assigned' : 'Unassigned'}
-                      </span>
-                    )
-                  ) : (
-                    <span style={{ fontSize: 12, color: 'var(--mute-2)' }}>—</span>
-                  )
-                )}
-              </button>
-            );
-          })}
-        </div>
       ))}
 
       {/* Change Status Modal */}
@@ -904,7 +904,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
               Change status to
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {STATUSES.filter((s) => s !== selected.status).map((s) => (
+              {STATUSES.filter((s) => s !== selected.status && (s !== 'reserved' || reservationsEnabled)).map((s) => (
                 <button
                   key={s}
                   onClick={() => handleStatusChange(s)}
@@ -1011,6 +1011,65 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           orderId={ordersByTable[newOrderForTable.id]?.id ?? null}
           onClose={() => setNewOrderForTable(null)}
         />
+      )}
+
+      {/* Reservation Details Modal */}
+      {reservationForTable && (
+        <Modal title={`Reserve Table ${reservationForTable.number}`} onClose={() => setReservationForTable(null)}>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 }}>
+                  Guest Name *
+                </label>
+                <input autoFocus type="text" value={reservationForm.name}
+                  onChange={(e) => setReservationForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Smith" className="input w-full" />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 }}>
+                  Phone
+                </label>
+                <input type="tel" value={reservationForm.phone}
+                  onChange={(e) => setReservationForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="+1 555 0100" className="input w-full" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 }}>
+                  Arrival Time *
+                </label>
+                <input type="datetime-local" value={reservationForm.time}
+                  onChange={(e) => setReservationForm((f) => ({ ...f, time: e.target.value }))}
+                  className="input w-full" />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 }}>
+                  Party Size
+                </label>
+                <input type="number" min="1" value={reservationForm.party}
+                  onChange={(e) => setReservationForm((f) => ({ ...f, party: e.target.value }))}
+                  placeholder={`Max ${reservationForTable.seats}`} className="input w-full" />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 }}>
+                Notes
+              </label>
+              <input type="text" value={reservationForm.notes}
+                onChange={(e) => setReservationForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Allergies, occasion, preferences…" className="input w-full" />
+            </div>
+            {reservationError && <p style={{ fontSize: 12, color: 'var(--bad)' }}>{reservationError}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button className="btn btn-sm btn-ghost" onClick={() => setReservationForTable(null)}>Cancel</button>
+              <button className="btn-primary btn-sm" onClick={handleReservationSubmit} disabled={createReservation.isPending}>
+                {createReservation.isPending ? 'Saving…' : 'Reserve Table'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Add Table Modal */}

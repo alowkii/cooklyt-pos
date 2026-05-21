@@ -29,7 +29,8 @@ router.post('/', authenticate, authorize('admin'), async (req, res, next) => {
 
 router.patch('/:id/status', authenticate, async (req, res, next) => {
   try {
-    res.json(await service.updateStatus(req.params.id, req.body.status, req.user.restaurantId));
+    const { status, reservation } = req.body;
+    res.json(await service.updateStatus(req.params.id, status, req.user.restaurantId, reservation ?? null));
   } catch (e) {
     next(e);
   }

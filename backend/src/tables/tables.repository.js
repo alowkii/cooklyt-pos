@@ -32,13 +32,34 @@ const create = ({ number, seats, restaurantId }) =>
     )
     .then((r) => r.rows[0]);
 
-const updateStatus = (id, status, restaurantId) =>
-  db
-    .query(
-      'UPDATE tables SET status = $1 WHERE id = $2 AND restaurant_id = $3 RETURNING *',
-      [status, id, restaurantId],
-    )
-    .then((r) => r.rows[0]);
+const updateStatus = (id, status, restaurantId, reservation = null) => {
+  if (status === 'reserved' && reservation) {
+    return db.query(
+      `UPDATE tables
+       SET status = $1,
+           reservation_name  = $4,
+           reservation_time  = $5,
+           reservation_notes = $6,
+           reservation_party = $7
+       WHERE id = $2 AND restaurant_id = $3 RETURNING *`,
+      [status, id, restaurantId,
+       reservation.name  || null,
+       reservation.time  || null,
+       reservation.notes || null,
+       reservation.party || null],
+    ).then((r) => r.rows[0]);
+  }
+  return db.query(
+    `UPDATE tables
+     SET status = $1,
+         reservation_name  = NULL,
+         reservation_time  = NULL,
+         reservation_notes = NULL,
+         reservation_party = NULL
+     WHERE id = $2 AND restaurant_id = $3 RETURNING *`,
+    [status, id, restaurantId],
+  ).then((r) => r.rows[0]);
+};
 
 const updatePosition = (id, x, y, restaurantId) =>
   db

@@ -29,12 +29,12 @@ async function create({ number, seats }, restaurantId) {
   }
 }
 
-async function updateStatus(tableId, status, restaurantId) {
+async function updateStatus(tableId, status, restaurantId, reservation = null) {
   const VALID = ['available', 'occupied', 'reserved', 'cleaning'];
   if (!VALID.includes(status))
     throw new ValidationError(`status must be one of: ${VALID.join(', ')}`);
   await getById(tableId, restaurantId);
-  return repo.updateStatus(tableId, status, restaurantId);
+  return repo.updateStatus(tableId, status, restaurantId, reservation);
 }
 
 async function updatePosition(id, x, y, restaurantId) {

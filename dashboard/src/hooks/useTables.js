@@ -22,11 +22,11 @@ export function useTables() {
 
 export function useUpdateTableStatus() {
   return useMutation({
-    mutationFn: async ({ id, status }) => {
+    mutationFn: async ({ id, status, reservation }) => {
       await db.restaurant_tables.update(id, { status });
       if (navigator.onLine) {
         try {
-          const { data } = await api.patch(`/tables/${id}/status`, { status });
+          const { data } = await api.patch(`/tables/${id}/status`, { status, reservation: reservation ?? null });
           await db.restaurant_tables.put(data);
           return data;
         } catch (err) {

@@ -23,6 +23,7 @@ import Combos           from './pages/Combos';
 import WasteLog         from './pages/WasteLog';
 import CostingReports   from './pages/CostingReports';
 import InventoryLedger  from './pages/InventoryLedger';
+import Reservations     from './pages/Reservations';
 
 function RequireAuth({ children }) {
   return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
@@ -102,7 +103,8 @@ export default function App() {
         >
           <Route path="/overview" element={<Overview />} />
           <Route path="/menu"     element={<Menu />} />
-          <Route path="/tables"   element={<Tables />} />
+          <Route path="/tables"            element={<Tables />} />
+          <Route path="/tables/reservations" element={<RequireAdmin><Reservations /></RequireAdmin>} />
           <Route path="/orders"   element={<Orders />} />
           <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
           <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />

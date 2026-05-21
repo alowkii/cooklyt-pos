@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, ChevronDown, Search, Zap, RefreshCw } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
@@ -151,7 +151,8 @@ export default function Settings() {
   const [taxRate,         setTaxRate]         = useState('');
   const [serviceCharge,   setServiceCharge]   = useState('');
   const [packagingFee,    setPackagingFee]     = useState('');
-  const [staffAssignment, setStaffAssignment] = useState(false);
+  const [staffAssignment,   setStaffAssignment]   = useState(false);
+  const [reservationsEnabled, setReservationsEnabled] = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [saveErr,         setSaveErr]         = useState('');
   const [saved,           setSaved]           = useState(false);
@@ -175,6 +176,9 @@ export default function Settings() {
     }
     if (settings.staff_assignment_enabled !== undefined) {
       setStaffAssignment(settings.staff_assignment_enabled === 'true');
+    }
+    if (settings.reservations_enabled !== undefined) {
+      setReservationsEnabled(settings.reservations_enabled === 'true');
     }
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
@@ -216,6 +220,7 @@ export default function Settings() {
       await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
       await updateSetting.mutateAsync({ key: 'packaging_fee',  value: parseFloat(packagingFee || '0').toFixed(4) });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
+      await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -233,7 +238,7 @@ export default function Settings() {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => saveRef.current?.(), 900);
     return () => clearTimeout(debounceRef.current);
-  }, [taxRate, serviceCharge, packagingFee, staffAssignment, autosave, dirty]);
+  }, [taxRate, serviceCharge, packagingFee, staffAssignment, reservationsEnabled, autosave, dirty]);
 
   function markDirty() { setDirty(true); }
 
@@ -427,6 +432,25 @@ export default function Settings() {
           <Toggle
             checked={staffAssignment}
             onChange={(v) => { setStaffAssignment(v); markDirty(); }}
+          />
+        </div>
+      </div>
+
+      {/* ── Reservations ────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <CalendarClock size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Reservations</p>
+              <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
+                Allow tables to be reserved with guest name, party size, and arrival time.
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={reservationsEnabled}
+            onChange={(v) => { setReservationsEnabled(v); markDirty(); }}
           />
         </div>
       </div>
