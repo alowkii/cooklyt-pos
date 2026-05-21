@@ -126,7 +126,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
     activeOrders.reduce((acc, o) => {
       if (!o.table_id) return acc;
       if (!acc[o.table_id] || new Date(o.created_at) < new Date(acc[o.table_id].created_at)) {
-        acc[o.table_id] = { created_at: o.created_at, total: 0 };
+        acc[o.table_id] = { id: o.id, created_at: o.created_at, total: 0 };
       }
       acc[o.table_id].total += o.total || 0;
       return acc;
@@ -998,6 +998,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
         <NewOrderModal
           initialTableId={newOrderForTable.id}
           addItems={newOrderForTable.status === 'occupied'}
+          orderId={ordersByTable[newOrderForTable.id]?.id ?? null}
           onClose={() => setNewOrderForTable(null)}
         />
       )}

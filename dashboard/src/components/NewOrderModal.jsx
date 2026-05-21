@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Minus, ChevronRight, ChevronDown, Utensils, ShoppingBag, Truck, Star, SlidersHorizontal } from 'lucide-react';
 import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useTables } from '../hooks/useTables';
-import { useCreateOrder } from '../hooks/useOrders';
+import { useCreateOrder, useAddItems } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import CustomizationPicker from './CustomizationPicker';
 
@@ -59,11 +59,12 @@ function MenuRow({ item, qty, hasGroups, onAdd, onRemove, format }) {
   );
 }
 
-export default function NewOrderModal({ onClose, initialTableId = null, addItems = false }) {
+export default function NewOrderModal({ onClose, initialTableId = null, addItems = false, orderId = null }) {
   const { data: menuItems = [] }  = useMenuItems();
   const { data: popular  = [] }  = usePopularMenuItems();
   const { data: tables   = [] }  = useTables();
   const createOrder               = useCreateOrder();
+  const addItemsMutation          = useAddItems();
   const { format }                = useCurrency();
 
   const [channel,        setChannel]     = useState('dining');
@@ -145,7 +146,11 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
       return { menuItemId: m.id, quantity: entry.quantity, notes: entry.notes || undefined, customizations: entry.customizations || undefined };
     });
     try {
-      await createOrder.mutateAsync({ tableId: channel === 'dining' ? tableId : null, items, channel, customerRef: customerRef.trim() || null });
+      if (addItems && orderId) {
+        await addItemsMutation.mutateAsync({ orderId, items });
+      } else {
+        await createOrder.mutateAsync({ tableId: channel === 'dining' ? tableId : null, items, channel, customerRef: customerRef.trim() || null });
+      }
       onClose();
     } catch (e) {
       setError(e.response?.data?.error || e.message || 'Failed to place order');
@@ -194,9 +199,9 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
           <div className="ml-auto hidden sm:flex items-center gap-2">
             {error && <span style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
             <button onClick={onClose} className="btn btn-sm btn-ghost"><X size={13} /> Cancel</button>
-            <button onClick={handleSubmit} disabled={createOrder.isPending || cartCount === 0} className="btn-primary btn-sm">
+            <button onClick={handleSubmit} disabled={(addItems && orderId ? addItemsMutation.isPending : createOrder.isPending) || cartCount === 0} className="btn-primary btn-sm">
               <ChevronRight size={13} />
-              {createOrder.isPending ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
+              {(addItems && orderId ? addItemsMutation.isPending : createOrder.isPending) ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
             </button>
           </div>
           <button
@@ -409,12 +414,12 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
               )}
               <button
                 onClick={handleSubmit}
-                disabled={createOrder.isPending || cartCount === 0}
+                disabled={(addItems && orderId ? addItemsMutation.isPending : createOrder.isPending) || cartCount === 0}
                 className="btn-primary w-full justify-center"
                 style={{ height: 36 }}
               >
                 <ChevronRight size={14} />
-                {createOrder.isPending ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
+                {(addItems && orderId ? addItemsMutation.isPending : createOrder.isPending) ? (addItems ? 'Adding…' : 'Placing…') : `${addItems ? 'Add items' : 'Place order'}${cartCount > 0 ? ` (${cartCount})` : ''}`}
               </button>
             </div>
           </div>
