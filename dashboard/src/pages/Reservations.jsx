@@ -120,7 +120,7 @@ export default function Reservations() {
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'var(--paper)'; }}
           >
-            <ArrowLeft size={12} /> Tables
+            <ArrowLeft size={12} />
           </button>
           <div className="min-w-0">
             <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: 0, lineHeight: 1.2 }}>Reservations</h1>
