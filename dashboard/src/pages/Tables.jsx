@@ -324,8 +324,11 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             }, 0) / occupiedTables.length)
           : 0;
         const pct = tables.length ? Math.round((occupiedTables.length / tables.length) * 100) : 0;
+        const statusSegments = tables.length
+          ? STATUSES.map((s) => ({ status: s, pct: (tables.filter((t) => t.status === s).length / tables.length) * 100 })).filter((s) => s.pct > 0)
+          : [];
         const tiles = [
-          { label: 'Occupancy', value: `${pct}%`, sub: `${occupiedTables.length} of ${tables.length} tables` },
+          { label: 'Occupancy', value: `${pct}%`, sub: `${occupiedTables.length} of ${tables.length} tables`, segments: statusSegments },
           { label: 'Seats total', value: seatsTotal, sub: `Across ${tables.length} tables` },
           { label: 'Active spend', value: fmtAmt(activeSpend), sub: `${occupiedTables.length} open tab${occupiedTables.length === 1 ? '' : 's'}` },
           { label: 'Avg dwell', value: avgDwellMins ? `${avgDwellMins}m` : '—', sub: 'Current sitting' },
@@ -336,6 +339,13 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
               <div key={tile.label} className="strip-tile" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>{tile.label}</span>
                 <span className="mono num" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--ink)' }}>{tile.value}</span>
+                {tile.segments && (
+                  <div style={{ height: 4, borderRadius: 99, background: 'var(--line-2)', overflow: 'hidden', margin: '2px 0', display: 'flex' }}>
+                    {tile.segments.map(({ status, pct: w }) => (
+                      <div key={status} style={{ height: '100%', width: `${w}%`, background: STATUS_DOT[status], transition: 'width 400ms ease', flexShrink: 0 }} />
+                    ))}
+                  </div>
+                )}
                 <span style={{ fontSize: 11, color: 'var(--mute)' }}>{tile.sub}</span>
               </div>
             ))}
