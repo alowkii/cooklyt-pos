@@ -30,6 +30,10 @@ export function useWebSocket({ onEvent } = {}) {
           const { event, data: payload } = JSON.parse(data);
           switch (event) {
             case 'NEW_ORDER':
+              qc.invalidateQueries({ queryKey: ['kitchen'] });
+              qc.invalidateQueries({ queryKey: ['orders'] });
+              qc.invalidateQueries({ queryKey: ['tables'] });
+              break;
             case 'ORDER_UPDATED':
             case 'ORDER_STATUS_CHANGED':
             case 'ORDER_PREPARING':

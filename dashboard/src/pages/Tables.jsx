@@ -3,7 +3,7 @@ import { Plus, QrCode, Copy, Check, LayoutGrid, X, Minus, List, User, UserCheck,
 import QRCode from 'qrcode';
 import { useTables, useUpdateTableStatus, useCreateTable, useUpdateTablePosition, useAssignTableStaff } from '../hooks/useTables';
 import { useActiveOrders } from '../hooks/useOrders';
-import { useUsers } from '../hooks/useUsers';
+import { useUsers, useMeProfile } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../hooks/useSettings';
 import Modal from '../components/Modal';
@@ -57,7 +57,8 @@ export default function Tables() {
   const { data: tables = [], isLoading } = useTables();
   const { data: activeOrders = [] } = useActiveOrders();
   const { data: settings } = useSettings();
-  const { data: allUsers = [] } = useUsers();
+  const { data: allUsers = [] }  = useUsers();
+  const { data: meProfile }      = useMeProfile();
   const updateStatus   = useUpdateTableStatus();
   const updatePosition = useUpdateTablePosition();
   const createTable    = useCreateTable();
@@ -595,7 +596,8 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             const statusColor = STATUS_DOT[t.status] ?? 'var(--mute-2)';
             const statusSoft  = STATUS_SOFT[t.status] ?? 'transparent';
             const isStaffOpen  = expandedStaff === t.id;
-            const assignedPin  = staffUsers.find((u) => u.id === t.assigned_staff_id)?.staff_pin;
+            const loggedInPin  = meProfile?.staff_pin;
+            const assignedPin  = loggedInPin || allUsers.find((u) => u.id === t.assigned_staff_id)?.staff_pin;
             const menuUrl      = `${menuBase}/order/${t.id}${assignedPin ? `?staff=${assignedPin}` : ''}`;
 
             const iconBtn = {

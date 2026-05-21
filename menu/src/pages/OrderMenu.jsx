@@ -109,6 +109,19 @@ export default function OrderMenu() {
     } catch { /* silent */ }
   }, []);
 
+  const fetchTableInfo = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/public/table/${tableId}`);
+      if (res.ok) setTableInfo(await res.json());
+    } catch { /* silent */ }
+  }, [tableId]);
+
+  // Sync staffName from server whenever the table's assignment changes
+  useEffect(() => {
+    const name = tableInfo?.assigned_staff_name;
+    if (name && name !== staffName) setStaffName(name);
+  }, [tableInfo?.assigned_staff_name]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     async function load() {
       try {
@@ -129,14 +142,19 @@ export default function OrderMenu() {
       }
     }
     load();
-    const interval = setInterval(() => fetchOrders(tableId), 12000);
+    const interval = setInterval(() => { fetchOrders(tableId); fetchTableInfo(); }, 12000);
     return () => clearInterval(interval);
-  }, [tableId, fetchOrders]);
+  }, [tableId, fetchOrders, fetchTableInfo]);
 
-  // Auto-verify URL-provided staff PIN once tableInfo is available
+  // Auto-verify and auto-assign URL-provided staff PIN once tableInfo is available
   useEffect(() => {
-    if (!tableInfo?.restaurant_id || !staffPin) return;
+    if (!tableInfo?.restaurant_id || !staffPin || !pinFromUrl) return;
     verifyPin(staffPin, tableInfo.restaurant_id);
+    fetch(`/api/public/table/${tableId}/staff`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffPin }),
+    }).catch(() => {});
   }, [tableInfo?.restaurant_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
@@ -1032,154 +1050,140 @@ export default function OrderMenu() {
       </div>
 
       {/* Staff PIN bar — shown when feature is enabled */}
-      {tableInfo?.staff_assignment_enabled && (
-        <div className="flex items-center gap-2" style={{
-          padding: '8px 16px',
-          background: 'var(--paper)',
-          borderBottom: '1px solid var(--line)',
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--mute)', whiteSpace: 'nowrap' }}>
-            Staff code
-          </span>
+      {tableInfo?.staff_assignment_enabled && (() => {
+        // Locked when: came from URL, customer set it this session, or server has an assignment
+        const isLocked = pinFromUrl || staffAssigned || !!tableInfo?.assigned_staff_name;
+        // Show masked dots only when this client knows the PIN
+        const showDots = pinFromUrl || staffAssigned;
 
-          {pinFromUrl ? (
-            /* Locked — pre-set via URL, customer cannot change */
-            <>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 70, height: 28,
-                border: '1px solid var(--line-2)', borderRadius: 6,
-                background: 'var(--paper-2)',
-                fontSize: 14, fontFamily: 'monospace', letterSpacing: '0.2em',
-                color: 'var(--mute-2)', userSelect: 'none',
-              }}>
-                {'·'.repeat(staffPin.length || 4)}
-              </span>
-              {pinVerifying && (
-                <span style={{ fontSize: 11, color: 'var(--mute)' }}>Verifying…</span>
-              )}
-              {staffName && !pinVerifying && (
-                <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
-                  ✓ {staffName}
-                </span>
-              )}
-              {staffPin && !staffName && !pinVerifying && (
-                <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Set by staff</span>
-              )}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--mute-2)" strokeWidth="2"
-                   strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, flexShrink: 0 }}
-                   aria-label="Locked">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              {staffName && !pinVerifying && (
-                <button
-                  onClick={assignStaffToTable}
-                  disabled={staffAssigning || staffAssigned}
+        return (
+          <div className="flex items-center gap-2" style={{
+            padding: '8px 16px',
+            background: 'var(--paper)',
+            borderBottom: '1px solid var(--line)',
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--mute)', whiteSpace: 'nowrap' }}>
+              Staff code
+            </span>
+
+            {isLocked ? (
+              <>
+                {showDots && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 70, height: 28,
+                    border: '1px solid var(--line-2)', borderRadius: 6,
+                    background: 'var(--paper-2)',
+                    fontSize: 14, fontFamily: 'monospace', letterSpacing: '0.2em',
+                    color: 'var(--mute-2)', userSelect: 'none',
+                  }}>
+                    {'·'.repeat(staffPin.length || 4)}
+                  </span>
+                )}
+                {pinVerifying && (
+                  <span style={{ fontSize: 11, color: 'var(--mute)' }}>Verifying…</span>
+                )}
+                {staffName && !pinVerifying && (
+                  <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
+                    ✓ {staffName}
+                  </span>
+                )}
+                {!staffName && !pinVerifying && (
+                  <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Assigned</span>
+                )}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--mute-2)" strokeWidth="2"
+                     strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, flexShrink: 0 }}
+                     aria-label="Locked">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                {/* Set button only for URL-preset PIN (staff proactively claiming table) */}
+                {pinFromUrl && staffName && !pinVerifying && (
+                  <button
+                    onClick={assignStaffToTable}
+                    disabled={staffAssigning || staffAssigned}
+                    style={{
+                      marginLeft: 'auto', flexShrink: 0,
+                      height: 26, padding: '0 10px', borderRadius: 6,
+                      border: staffAssigned ? '1px solid var(--ok)' : '1px solid var(--line-2)',
+                      background: staffAssigned ? 'rgba(31,138,91,.08)' : 'var(--paper-2)',
+                      color: staffAssigned ? 'var(--ok)' : 'var(--ink)',
+                      fontSize: 11.5, fontWeight: 600,
+                      cursor: staffAssigning || staffAssigned ? 'default' : 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'all .15s',
+                      opacity: staffAssigning ? 0.6 : 1,
+                    }}
+                  >
+                    {staffAssigning ? 'Assigning…' : staffAssigned ? '✓ Assigned' : 'Set'}
+                  </button>
+                )}
+              </>
+            ) : (
+              /* Editable — no staff assigned yet, customer can enter PIN */
+              <>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={staffPin}
+                  onChange={(e) => {
+                    setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4));
+                    setStaffName('');
+                  }}
+                  placeholder="1234"
                   style={{
-                    marginLeft: 'auto', flexShrink: 0,
-                    height: 26, padding: '0 10px', borderRadius: 6,
-                    border: staffAssigned ? '1px solid var(--ok)' : '1px solid var(--line-2)',
-                    background: staffAssigned ? 'rgba(31,138,91,.08)' : 'var(--paper-2)',
-                    color: staffAssigned ? 'var(--ok)' : 'var(--ink)',
+                    width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
+                    padding: '4px 8px', fontSize: 14, fontFamily: 'monospace',
+                    letterSpacing: '0.2em', textAlign: 'center',
+                    background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={async () => {
+                    if (staffAssigning || staffPin.length !== 4) return;
+                    setStaffAssigning(true);
+                    try {
+                      const vRes = await fetch(`/api/public/staff/verify-pin/${tableInfo.restaurant_id}/${staffPin}`);
+                      if (!vRes.ok) { setStaffName(''); setStaffAssigning(false); return; }
+                      const { name } = await vRes.json();
+                      setStaffName(name);
+                      const aRes = await fetch(`/api/public/table/${tableId}/staff`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ staffPin }),
+                      });
+                      if (!aRes.ok) throw new Error();
+                      setStaffAssigned(true);
+                    } catch {
+                      showToast('Could not assign staff. Please try again.');
+                    } finally {
+                      setStaffAssigning(false);
+                    }
+                  }}
+                  disabled={staffPin.length !== 4 || staffAssigning}
+                  style={{
+                    flexShrink: 0,
+                    height: 28, padding: '0 10px', borderRadius: 6,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--paper-2)',
+                    color: staffPin.length === 4 ? 'var(--ink)' : 'var(--mute-2)',
                     fontSize: 11.5, fontWeight: 600,
-                    cursor: staffAssigning || staffAssigned ? 'default' : 'pointer',
+                    cursor: staffPin.length !== 4 || staffAssigning ? 'default' : 'pointer',
                     fontFamily: 'inherit',
-                    transition: 'all .15s',
                     opacity: staffAssigning ? 0.6 : 1,
                   }}
                 >
-                  {staffAssigning ? 'Assigning…' : staffAssigned ? '✓ Assigned' : 'Set'}
+                  {staffAssigning ? 'Setting…' : 'Set'}
                 </button>
-              )}
-            </>
-          ) : staffAssigned ? (
-            /* Locked after customer sets the code */
-            <>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 70, height: 28,
-                border: '1px solid var(--line-2)', borderRadius: 6,
-                background: 'var(--paper-2)',
-                fontSize: 14, fontFamily: 'monospace', letterSpacing: '0.2em',
-                color: 'var(--mute-2)', userSelect: 'none',
-              }}>
-                {'·'.repeat(staffPin.length || 4)}
-              </span>
-              <span style={{ fontSize: 11.5, color: 'var(--ok)', fontWeight: 600 }}>
-                ✓ {staffName}
-              </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--mute-2)" strokeWidth="2"
-                   strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, flexShrink: 0 }}
-                   aria-label="Locked">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            </>
-          ) : (
-            /* Editable — customer-entered PIN */
-            <>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={staffPin}
-                onChange={(e) => {
-                  setStaffPin(e.target.value.replace(/\D/g, '').slice(0, 4));
-                  setStaffName('');
-                }}
-                placeholder="1234"
-                style={{
-                  width: 70, border: '1px solid var(--line-2)', borderRadius: 6,
-                  padding: '4px 8px', fontSize: 14, fontFamily: 'monospace',
-                  letterSpacing: '0.2em', textAlign: 'center',
-                  background: 'var(--paper-2)', color: 'var(--ink)', outline: 'none',
-                }}
-              />
-              <button
-                onClick={async () => {
-                  if (staffAssigning || staffPin.length !== 4) return;
-                  setStaffAssigning(true);
-                  try {
-                    const vRes = await fetch(`/api/public/staff/verify-pin/${tableInfo.restaurant_id}/${staffPin}`);
-                    if (!vRes.ok) { setStaffName(''); setStaffAssigning(false); return; }
-                    const { name } = await vRes.json();
-                    setStaffName(name);
-                    const aRes = await fetch(`/api/public/table/${tableId}/staff`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ staffPin }),
-                    });
-                    if (!aRes.ok) throw new Error();
-                    setStaffAssigned(true);
-                  } catch {
-                    showToast('Could not assign staff. Please try again.');
-                  } finally {
-                    setStaffAssigning(false);
-                  }
-                }}
-                disabled={staffPin.length !== 4 || staffAssigning}
-                style={{
-                  flexShrink: 0,
-                  height: 28, padding: '0 10px', borderRadius: 6,
-                  border: '1px solid var(--line-2)',
-                  background: 'var(--paper-2)',
-                  color: staffPin.length === 4 ? 'var(--ink)' : 'var(--mute-2)',
-                  fontSize: 11.5, fontWeight: 600,
-                  cursor: staffPin.length !== 4 || staffAssigning ? 'default' : 'pointer',
-                  fontFamily: 'inherit',
-                  opacity: staffAssigning ? 0.6 : 1,
-                }}
-              >
-                {staffAssigning ? 'Setting…' : 'Set'}
-              </button>
-              {staffPin.length === 4 && !staffName && !staffAssigning && (
-                <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
-              )}
-            </>
-          )}
-        </div>
-      )}
+                {staffPin.length === 4 && !staffName && !staffAssigning && (
+                  <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>Not found</span>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Content */}
       <div className="flex flex-1 flex-col overflow-hidden">

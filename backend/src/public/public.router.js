@@ -25,9 +25,11 @@ router.get('/table/:tableId', async (req, res, next) => {
       `SELECT t.id, t.number AS table_number, t.status, t.seats,
               r.id AS restaurant_id, r.name AS restaurant_name,
               COALESCE(cur.value, 'USD') AS currency_code,
-              COALESCE(sae.value, 'false') AS staff_assignment_enabled
+              COALESCE(sae.value, 'false') AS staff_assignment_enabled,
+              CASE WHEN u.id IS NOT NULL THEN COALESCE(u.name, u.email) END AS assigned_staff_name
        FROM tables t
        JOIN restaurants r ON r.id = t.restaurant_id
+       LEFT JOIN users u   ON u.id  = t.assigned_staff_id
        LEFT JOIN settings cur ON cur.restaurant_id = t.restaurant_id AND cur.key = 'currency'
        LEFT JOIN settings sae ON sae.restaurant_id = t.restaurant_id AND sae.key = 'staff_assignment_enabled'
        WHERE t.id = $1`,
