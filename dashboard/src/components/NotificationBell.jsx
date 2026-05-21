@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck } from 'lucide-react';
+import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock } from 'lucide-react';
 
 const EVENT_CONFIG = {
-  NEW_ORDER:         { label: 'New order',        Icon: ClipboardList, color: 'var(--info)' },
-  ORDER_READY:       { label: 'Ready to serve',   Icon: CheckCircle2,  color: 'var(--ok)'   },
-  PAYMENT_COMPLETED: { label: 'Payment received', Icon: CreditCard,    color: 'var(--ok)'   },
-  BILL_REQUESTED:    { label: 'Bill requested',   Icon: Receipt,       color: 'var(--warn)'  },
-  STAFF_ASSIGNED:    { label: 'Table assigned',   Icon: UserCheck,     color: 'var(--ok)'   },
+  NEW_ORDER:            { label: 'New order',            Icon: ClipboardList, color: 'var(--info)' },
+  ORDER_READY:          { label: 'Ready to serve',       Icon: CheckCircle2,  color: 'var(--ok)'   },
+  PAYMENT_COMPLETED:    { label: 'Payment received',     Icon: CreditCard,    color: 'var(--ok)'   },
+  BILL_REQUESTED:       { label: 'Bill requested',       Icon: Receipt,       color: 'var(--warn)' },
+  STAFF_ASSIGNED:       { label: 'Table assigned',       Icon: UserCheck,     color: 'var(--ok)'   },
+  RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)' },
 };
 
 function timeAgo(ts) {

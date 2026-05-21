@@ -270,7 +270,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           </h1>
           <span style={{ fontSize: 12, color: 'var(--mute)' }}>{tables.length} total</span>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+        <div className="flex items-center gap-2 sm:ml-auto overflow-x-auto" style={{ flexShrink: 0, scrollbarWidth: 'none' }}>
           {!layoutMode && tables.some((t) => t.x_pos != null) && (
             <button
               onClick={() => setShowFloorPlan((v) => !v)}
@@ -309,22 +309,22 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             </button>
           )}
           {isAdmin && !layoutMode && (
-            <button onClick={() => { setLayoutMode(true); setShowFloorPlan(false); }} className="btn">
+            <button onClick={() => { setLayoutMode(true); setShowFloorPlan(false); }} className="btn shrink-0">
               <LayoutGrid size={13} /><span className="hidden sm:inline"> Arrange</span>
             </button>
           )}
           {isAdmin && layoutMode && (
-            <button onClick={() => setLayoutMode(false)} className="btn">
+            <button onClick={() => setLayoutMode(false)} className="btn shrink-0">
               <X size={13} /><span className="hidden sm:inline"> Done</span>
             </button>
           )}
           {isAdmin && !layoutMode && reservationsEnabled && (
-            <button onClick={() => navigate('/tables/reservations')} className="btn">
+            <button onClick={() => navigate('/tables/reservations')} className="btn shrink-0">
               <CalendarClock size={13} /><span className="hidden sm:inline"> Reservations</span>
             </button>
           )}
           {isAdmin && !layoutMode && (
-            <button onClick={() => { setAddError(''); setAddModal(true); }} className="btn-primary">
+            <button onClick={() => { setAddError(''); setAddModal(true); }} className="btn-primary shrink-0">
               <Plus size={13} /><span className="hidden sm:inline"> Add table</span>
             </button>
           )}
@@ -353,7 +353,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           { label: 'Avg dwell', value: avgDwellMins ? `${avgDwellMins}m` : '—', sub: 'Current sitting' },
         ];
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
             {tiles.map((tile) => (
               <div key={tile.label} className="strip-tile" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)' }}>{tile.label}</span>
@@ -374,14 +374,14 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
       {/* Filter chips */}
       {!layoutMode && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
           {[{ id: 'all', label: 'All', count: tables.length }, ...STATUSES.map((s) => ({ id: s, label: s[0].toUpperCase() + s.slice(1), count: counts[s] }))].map(({ id, label, count }) => {
             const active = filter === id;
             const color  = id === 'all' ? 'var(--ink)' : STATUS_DOT[id];
             const soft   = id === 'all' ? 'var(--paper-2)' : STATUS_SOFT[id];
             return (
               <button key={id} onClick={() => setFilter(id)} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
                 height: 28, padding: '0 10px', borderRadius: 999,
                 border: active ? `1px solid ${color}` : '1px solid var(--line-2)',
                 background: active ? soft : 'var(--paper)',
@@ -612,7 +612,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
           No tables yet{isAdmin ? ' — add one to get started' : ''}
         </div>
       ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+        <div className="grid gap-4 sm:gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))' }}>
           {filteredTables.map((t) => {
             const order       = ordersByTable[t.id];
             const staff       = staffByTable[t.id];
@@ -643,10 +643,10 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                 borderRadius: 14,
                 background: 'var(--paper)',
                 border: '1px solid var(--line-2)',
-                padding: '20px 18px 17px',
+                padding: 'clamp(14px, 3vw, 22px) clamp(14px, 3vw, 20px) clamp(12px, 2.5vw, 20px)',
                 display: 'flex', flexDirection: 'column',
-                gap: 13, overflow: 'hidden',
-                minHeight: 300,
+                gap: 14, overflow: 'hidden',
+                minHeight: 'clamp(260px, 40vw, 320px)',
                 boxShadow: '0 1px 2px rgba(20,18,10,0.03), 0 1px 0 rgba(255,255,255,0.5) inset',
               }}>
                 {/* Left gradient edge */}
@@ -660,7 +660,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--mute-2)' }}>Table</span>
-                    <span className="mono num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-.04em', lineHeight: 0.88, color: 'var(--ink)', marginTop: 3 }}>
+                    <span className="mono num" style={{ fontSize: 'clamp(32px, 6vw, 44px)', fontWeight: 700, letterSpacing: '-.04em', lineHeight: 0.88, color: 'var(--ink)', marginTop: 3 }}>
                       {String(t.number).padStart(2, '0')}
                     </span>
                   </div>

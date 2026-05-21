@@ -49,6 +49,10 @@ export function useWebSocket({ onEvent } = {}) {
             case 'TABLE_UPDATED':
               qc.invalidateQueries({ queryKey: ['tables'] });
               break;
+            case 'RESERVATION_REMINDER':
+              qc.invalidateQueries({ queryKey: ['reservations'] });
+              qc.invalidateQueries({ queryKey: ['tables'] });
+              break;
             case 'STAFF_ASSIGNED':
               qc.invalidateQueries({ queryKey: ['orders'] });
               qc.invalidateQueries({ queryKey: ['tables'] });
