@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Camera, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe, useTakeSnapshot } from '../hooks/useRecipes';
 import { useIngredients } from '../hooks/useIngredients';
@@ -69,10 +70,24 @@ export default function Recipes() {
   const deleteRecipe   = useDeleteRecipe();
   const takeSnapshot   = useTakeSnapshot();
 
+  const location = useLocation();
+  const rowRefs  = useRef({});
+
   const [modal,         setModal]         = useState(null); // null | 'add' | recipe
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [expanded,      setExpanded]      = useState(new Set());
+  const [expanded,      setExpanded]      = useState(() => {
+    const id = location.state?.expandRecipeId;
+    return id ? new Set([id]) : new Set();
+  });
   const [form,          setForm]          = useState(EMPTY_FORM);
+
+  // Scroll to the targeted recipe once rows are rendered
+  useEffect(() => {
+    const id = location.state?.expandRecipeId;
+    if (!id) return;
+    const el = rowRefs.current[id];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.state?.expandRecipeId, recipes.length]);
 
   // Menu items without a recipe linked yet (for the "Link to menu item" select)
   const linkedIds  = useMemo(() => new Set(recipes.map((r) => r.linked_menu_item_id).filter(Boolean)), [recipes]);
@@ -200,6 +215,7 @@ export default function Recipes() {
             return (
               <div
                 key={recipe.id}
+                ref={(el) => { rowRefs.current[recipe.id] = el; }}
                 style={{ borderBottom: idx < recipes.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
                 {/* Row header */}

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff, BookOpen } from 'lucide-react';
 import {
   useMenuItems,
@@ -155,6 +156,7 @@ export default function Menu() {
   const { data: items = [], isLoading } = useMenuItems();
   const { data: recipes = [] } = useRecipes();
   const { isAdmin }  = useAuth();
+  const navigate     = useNavigate();
   const { format, currency } = useCurrency();
   const createItem = useCreateMenuItem();
   const updateItem = useUpdateMenuItem();
@@ -165,6 +167,7 @@ export default function Menu() {
   const [modal,         setModal]         = useState(null);
   const [form,          setForm]          = useState(EMPTY_FORM);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [recipePreview, setRecipePreview] = useState(null); // recipe object
 
   // Derive categories dynamically from items, preserving natural order
   const categories = useMemo(() => {
@@ -376,12 +379,17 @@ export default function Menu() {
                     </span>
                   )}
                   {item.recipe_id && (
-                    <span
-                      title={recipes.find(r => r.id === item.recipe_id)?.name || 'Recipe linked'}
-                      style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center' }}
+                    <button
+                      type="button"
+                      onClick={() => setRecipePreview(recipes.find(r => r.id === item.recipe_id) || null)}
+                      title="View linked recipe"
+                      style={{
+                        color: '#16a34a', display: 'inline-flex', alignItems: 'center',
+                        background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                      }}
                     >
                       <BookOpen size={11} />
-                    </span>
+                    </button>
                   )}
                   {item.customization_groups?.length > 0 && (
                     <span
@@ -561,6 +569,36 @@ export default function Menu() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Recipe Preview Modal */}
+      {recipePreview && (
+        <Modal title="Linked Recipe" onClose={() => setRecipePreview(null)}>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <BookOpen size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{recipePreview.name}</span>
+            </div>
+            <div className="flex gap-4" style={{ fontSize: 12.5, color: 'var(--mute)' }}>
+              {recipePreview.yield_quantity && (
+                <span>Yield: <strong style={{ color: 'var(--ink)' }}>{recipePreview.yield_quantity} {recipePreview.yield_unit}</strong></span>
+              )}
+              {recipePreview.prep_time_sec && (
+                <span>Prep: <strong style={{ color: 'var(--ink)' }}>{Math.round(recipePreview.prep_time_sec / 60)} min</strong></span>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2" style={{ marginTop: 20 }}>
+            {isAdmin && (
+              <button
+                onClick={() => { setRecipePreview(null); navigate('/recipes', { state: { expandRecipeId: recipePreview.id } }); }}
+                className="btn-primary"
+              >
+                <BookOpen size={13} /> View Recipe
+              </button>
+            )}
+          </div>
         </Modal>
       )}
 
