@@ -22,46 +22,46 @@ const SEED_USERS = [
 // Full menu across categories (prices in INR)
 const MENU = [
   // Starters
-  { name: 'Veg Spring Rolls',       price:  280, category: 'Starters' },
-  { name: 'Chicken Wings',          price:  450, category: 'Starters' },
-  { name: 'Garlic Bread',           price:  180, category: 'Starters' },
-  { name: 'Onion Rings',            price:  220, category: 'Starters' },
-  { name: 'Paneer Tikka',           price:  380, category: 'Starters' },
-  { name: 'Crispy Calamari',        price:  480, category: 'Starters' },
-  { name: 'Bruschetta',             price:  250, category: 'Starters' },
-  { name: 'Soup of the Day',        price:  180, category: 'Starters' },
+  { name: 'Veg Spring Rolls',       price:  280, category: 'Starters', description: 'Crispy rolls filled with seasoned mixed vegetables, served with sweet chili dipping sauce.' },
+  { name: 'Chicken Wings',          price:  450, category: 'Starters', description: 'Tender chicken wings tossed in our signature BBQ glaze, garnished with spring onions.' },
+  { name: 'Garlic Bread',           price:  180, category: 'Starters', description: 'Toasted sourdough slices with herb butter and roasted garlic, served warm.' },
+  { name: 'Onion Rings',            price:  220, category: 'Starters', description: 'Golden-fried onion rings with a light, crispy batter. Served with ranch dip.' },
+  { name: 'Paneer Tikka',           price:  380, category: 'Starters', description: 'Marinated cottage cheese cubes char-grilled in a tandoor with peppers and onions.' },
+  { name: 'Crispy Calamari',        price:  480, category: 'Starters', description: 'Lightly breaded squid rings fried until golden, served with lemon aioli.' },
+  { name: 'Bruschetta',             price:  250, category: 'Starters', description: 'Toasted bread rubbed with garlic, topped with diced tomatoes, basil, and olive oil.' },
+  { name: 'Soup of the Day',        price:  180, category: 'Starters', description: "Chef's freshly prepared soup — ask your server for today's selection." },
 
   // Mains
-  { name: 'Butter Chicken',         price:  380, category: 'Mains' },
-  { name: 'Dal Makhani',            price:  280, category: 'Mains' },
-  { name: 'Veg Fried Rice',         price:  220, category: 'Mains' },
-  { name: 'Chicken Biryani',        price:  420, category: 'Mains' },
-  { name: 'Grilled Chicken Steak',  price:  599, category: 'Mains' },
-  { name: 'Fish & Chips',           price:  480, category: 'Mains' },
-  { name: 'Veg Burger',             price:  280, category: 'Mains' },
-  { name: 'Chicken Burger',         price:  320, category: 'Mains' },
-  { name: 'Margherita Pizza',       price:  380, category: 'Mains' },
-  { name: 'BBQ Chicken Pizza',      price:  450, category: 'Mains' },
-  { name: 'Pasta Arrabbiata',       price:  320, category: 'Mains' },
-  { name: 'Paneer Butter Masala',   price:  340, category: 'Mains' },
+  { name: 'Butter Chicken',         price:  380, category: 'Mains', description: 'Tender chicken in a rich, creamy tomato-based curry. Best paired with naan or rice.' },
+  { name: 'Dal Makhani',            price:  280, category: 'Mains', description: 'Slow-cooked black lentils simmered overnight in butter and cream. A classic North Indian staple.' },
+  { name: 'Veg Fried Rice',         price:  220, category: 'Mains', description: 'Wok-tossed basmati rice with seasonal vegetables, garlic, and soy seasoning.' },
+  { name: 'Chicken Biryani',        price:  420, category: 'Mains', description: 'Fragrant long-grain rice layered with spiced chicken, slow-cooked and finished with saffron.' },
+  { name: 'Grilled Chicken Steak',  price:  599, category: 'Mains', description: 'Juicy marinated chicken breast grilled to perfection, served with herb butter and seasonal sides.' },
+  { name: 'Fish & Chips',           price:  480, category: 'Mains', description: 'Beer-battered fish fillet with golden crispy chips and housemade tartar sauce.' },
+  { name: 'Veg Burger',             price:  280, category: 'Mains', description: 'Spiced potato-veggie patty with lettuce, tomato, and chipotle mayo in a toasted bun.' },
+  { name: 'Chicken Burger',         price:  320, category: 'Mains', description: 'Grilled chicken thigh with coleslaw, pickles, and our house sauce in a brioche bun.' },
+  { name: 'Margherita Pizza',       price:  380, category: 'Mains', description: 'Wood-fired dough topped with San Marzano tomato sauce, fresh mozzarella, and basil.' },
+  { name: 'BBQ Chicken Pizza',      price:  450, category: 'Mains', description: 'Smoky BBQ sauce base with shredded chicken, mozzarella, and caramelised onions.' },
+  { name: 'Pasta Arrabbiata',       price:  320, category: 'Mains', description: 'Al dente pasta tossed in a fiery tomato and garlic sauce, finished with fresh parsley.' },
+  { name: 'Paneer Butter Masala',   price:  340, category: 'Mains', description: 'Soft paneer cubes in a velvety tomato-cashew gravy — mild, rich, and aromatic.' },
 
   // Desserts
-  { name: 'Chocolate Lava Cake',    price:  280, category: 'Desserts' },
-  { name: 'Gulab Jamun (2 pcs)',    price:  120, category: 'Desserts' },
-  { name: 'Vanilla Ice Cream',      price:  140, category: 'Desserts' },
-  { name: 'Mango Sorbet',           price:  160, category: 'Desserts' },
-  { name: 'Cheesecake',             price:  220, category: 'Desserts' },
-  { name: 'Tiramisu',               price:  260, category: 'Desserts' },
+  { name: 'Chocolate Lava Cake',    price:  280, category: 'Desserts', description: 'Warm dark chocolate cake with a molten center, served with a scoop of vanilla ice cream.' },
+  { name: 'Gulab Jamun (2 pcs)',    price:  120, category: 'Desserts', description: 'Soft milk-solid dumplings soaked in rose-cardamom sugar syrup.' },
+  { name: 'Vanilla Ice Cream',      price:  140, category: 'Desserts', description: 'Classic French vanilla ice cream made with fresh cream and real vanilla bean.' },
+  { name: 'Mango Sorbet',           price:  160, category: 'Desserts', description: 'Refreshing sorbet made with Alphonso mango pulp and a hint of lime.' },
+  { name: 'Cheesecake',             price:  220, category: 'Desserts', description: 'Creamy New York-style baked cheesecake on a buttery biscuit crust.' },
+  { name: 'Tiramisu',               price:  260, category: 'Desserts', description: 'Layers of espresso-soaked ladyfingers with mascarpone cream, dusted with cocoa.' },
 
   // Drinks
-  { name: 'Mango Lassi',            price:  120, category: 'Drinks' },
-  { name: 'Fresh Lime Soda',        price:   80, category: 'Drinks' },
-  { name: 'Masala Chai',            price:   60, category: 'Drinks' },
-  { name: 'Cold Coffee',            price:  140, category: 'Drinks' },
-  { name: 'Fresh Orange Juice',     price:  140, category: 'Drinks' },
-  { name: 'Mineral Water',          price:   40, category: 'Drinks' },
-  { name: 'Soft Drink (Can)',       price:   60, category: 'Drinks' },
-  { name: 'Sparkling Water',        price:   80, category: 'Drinks' },
+  { name: 'Mango Lassi',            price:  120, category: 'Drinks', description: 'Chilled yogurt drink blended with sweet Alphonso mango pulp and a pinch of cardamom.' },
+  { name: 'Fresh Lime Soda',        price:   80, category: 'Drinks', description: 'Freshly squeezed lime with sparkling water — choose sweet, salted, or mixed.' },
+  { name: 'Masala Chai',            price:   60, category: 'Drinks', description: 'Spiced Indian tea brewed with ginger, cardamom, and cinnamon, served with milk.' },
+  { name: 'Cold Coffee',            price:  140, category: 'Drinks', description: 'Chilled filter coffee blended with milk and sugar — strong and refreshing.' },
+  { name: 'Fresh Orange Juice',     price:  140, category: 'Drinks', description: 'Freshly squeezed juice from hand-picked oranges — served chilled.' },
+  { name: 'Mineral Water',          price:   40, category: 'Drinks', description: 'Still mineral water, 500 ml.' },
+  { name: 'Soft Drink (Can)',       price:   60, category: 'Drinks', description: 'Your choice of chilled Coca-Cola, Sprite, or Limca.' },
+  { name: 'Sparkling Water',        price:   80, category: 'Drinks', description: 'Chilled sparkling mineral water, 330 ml.' },
 ];
 
 // Orders spread through today — [hour, minute, tableIndex, [[itemName, qty], ...]]
@@ -354,6 +354,8 @@ async function main() {
   await client.query('DELETE FROM combo_meals          WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM recipes              WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM ingredients          WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  // Reservations
+  await client.query('DELETE FROM reservations WHERE restaurant_id = $1', [RESTAURANT_ID]);
   // Core tables
   await client.query(`
     DELETE FROM payments
@@ -381,10 +383,12 @@ async function main() {
   console.log('Seeding settings…');
   await client.query(`
     INSERT INTO settings (restaurant_id, key, value) VALUES
-      ($1, 'timezone',       'Asia/Kolkata'),
-      ($1, 'currency',       'INR'),
-      ($1, 'tax_rate',       '5'),
-      ($1, 'service_charge', '0')
+      ($1, 'timezone',                 'Asia/Kolkata'),
+      ($1, 'currency',                 'INR'),
+      ($1, 'tax_rate',                 '5'),
+      ($1, 'service_charge',           '0'),
+      ($1, 'staff_assignment_enabled', 'true'),
+      ($1, 'reservations_enabled',     'true')
   `, [RESTAURANT_ID]);
 
   // ── 4. Users ───────────────────────────────────────────────────────────────
@@ -420,9 +424,9 @@ async function main() {
   const menuPriceByName = {};
   for (const item of MENU) {
     const { rows: [m] } = await client.query(`
-      INSERT INTO menu_items (name, price, category, available, restaurant_id)
-      VALUES ($1, $2, $3, true, $4) RETURNING id
-    `, [item.name, item.price, item.category, RESTAURANT_ID]);
+      INSERT INTO menu_items (name, price, category, available, restaurant_id, description)
+      VALUES ($1, $2, $3, true, $4, $5) RETURNING id
+    `, [item.name, item.price, item.category, RESTAURANT_ID, item.description || null]);
     menuIdByName[item.name] = m.id;
     menuPriceByName[item.name] = item.price;
   }
@@ -631,6 +635,28 @@ async function main() {
   }
   console.log(`  ${snapshotCount} cost snapshots inserted`);
 
+  // ── 15. Reservations ───────────────────────────────────────────────────────
+  console.log('Seeding reservations…');
+  // Two past (seated), two upcoming dinner slots
+  const RESERVATIONS = [
+    { guestName: 'Rahul Sharma',   guestPhone: '9876543210', partySize: 2, tableIdx: 0, hoursOffset: -4, status: 'seated',   notes: 'Window seat preferred' },
+    { guestName: 'Priya Nair',     guestPhone: '9812345678', partySize: 4, tableIdx: 2, hoursOffset: -2, status: 'seated',   notes: null },
+    { guestName: 'Vikram Mehta',   guestPhone: '9700011223', partySize: 3, tableIdx: 1, hoursOffset:  2, status: 'upcoming', notes: 'Anniversary dinner — surprise cake' },
+    { guestName: 'Sunita Kapoor',  guestPhone: '9988776655', partySize: 6, tableIdx: 4, hoursOffset:  4, status: 'upcoming', notes: 'Birthday party, need high chair' },
+  ];
+  let resCount = 0;
+  for (const r of RESERVATIONS) {
+    const reservedAt = new Date(Date.now() + r.hoursOffset * 3600 * 1000).toISOString();
+    const notifiedAt = r.status === 'seated' ? new Date(Date.now() + (r.hoursOffset + 0.25) * 3600 * 1000).toISOString() : null;
+    await client.query(`
+      INSERT INTO reservations
+        (restaurant_id, table_id, guest_name, guest_phone, party_size, reserved_at, status, notes, notified_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [RESTAURANT_ID, tableIds[r.tableIdx], r.guestName, r.guestPhone, r.partySize, reservedAt, r.status, r.notes, notifiedAt]);
+    resCount++;
+  }
+  console.log(`  ${resCount} reservations inserted`);
+
   await client.end();
 
   console.log('\nSeed complete!');
@@ -647,6 +673,7 @@ async function main() {
   console.log(`  Inv. txns  : ${INGREDIENTS.length} PURCHASE + ${saleTxnCount} SALE + ${WASTE_ENTRIES.length} WASTE`);
   console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
   console.log(`  Snapshots  : ${snapshotCount}`);
+  console.log(`  Reservations: ${resCount} (2 seated, 2 upcoming)`);
 }
 
 main().catch((e) => {
