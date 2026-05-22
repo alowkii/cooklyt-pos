@@ -2,8 +2,9 @@ const jwt = require('jsonwebtoken');
 const { UnauthorizedError, ForbiddenError } = require('../shared/errors');
 
 function authenticateSuperAdmin(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const cookieToken = req.cookies?.admin_token;
+  const authHeader  = req.headers['authorization'];
+  const token       = cookieToken || (authHeader && authHeader.split(' ')[1]);
 
   if (!token) return next(new UnauthorizedError('No token provided'));
 

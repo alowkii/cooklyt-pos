@@ -39,8 +39,7 @@ export default function Settings() {
     if (next !== confirm) { setPwdError('New passwords do not match.'); return; }
     if (next.length < 8)  { setPwdError('New password must be at least 8 characters.'); return; }
     try {
-      const data = await changePassword.mutateAsync({ currentPassword: current, newPassword: next });
-      localStorage.setItem('admin_token', data.token);
+      await changePassword.mutateAsync({ currentPassword: current, newPassword: next });
       setPwdSaved(true);
       setCurrent(''); setNext(''); setConfirm('');
       setTimeout(() => setPwdSaved(false), 3000);

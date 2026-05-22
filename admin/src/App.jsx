@@ -8,7 +8,7 @@ import AuditLogs        from './pages/AuditLogs';
 import Settings         from './pages/Settings';
 
 function RequireAuth({ children }) {
-  return localStorage.getItem('admin_token') ? children : <Navigate to="/login" replace />;
+  return localStorage.getItem('admin_user') ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {

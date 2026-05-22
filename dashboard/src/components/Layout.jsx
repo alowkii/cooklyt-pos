@@ -26,6 +26,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import QRCode from 'qrcode';
+import api from '../api/client';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -188,8 +189,8 @@ export default function Layout() {
     document.title = pageLabel ? `${pageLabel} — Cooklyt` : 'Cooklyt';
   }, [pageLabel]);
 
-  function logout() {
-    localStorage.removeItem('pos_token');
+  async function logout() {
+    try { await api.post('/auth/logout'); } catch {}
     localStorage.removeItem('pos_user');
     localStorage.removeItem('pos_restaurant');
     navigate('/login');

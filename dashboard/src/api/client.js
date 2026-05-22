@@ -3,19 +3,13 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   timeout: 8000,
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('pos_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  withCredentials: true, // send HttpOnly auth cookie on every request
 });
 
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('pos_token');
       localStorage.removeItem('pos_user');
       localStorage.removeItem('pos_restaurant');
       window.location.href = '/login';

@@ -4,6 +4,14 @@ const { authenticate, authorize } = require('../shared/middleware/auth');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
 
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure:   process.env.NODE_ENV === 'production',
+  maxAge:   8 * 60 * 60 * 1000, // 8 h — matches JWT expiry
+  path:     '/',
+};
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -24,7 +32,9 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       action: 'login', resourceType: 'user', resourceId: result.user.id,
       description: `User signed in (${result.user.email})`,
     });
-    res.json(result);
+    res.cookie('pos_token', result.token, COOKIE_OPTS);
+    const { token: _t, ...safe } = result; // strip token from response body
+    res.json(safe);
   } catch (e) {
     audit.log({
       actorType: 'user', actorId: null, restaurantId: null,
@@ -33,6 +43,11 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     });
     next(e);
   }
+});
+
+router.post('/logout', (req, res) => {
+  res.clearCookie('pos_token', { ...COOKIE_OPTS, maxAge: 0 });
+  res.status(204).send();
 });
 
 // Admin-only: register new staff/admin accounts within the same restaurant
@@ -96,7 +111,8 @@ router.post('/change-password', authenticate, writeLimiter, async (req, res, nex
       action: 'update', resourceType: 'user', resourceId: req.user.userId,
       description: 'Changed own password',
     });
-    res.json(result);
+    res.cookie('pos_token', result.token, COOKIE_OPTS);
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

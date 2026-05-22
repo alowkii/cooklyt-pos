@@ -4,6 +4,14 @@ const { authenticateSuperAdmin } = require('./admin.middleware');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
 
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure:   process.env.NODE_ENV === 'production',
+  maxAge:   8 * 60 * 60 * 1000,
+  path:     '/',
+};
+
 const sa = (req) => ({ actorType: 'super_admin', actorId: req.superAdmin.superAdminId });
 
 const loginLimiter = rateLimit({
@@ -22,7 +30,10 @@ const setupLimiter = rateLimit({
 
 router.post('/auth/setup', setupLimiter, async (req, res, next) => {
   try {
-    res.status(201).json(await service.setup(req.body.email, req.body.password));
+    const result = await service.setup(req.body.email, req.body.password);
+    res.cookie('admin_token', result.token, COOKIE_OPTS);
+    const { token: _t, ...safe } = result;
+    res.status(201).json(safe);
   } catch (e) { next(e); }
 });
 
@@ -30,7 +41,9 @@ router.post('/auth/login', loginLimiter, async (req, res, next) => {
   try {
     const result = await service.login(req.body.email, req.body.password);
     audit.log({ actorType: 'super_admin', actorId: result.admin.id, action: 'login', resourceType: 'super_admin', description: `Operator signed in (${result.admin.email})` });
-    res.json(result);
+    res.cookie('admin_token', result.token, COOKIE_OPTS);
+    const { token: _t, ...safe } = result;
+    res.json(safe);
   } catch (e) {
     audit.log({
       actorType: 'super_admin', actorId: null,
@@ -39,6 +52,11 @@ router.post('/auth/login', loginLimiter, async (req, res, next) => {
     });
     next(e);
   }
+});
+
+router.post('/auth/logout', (req, res) => {
+  res.clearCookie('admin_token', { ...COOKIE_OPTS, maxAge: 0 });
+  res.status(204).send();
 });
 
 router.get('/auth/me', authenticateSuperAdmin, async (req, res, next) => {
@@ -56,7 +74,8 @@ router.post('/auth/change-password', authenticateSuperAdmin, async (req, res, ne
       action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId,
       description: 'Changed own password',
     });
-    res.json(result);
+    res.cookie('admin_token', result.token, COOKIE_OPTS);
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

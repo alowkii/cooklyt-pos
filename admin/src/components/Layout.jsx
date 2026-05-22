@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound } from 'lucide-react';
+import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import ChangePasswordModal from './ChangePasswordModal';
 
@@ -19,8 +20,8 @@ export default function Layout() {
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
-  function logout() {
-    localStorage.removeItem('admin_token');
+  async function logout() {
+    try { await api.post('/auth/logout'); } catch {}
     localStorage.removeItem('admin_user');
     navigate('/login');
   }

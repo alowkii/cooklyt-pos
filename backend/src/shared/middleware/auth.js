@@ -3,8 +3,11 @@ const db = require('../db');
 const { UnauthorizedError, ForbiddenError } = require('../errors');
 
 async function authenticate(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  // HttpOnly cookie takes priority; fall back to Authorization header for
+  // non-browser clients (CLI tools, tests, mobile apps).
+  const cookieToken = req.cookies?.pos_token;
+  const authHeader  = req.headers['authorization'];
+  const token       = cookieToken || (authHeader && authHeader.split(' ')[1]);
 
   if (!token) return next(new UnauthorizedError('No token provided'));
 

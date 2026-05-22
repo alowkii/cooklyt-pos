@@ -17,11 +17,10 @@ export default function ChangePassword() {
     }
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/change-password', {
+      await api.post('/auth/change-password', {
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       });
-      localStorage.setItem('pos_token', data.token);
       const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
       user.forcePasswordChange = false;
       localStorage.setItem('pos_user', JSON.stringify(user));

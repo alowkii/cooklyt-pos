@@ -19,11 +19,10 @@ export default function ChangePasswordModal({ onClose }) {
 
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/change-password', {
+      await api.post('/auth/change-password', {
         currentPassword: current,
         newPassword:     next,
       });
-      localStorage.setItem('admin_token', data.token);
       setSuccess(true);
       setTimeout(onClose, 1500);
     } catch (e) {

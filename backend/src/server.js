@@ -1,6 +1,7 @@
 const http = require("http");
 const app = require("./app");
 const ws = require("./shared/websocket");
+const db = require("./shared/db");
 const reservationScheduler = require("./scheduler/reservations.scheduler");
 
 const PORT = process.env.PORT || 3000;
@@ -24,3 +25,17 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
+
+// Graceful shutdown: stop accepting connections, finish in-flight requests, close DB pool.
+function shutdown(signal) {
+  console.log(`${signal} received — shutting down`);
+  server.close(async () => {
+    try { await db.close(); } catch {}
+    process.exit(0);
+  });
+  // Force-exit if connections don't drain within 10 s
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));

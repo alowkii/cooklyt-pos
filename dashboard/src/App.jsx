@@ -25,40 +25,34 @@ import CostingReports   from './pages/CostingReports';
 import InventoryLedger  from './pages/InventoryLedger';
 import Reservations     from './pages/Reservations';
 
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch { return null; }
+}
+
 function RequireAuth({ children }) {
-  return localStorage.getItem('pos_token') ? children : <Navigate to="/login" replace />;
+  return getStoredUser() ? children : <Navigate to="/login" replace />;
 }
 
 function RequireGuest({ children }) {
-  return localStorage.getItem('pos_token') ? <Navigate to="/overview" replace /> : children;
+  return getStoredUser() ? <Navigate to="/overview" replace /> : children;
 }
 
 function RequireAdmin({ children }) {
-  const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
-  if (!localStorage.getItem('pos_token')) return <Navigate to="/login" replace />;
-  if (user?.role !== 'admin') return <Navigate to="/overview" replace />;
+  const user = getStoredUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to="/overview" replace />;
   return children;
 }
 
 function RequireNotKitchen({ children }) {
-  const user = JSON.parse(localStorage.getItem('pos_user') || '{}');
+  const user = getStoredUser();
   if (user?.role === 'kitchen') return <Navigate to="/orders" replace />;
   return children;
 }
 
-function getTokenClaims() {
-  const token = localStorage.getItem('pos_token');
-  if (!token) return null;
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-}
-
 function RequirePasswordSet({ children }) {
-  const claims = getTokenClaims();
-  if (claims?.forcePasswordChange) return <Navigate to="/change-password" replace />;
+  const user = getStoredUser();
+  if (user?.forcePasswordChange) return <Navigate to="/change-password" replace />;
   return children;
 }
 

@@ -16,7 +16,6 @@ export default function Login() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', form);
-      localStorage.setItem('pos_token',      data.token);
       localStorage.setItem('pos_user',       JSON.stringify(data.user));
       localStorage.setItem('pos_restaurant', JSON.stringify(data.restaurant));
       if (data.user.forcePasswordChange) {

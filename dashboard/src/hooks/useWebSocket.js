@@ -13,7 +13,9 @@ export function useWebSocket({ onEvent } = {}) {
   useEffect(() => { onEventRef.current = onEvent; });
 
   useEffect(() => {
-    if (!localStorage.getItem('pos_token')) return;
+    // Only connect when the user is authenticated (cookie is HttpOnly so we
+    // use the stored user profile as a proxy for "logged in").
+    if (!localStorage.getItem('pos_user')) return;
 
     let mounted = true;
 
@@ -22,7 +24,8 @@ export function useWebSocket({ onEvent } = {}) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'AUTH', token: localStorage.getItem('pos_token') }));
+        // Cookie is sent automatically by the browser on the WS upgrade
+        // request — no explicit AUTH message needed.
       };
 
       ws.onmessage = ({ data }) => {
@@ -65,10 +68,9 @@ export function useWebSocket({ onEvent } = {}) {
       };
 
       ws.onclose = () => {
-        // Skip reconnect if this effect instance was already cleaned up
         if (!mounted) return;
         timerRef.current = setTimeout(() => {
-          if (localStorage.getItem('pos_token')) connect();
+          if (localStorage.getItem('pos_user')) connect();
         }, 5000);
       };
 

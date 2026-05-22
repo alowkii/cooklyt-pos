@@ -13,7 +13,6 @@ export default function Setup() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/setup', form);
-      localStorage.setItem('admin_token', data.token);
       localStorage.setItem('admin_user', JSON.stringify(data.admin));
       navigate('/');
     } catch (err) {

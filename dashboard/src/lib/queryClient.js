@@ -10,6 +10,7 @@ export const queryClient = new QueryClient({
         if (error?.response?.status >= 400 && error?.response?.status < 500) return false;
         return failureCount < 2;
       },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000), // 1s → 2s → 4s … cap 30s
       refetchOnWindowFocus: false,
     },
   },
