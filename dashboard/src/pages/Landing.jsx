@@ -4,8 +4,8 @@ import {
   UtensilsCrossed,
   Wifi,
   BarChart2,
-  Users,
-  ShieldCheck,
+  Gift,
+  Package,
   Mail,
   Check,
   ArrowRight,
@@ -23,33 +23,33 @@ const MAILTO_HREF = `mailto:${DEMO_EMAIL}?subject=${encodeURIComponent("CookLyt 
 const FEATURES = [
   {
     Icon: Grid3X3,
-    title: "Table management",
-    body: "Visual floor plan, live seat counts, drag-to-arrange. Open, transfer, and close tables in one tap.",
+    title: "Tables & floor",
+    body: "Visual floor plan, live seat counts, drag-to-arrange. Open, transfer, and merge in one tap.",
   },
   {
     Icon: UtensilsCrossed,
-    title: "Menu builder",
-    body: "Categories, prices, modifiers, 86-button availability. Edits land on the kitchen screen instantly.",
+    title: "Menu & kitchen",
+    body: "Categories, modifiers, availability toggle. KOT prints the moment an order fires.",
   },
   {
     Icon: Wifi,
-    title: "Live kitchen sync",
-    body: "Orders reach the kitchen the moment they're placed. Offline-tolerant, with a sync badge that never lies.",
+    title: "Real-time sync",
+    body: "Orders reach the kitchen in under 3 seconds. Offline-tolerant with a live sync indicator.",
+  },
+  {
+    Icon: Gift,
+    title: "Loyalty & coupons",
+    body: "Points programme with configurable tiers and redeemable rewards. Coupon codes with usage caps, minimums, and expiry.",
   },
   {
     Icon: BarChart2,
-    title: "Reports & analytics",
-    body: "End-of-day revenue, top sellers, payment breakdowns, hourly heatmap — in one clean, exportable view.",
+    title: "Reports & shifts",
+    body: "Revenue, top sellers, hourly heatmap, payment splits. Shift summaries with cash denomination counts.",
   },
   {
-    Icon: Users,
-    title: "Multi-role access",
-    body: "Scoped logins for admins, floor staff, and kitchen crew. Every action is audit-logged.",
-  },
-  {
-    Icon: ShieldCheck,
-    title: "Operator console",
-    body: "Super-admin panel for multi-location chains: restaurants, users, settings, and full audit trails.",
+    Icon: Package,
+    title: "Inventory & costing",
+    body: "Recipe-linked ingredient tracking, waste logging, and per-dish food cost reports.",
   },
 ];
 
@@ -172,7 +172,7 @@ function DevicePreview() {
               marginLeft: 8,
             }}
           >
-            cooklyt.app · Orders
+            cooklyt.in · Orders
           </span>
           <span
             style={{
@@ -703,9 +703,9 @@ export default function Landing() {
                   margin: "0 0 28px",
                 }}
               >
-                Tables, menu, kitchen, and reports — one quiet, real-time
-                system, built for restaurants that can't afford downtime or
-                busywork.
+                Tables, kitchen, loyalty, inventory, and reports — one quiet,
+                real-time system built for restaurants that can't afford
+                downtime.
               </p>
 
               <div
