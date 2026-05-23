@@ -738,7 +738,7 @@ export default function Loyalty() {
     { key: 'members',  label: 'Members',           count: customers.length   },
     { key: 'rewards',  label: 'Rewards',            count: rewards.length     },
     { key: 'tiers',    label: 'Tiers',              count: sortedTiers.length },
-    { key: 'settings', label: 'Programme Settings', count: null               },
+    { key: 'settings', label: 'Programme Settings', count: null, Icon: Settings2 },
   ];
 
   const TIER_CHIPS = [{ key: 'all', label: 'All' }, ...sortedTiers.map((t) => ({ key: t.name, label: t.name }))];
@@ -786,7 +786,7 @@ export default function Loyalty() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--line-2)' }}>
-        {TABS.map(({ key, label, count }) => (
+        {TABS.map(({ key, label, count, Icon }) => (
           <button key={key} onClick={() => setActiveTab(key)} style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '8px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -797,7 +797,10 @@ export default function Loyalty() {
             borderBottomWidth: 2,
             borderBottomColor: activeTab === key ? 'var(--accent)' : 'transparent',
           }}>
-            {label}
+            {Icon
+              ? <><Icon size={15} className="sm:hidden" /><span className="hidden sm:inline">{label}</span></>
+              : label
+            }
             {count != null && (
               <span style={{
                 background: activeTab === key ? 'var(--accent)' : 'var(--paper-2)',
