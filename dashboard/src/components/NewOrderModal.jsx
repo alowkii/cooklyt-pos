@@ -163,7 +163,7 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
   return (
     <>
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(10,10,10,.32)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
