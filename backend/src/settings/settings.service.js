@@ -5,6 +5,7 @@ const ALLOWED_KEYS = new Set([
   'timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee',
   'staff_assignment_enabled', 'reservations_enabled',
   'loyalty_points_per_unit', 'loyalty_points_value',
+  'cash_denominations',
 ]);
 
 function validateTz(tz) {
@@ -55,6 +56,12 @@ async function update(key, value, restaurantId) {
   if (key === 'loyalty_points_value') {
     const n = parseFloat(value);
     if (isNaN(n) || n <= 0) throw new ValidationError('loyalty_points_value must be a positive number');
+  }
+  if (key === 'cash_denominations') {
+    const parts = String(value).split(',').map((s) => parseFloat(s.trim()));
+    if (parts.length === 0 || parts.some((n) => isNaN(n) || n <= 0)) {
+      throw new ValidationError('cash_denominations must be a comma-separated list of positive numbers');
+    }
   }
   await repo.set(restaurantId, key, value);
   return repo.getAll(restaurantId);

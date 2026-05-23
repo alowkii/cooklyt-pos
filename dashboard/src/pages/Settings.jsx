@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw, Gift } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw, Gift, Banknote, Lock, LockOpen } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
@@ -156,6 +156,10 @@ export default function Settings() {
   const [loyaltyEnabled,      setLoyaltyEnabled]      = useState(false);
   const [loyaltyPointsPerUnit, setLoyaltyPointsPerUnit] = useState('');
   const [loyaltyPointsValue,   setLoyaltyPointsValue]   = useState('');
+  const [denomInput,           setDenomInput]           = useState('');
+  const [denomLocked,          setDenomLocked]          = useState(false);
+  const [denomSaving,          setDenomSaving]          = useState(false);
+  const [denomErr,             setDenomErr]             = useState('');
   const [saving,          setSaving]          = useState(false);
   const [saveErr,         setSaveErr]         = useState('');
   const [saved,           setSaved]           = useState(false);
@@ -188,6 +192,10 @@ export default function Settings() {
     }
     if (settings.loyalty_points_per_unit !== undefined) setLoyaltyPointsPerUnit(settings.loyalty_points_per_unit || '');
     if (settings.loyalty_points_value    !== undefined) setLoyaltyPointsValue(settings.loyalty_points_value     || '');
+    if (settings.cash_denominations !== undefined) {
+      setDenomInput(settings.cash_denominations);
+      setDenomLocked(true);
+    }
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
@@ -279,6 +287,30 @@ export default function Settings() {
       await updateSetting.mutateAsync({ key: 'timezone', value: newIana });
     } catch {
       setSaveError('Failed to save timezone — change is local only.');
+    }
+  }
+
+  async function handleDenomLockToggle() {
+    if (denomLocked) {
+      setDenomErr('');
+      setDenomLocked(false);
+      return;
+    }
+    const parts = denomInput.split(',').map((s) => parseFloat(s.trim())).filter((n) => n > 0 && !isNaN(n));
+    if (parts.length === 0) {
+      setDenomErr('Enter at least one positive number.');
+      return;
+    }
+    const normalized = parts.join(', ');
+    setDenomErr(''); setDenomSaving(true);
+    try {
+      await updateSetting.mutateAsync({ key: 'cash_denominations', value: normalized });
+      setDenomInput(normalized);
+      setDenomLocked(true);
+    } catch {
+      setDenomErr('Failed to save.');
+    } finally {
+      setDenomSaving(false);
     }
   }
 
@@ -484,6 +516,52 @@ export default function Settings() {
             checked={loyaltyEnabled}
             onChange={(v) => { setLoyaltyEnabled(v); markDirty(); }}
           />
+        </div>
+      </div>
+
+      {/* ── Cash Denominations ──────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Banknote size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Cash Denominations</p>
+        </div>
+        <p style={{ fontSize: 11.5, color: 'var(--mute)', marginBottom: 10 }}>
+          Comma-separated list of note/coin values shown on the Shift Count page. Largest first.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={denomInput}
+            disabled={denomLocked}
+            onChange={(e) => { setDenomInput(e.target.value); setDenomErr(''); }}
+            placeholder="e.g. 500, 200, 100, 50, 20, 10, 5, 2, 1"
+            className="input mono"
+            style={{ flex: 1, minWidth: 220, opacity: denomLocked ? 0.6 : 1 }}
+          />
+          <button
+            type="button"
+            title={denomLocked ? 'Edit denominations' : 'Save and lock'}
+            onClick={handleDenomLockToggle}
+            disabled={denomSaving}
+            style={{
+              flexShrink: 0, width: 34, height: 34, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1px solid var(--line-2)', background: 'var(--paper)',
+              cursor: denomSaving ? 'default' : 'pointer',
+              color: denomLocked ? 'var(--mute)' : 'var(--ok)',
+              opacity: denomSaving ? 0.5 : 1,
+              transition: 'color .15s, border-color .15s',
+            }}
+            onMouseEnter={(e) => { if (!denomSaving) e.currentTarget.style.borderColor = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-2)'; }}
+          >
+            {denomLocked ? <Lock size={14} /> : <LockOpen size={14} />}
+          </button>
+          {denomErr && (
+            <span className="flex items-center gap-1" style={{ fontSize: 12, color: 'var(--bad)', flexShrink: 0 }}>
+              <AlertCircle size={12} /> {denomErr}
+            </span>
+          )}
         </div>
       </div>
 

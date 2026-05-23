@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
+import { useSettings } from '../hooks/useSettings';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -338,11 +339,18 @@ export default function ShiftCount() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { code, currency, format } = useCurrency();
+  const { data: settings } = useSettings();
   const { data: summary, isLoading: summaryLoading } = useShiftSummary();
   const { data: history = [] } = useShiftHistory();
   const record = useRecordShiftCount();
 
-  const denoms = DENOMS[code] || null;
+  const denoms = useMemo(() => {
+    if (settings?.cash_denominations) {
+      const parsed = settings.cash_denominations.split(',').map((s) => parseFloat(s.trim())).filter((n) => n > 0 && !isNaN(n));
+      if (parsed.length > 0) return parsed;
+    }
+    return DENOMS[code] || null;
+  }, [settings, code]);
   const [tab,          setTab]          = useState('cash');
   const [cashCounts,   setCashCounts]   = useState({});
   const [manualTotal,  setManualTotal]  = useState('');
