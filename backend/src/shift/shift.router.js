@@ -11,7 +11,8 @@ router.get('/summary', authenticate, async (req, res, next) => {
 
 router.get('/history', authenticate, async (req, res, next) => {
   try {
-    res.json(await service.getHistory(req.user.restaurantId));
+    const limit = Math.min(parseInt(req.query.limit) || 30, 500);
+    res.json(await service.getHistory(req.user.restaurantId, limit));
   } catch (e) { next(e); }
 });
 

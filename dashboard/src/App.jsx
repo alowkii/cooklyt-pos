@@ -17,6 +17,7 @@ import Users           from './pages/Users';
 import Settings        from './pages/Settings';
 import OrderHistory    from './pages/OrderHistory';
 import ShiftCount      from './pages/ShiftCount';
+import ShiftHistory    from './pages/ShiftHistory';
 import Ingredients      from './pages/Ingredients';
 import Recipes          from './pages/Recipes';
 import Combos           from './pages/Combos';
@@ -104,7 +105,8 @@ export default function App() {
           <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
           <Route path="/history"  element={<RequireNotKitchen><OrderHistory /></RequireNotKitchen>} />
-          <Route path="/shift"       element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
+          <Route path="/shift"         element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
+          <Route path="/shift/history" element={<RequireAdmin><ShiftHistory /></RequireAdmin>} />
           <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
           <Route path="/inventory"   element={<RequireAdmin><InventoryLedger /></RequireAdmin>} />
           <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />

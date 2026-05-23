@@ -18,6 +18,14 @@ export function useShiftHistory() {
   });
 }
 
+export function useShiftFullHistory() {
+  return useQuery({
+    queryKey: ['shift-history-full'],
+    queryFn: () => api.get('/shift/history?limit=500').then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
 export function useRecordShiftCount() {
   return useMutation({
     mutationFn: (data) => api.post('/shift/count', data).then((r) => r.data),

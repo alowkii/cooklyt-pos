@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Check, TrendingUp, TrendingDown, Plus, X,
   CreditCard, Smartphone, Tag, MoreHorizontal, Banknote, Info,
 } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
+import { useAuth } from '../hooks/useAuth';
 import { useShiftSummary, useShiftHistory, useRecordShiftCount } from '../hooks/useShift';
 
 function InfoTip({ text }) {
@@ -85,6 +87,21 @@ const TABS = [
 
 function newRow() {
   return { _key: Math.random(), ref: '', amount: '' };
+}
+
+function greedyFill(total, denoms) {
+  const result = {};
+  let remaining = Math.round(total * 100);
+  for (const d of denoms) {
+    const dCents = Math.round(d * 100);
+    if (dCents <= 0) continue;
+    const count = Math.floor(remaining / dCents);
+    if (count > 0) {
+      result[d] = String(count);
+      remaining -= count * dCents;
+    }
+  }
+  return result;
 }
 
 function formatDate(iso) {
@@ -318,6 +335,8 @@ function MethodPanel({ rows, setRows, addLabel, placeholder }) {
 }
 
 export default function ShiftCount() {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const { code, currency, format } = useCurrency();
   const { data: summary, isLoading: summaryLoading } = useShiftSummary();
   const { data: history = [] } = useShiftHistory();
@@ -441,14 +460,24 @@ export default function ShiftCount() {
           <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--mute)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             Tender · By Instrument <InfoTip text="Each tab is one payment instrument. Counts entered here roll up into the top-line totals." align="start" />
           </span>
-          <button
-            type="button"
-            style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
-          >
-            Auto-fill from POS
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                if (denoms) {
+                  setCashCounts(greedyFill(expectedCash, denoms));
+                } else {
+                  setManualTotal(String(expectedCash));
+                }
+                setTab('cash');
+              }}
+              style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+            >
+              Auto-fill from POS
+            </button>
+          )}
         </div>
 
         {/* Tab bar */}
@@ -632,11 +661,24 @@ export default function ShiftCount() {
       {/* ── History ───────────────────────────────────────────────── */}
       {history.length > 0 && (
         <div style={{ paddingTop: 24, borderTop: '1px solid var(--line)' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--mute)', marginBottom: 14 }}>
-            Previous Counts
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--mute)' }}>
+              Recent Counts
+            </p>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/shift/history')}
+                style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+              >
+                View all history →
+              </button>
+            )}
+          </div>
           <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
-            {history.map((h, idx) => {
+            {history.slice(0, 5).map((h, idx) => {
               const v     = parseFloat(h.variance);
               const over  = v >  0.005;
               const short = v < -0.005;
@@ -646,7 +688,7 @@ export default function ShiftCount() {
                   style={{
                     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                     padding: '12px 16px', fontSize: 13,
-                    borderBottom: idx < history.length - 1 ? '1px solid var(--line)' : 'none',
+                    borderBottom: idx < Math.min(history.length, 5) - 1 ? '1px solid var(--line)' : 'none',
                   }}
                 >
                   <div className="min-w-0">
