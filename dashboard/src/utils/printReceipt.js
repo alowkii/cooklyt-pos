@@ -95,7 +95,7 @@ export function printReceipt(receipt, currency, win = null) {
     table{width:100%;border-collapse:collapse}
     .lbl{color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
     .total-row td{font-size:15px;font-weight:bold;padding-top:6px;border-top:1px solid #111}
-    @media print{@page{margin:10mm;size:auto}body{width:100%;padding:0;font-size:12pt}.total-row td{font-size:14pt}}
+    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
   </style>
 </head>
 <body>
@@ -189,7 +189,7 @@ export function printKOT(order) {
     body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
     .c{text-align:center}
     hr{border:none;border-top:2px dashed #444;margin:8px 0}
-    @media print{@page{margin:10mm;size:auto}body{width:100%;padding:0;font-size:13pt}}
+    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
   </style>
 </head>
 <body>
