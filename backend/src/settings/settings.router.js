@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const service = require('./settings.service');
 const audit = require('../shared/audit');
+const ws = require('../shared/websocket');
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.patch('/', authenticate, authorize('admin'), async (req, res, next) => {
       action: 'update', resourceType: 'setting', resourceId: key,
       description: `Set ${key} to "${value}"`,
     });
+    ws.broadcast('SETTINGS_UPDATED', result, req.user.restaurantId);
     res.json(result);
   } catch (e) {
     next(e);

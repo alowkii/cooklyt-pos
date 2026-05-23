@@ -60,6 +60,9 @@ export function useWebSocket({ onEvent } = {}) {
               qc.invalidateQueries({ queryKey: ['orders'] });
               qc.invalidateQueries({ queryKey: ['tables'] });
               break;
+            case 'SETTINGS_UPDATED':
+              qc.invalidateQueries({ queryKey: ['settings'] });
+              break;
           }
           onEventRef.current?.(event, payload ?? {});
         } catch {
