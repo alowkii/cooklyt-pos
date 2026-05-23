@@ -24,32 +24,32 @@ const FEATURES = [
   {
     Icon: Grid3X3,
     title: "Tables & floor",
-    body: "Visual floor plan, live seat counts, drag-to-arrange. Open, transfer, and merge in one tap.",
+    body: "Your floor, always in sync. No confusion about what's open, what's occupied, or what's been ordered.",
   },
   {
     Icon: UtensilsCrossed,
     title: "Menu & kitchen",
-    body: "Categories, modifiers, availability toggle. KOT prints the moment an order fires.",
+    body: "Make a change — it's live everywhere before you look up.",
   },
   {
     Icon: Wifi,
     title: "Real-time sync",
-    body: "Orders reach the kitchen in under 3 seconds. Offline-tolerant with a live sync indicator.",
+    body: "Orders don't wait for a connection. When signal drops, CookLyt queues and catches up silently.",
   },
   {
     Icon: Gift,
     title: "Loyalty & coupons",
-    body: "Points programme with configurable tiers and redeemable rewards. Coupon codes with usage caps, minimums, and expiry.",
+    body: "Give regulars a reason to return. Give first-timers a reason to come back.",
   },
   {
     Icon: BarChart2,
     title: "Reports & shifts",
-    body: "Revenue, top sellers, hourly heatmap, payment splits. Shift summaries with cash denomination counts.",
+    body: "Close the day knowing exactly where every rupee went.",
   },
   {
     Icon: Package,
     title: "Inventory & costing",
-    body: "Recipe-linked ingredient tracking, waste logging, and per-dish food cost reports.",
+    body: "Know your margins before service, not after.",
   },
 ];
 
@@ -703,9 +703,8 @@ export default function Landing() {
                   margin: "0 0 28px",
                 }}
               >
-                Tables, kitchen, loyalty, inventory, and reports — one quiet,
-                real-time system built for restaurants that can't afford
-                downtime.
+                One quiet system that handles every part of service — so your
+                team can focus on the food.
               </p>
 
               <div
