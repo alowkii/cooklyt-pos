@@ -3,6 +3,7 @@ const ordersInterface = require('../orders/orders.interface');
 const tablesInterface = require('../tables/tables.interface');
 const settingsRepo = require('../settings/settings.repository');
 const loyaltyInterface = require('../loyalty/loyalty.interface');
+const couponsRepo = require('../coupons/coupons.repository');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError, AppError } = require('../shared/errors');
 
@@ -47,10 +48,12 @@ async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceC
   const order = await ordersInterface.getOrderById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
 
-  const [allItems, settings] = await Promise.all([
+  const [allItems, settings, couponRow] = await Promise.all([
     ordersInterface.getOrderItems(orderId, restaurantId),
     settingsRepo.getAll(restaurantId),
+    order.coupon_id ? couponsRepo.getById(restaurantId, order.coupon_id) : Promise.resolve(null),
   ]);
+  const couponCode = couponRow?.code || null;
 
   const taxRate           = parseFloat(settings.tax_rate      || '0') / 100;
   const serviceChargeRate = waiveServiceCharge ? 0 : parseFloat(settings.service_charge || '0') / 100;
@@ -75,7 +78,7 @@ async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceC
     const loyaltyDiscount = parseFloat((parseFloat(order.loyalty_discount_amount || 0) * ratio).toFixed(2));
 
     const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee, couponDiscount, loyaltyDiscount);
-    return { ...bill, items };
+    return { ...bill, items, couponCode };
   }
 
   const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
@@ -84,7 +87,7 @@ async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceC
     order.discount_type, order.discount_value, packagingFeeTotal,
     order.coupon_discount_amount, order.loyalty_discount_amount,
   );
-  return { ...bill, items: allItems };
+  return { ...bill, items: allItems, couponCode };
 }
 
 async function processPayment(orderId, { method, tenders: tendersInput, amountTendered, waiveServiceCharge = false }, restaurantId) {

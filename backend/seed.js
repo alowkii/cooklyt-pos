@@ -376,6 +376,7 @@ async function main() {
   await client.query('DELETE FROM loyalty_customers   WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM loyalty_tiers       WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM loyalty_rewards     WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM coupons             WHERE restaurant_id = $1', [RESTAURANT_ID]);
 
   // ── 2. Restaurant ──────────────────────────────────────────────────────────
   console.log('Ensuring restaurant…');
@@ -439,6 +440,21 @@ async function main() {
       INSERT INTO users (id, email, password, role, name, staff_pin, restaurant_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [u.id, u.email, hashByPassword[u.password], u.role, u.name, u.pin, RESTAURANT_ID]);
+  }
+
+  // ── 4.5. Coupons ───────────────────────────────────────────────────────────
+  console.log('Seeding coupons…');
+  const SEED_COUPONS = [
+    { code: 'WELCOME10', description: '10% off for new customers',        discount_type: 'percent', discount_value: 10,  min_order_amount: 0,   max_uses: null, expires_at: null },
+    { code: 'FLAT50',    description: '₹50 flat discount on orders ₹300+', discount_type: 'flat',    discount_value: 50,  min_order_amount: 300, max_uses: null, expires_at: null },
+    { code: 'SAVE20',    description: '20% off weekday orders',            discount_type: 'percent', discount_value: 20,  min_order_amount: 200, max_uses: 100,  expires_at: null },
+    { code: 'PARTY15',   description: '15% off for groups (orders ₹500+)', discount_type: 'percent', discount_value: 15,  min_order_amount: 500, max_uses: 50,   expires_at: null },
+  ];
+  for (const c of SEED_COUPONS) {
+    await client.query(`
+      INSERT INTO coupons (restaurant_id, code, description, discount_type, discount_value, min_order_amount, max_uses, expires_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [RESTAURANT_ID, c.code, c.description, c.discount_type, c.discount_value, c.min_order_amount, c.max_uses, c.expires_at]);
   }
 
   // ── 5. Tables ──────────────────────────────────────────────────────────────
@@ -799,6 +815,7 @@ async function main() {
   console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
   console.log(`  Snapshots  : ${snapshotCount}`);
   console.log(`  Reservations: ${resCount} (2 seated, 2 upcoming)`);
+  console.log(`  Coupons    : ${SEED_COUPONS.length} (WELCOME10, FLAT50, SAVE20, PARTY15)`);
   console.log(`  Loyalty tiers  : ${DEFAULT_TIERS.length}`);
   console.log(`  Loyalty rewards: ${DEFAULT_REWARDS.length}`);
   console.log(`  Loyalty members: ${loyaltyCustomerCount} (3 Bronze, 3 Silver, 2 Gold, 2 Platinum)`);

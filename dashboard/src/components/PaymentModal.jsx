@@ -171,29 +171,121 @@ function RemoveBtn({ onClick }) {
   );
 }
 
+function CouponSection({ orderId, bill, format }) {
+  const applyCoupon  = useApplyCoupon(orderId);
+  const removeCoupon = useRemoveCoupon(orderId);
+  const { data: activeCoupons = [] } = useCoupons();
+
+  const [open, setOpen]           = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponErr, setCouponErr]   = useState('');
+
+  const hasCoupon = (bill?.couponDiscountAmount ?? 0) > 0;
+
+  async function handleApplyCoupon(code) {
+    setCouponErr('');
+    const c = (code ?? couponCode).trim();
+    if (!c) { setCouponErr('Enter a code'); return; }
+    try {
+      await applyCoupon.mutateAsync(c);
+      setOpen(false); setCouponCode('');
+    } catch (err) {
+      setCouponErr(err?.response?.data?.error || 'Invalid coupon');
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {hasCoupon && (
+        <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
+          <span>
+            Coupon{bill.couponCode ? (
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 4 }}>{bill.couponCode}</span>
+            ) : ' discount'}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="mono num">−{format(bill.couponDiscountAmount)}</span>
+            <RemoveBtn onClick={() => removeCoupon.mutateAsync().catch(() => {})} />
+          </div>
+        </div>
+      )}
+      {!hasCoupon && !open && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="flex items-center gap-1"
+          style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
+          <Tag size={12} /> Apply coupon
+        </button>
+      )}
+      {!hasCoupon && open && (
+        <div className="space-y-3 rounded-[6px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+          <div className="flex items-center justify-between">
+            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
+              Coupon
+            </p>
+            <button type="button" onClick={() => { setOpen(false); setCouponCode(''); setCouponErr(''); }}
+              style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute)', display: 'flex' }}>
+              <X size={13} />
+            </button>
+          </div>
+          {activeCoupons.length > 0 && (
+            <div className="space-y-1.5">
+              <p style={{ fontSize: 11, color: 'var(--mute)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                Available
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {activeCoupons.slice(0, 8).map((c) => (
+                  <button key={c.id} type="button"
+                    onClick={() => handleApplyCoupon(c.code)}
+                    disabled={applyCoupon.isPending}
+                    className="rounded-[6px] px-2 py-1 transition-colors"
+                    style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--accent)', cursor: 'pointer' }}>
+                    {c.code}
+                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--mute)', marginLeft: 4 }}>
+                      {c.discount_type === 'percent' ? `${c.discount_value}%` : format(c.discount_value)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <div className="flex gap-2">
+              <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
+                placeholder="Enter coupon code" className="input flex-1" autoFocus
+                style={{ fontSize: 12, textTransform: 'uppercase' }} />
+              <button type="button" onClick={() => handleApplyCoupon()} disabled={applyCoupon.isPending}
+                className="btn-secondary" style={{ padding: '0 10px', fontSize: 12 }}>
+                {applyCoupon.isPending ? '…' : 'Apply'}
+              </button>
+            </div>
+            {couponErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{couponErr}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomerLookupSection({ orderId, bill, format }) {
   const lookupMutation = useLookupLoyaltyCustomer();
   const applyLoyalty   = useApplyLoyalty(orderId);
   const removeLoyalty  = useRemoveLoyalty(orderId);
-  const applyCoupon    = useApplyCoupon(orderId);
-  const removeCoupon   = useRemoveCoupon(orderId);
-  const { data: activeCoupons = [] } = useCoupons();
 
   const [open, setOpen]           = useState(false);
   const [phone, setPhone]         = useState('');
   const [customer, setCustomer]   = useState(null);
   const [points, setPoints]       = useState('');
-  const [couponCode, setCouponCode] = useState('');
   const [lookupErr, setLookupErr] = useState('');
   const [loyaltyErr, setLoyaltyErr] = useState('');
-  const [couponErr, setCouponErr] = useState('');
 
   const hasLoyalty = (bill?.loyaltyDiscountAmount ?? 0) > 0;
-  const hasCoupon  = (bill?.couponDiscountAmount  ?? 0) > 0;
 
   function reset() {
     setOpen(false); setPhone(''); setCustomer(null); setPoints('');
-    setCouponCode(''); setLookupErr(''); setLoyaltyErr(''); setCouponErr('');
+    setLookupErr(''); setLoyaltyErr('');
   }
 
   async function handleLookup() {
@@ -219,32 +311,10 @@ function CustomerLookupSection({ orderId, bill, format }) {
     }
   }
 
-  async function handleApplyCoupon(code) {
-    setCouponErr('');
-    const c = (code ?? couponCode).trim();
-    if (!c) { setCouponErr('Enter a code'); return; }
-    try {
-      await applyCoupon.mutateAsync(c);
-      setOpen(false); setCouponCode('');
-    } catch (err) {
-      setCouponErr(err?.response?.data?.error || 'Invalid coupon');
-    }
-  }
-
   const tier = customer ? getLoyaltyTier(customer.points_balance) : null;
 
   return (
     <div className="space-y-1.5">
-      {/* Applied discount rows */}
-      {hasCoupon && (
-        <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
-          <span>Coupon discount</span>
-          <div className="flex items-center gap-2">
-            <span className="mono num">−{format(bill.couponDiscountAmount)}</span>
-            <RemoveBtn onClick={() => removeCoupon.mutateAsync().catch(() => {})} />
-          </div>
-        </div>
-      )}
       {hasLoyalty && (
         <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
           <span>Loyalty discount</span>
@@ -254,8 +324,6 @@ function CustomerLookupSection({ orderId, bill, format }) {
           </div>
         </div>
       )}
-
-      {/* Collapsed trigger */}
       {!open ? (
         <button type="button" onClick={() => setOpen(true)}
           className="flex items-center gap-1"
@@ -263,7 +331,7 @@ function CustomerLookupSection({ orderId, bill, format }) {
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
           <Phone size={12} />
-          {hasCoupon && hasLoyalty ? 'Discounts applied' : 'Find customer by phone'}
+          {hasLoyalty ? 'Loyalty applied' : 'Find customer by phone'}
         </button>
       ) : (
         <div className="space-y-3 rounded-[6px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
@@ -276,7 +344,6 @@ function CustomerLookupSection({ orderId, bill, format }) {
               <X size={13} />
             </button>
           </div>
-
           <div className="flex gap-2">
             <input value={phone} onChange={(e) => setPhone(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleLookup())}
@@ -287,8 +354,6 @@ function CustomerLookupSection({ orderId, bill, format }) {
             </button>
           </div>
           {lookupErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{lookupErr}</p>}
-
-          {/* Customer card */}
           {customer && (
             <div className="rounded-[6px] p-3 space-y-2"
               style={{ border: `1px solid ${tier.color}40`, background: `${tier.color}08` }}>
@@ -326,45 +391,6 @@ function CustomerLookupSection({ orderId, bill, format }) {
               )}
             </div>
           )}
-
-          {/* Available coupon chips */}
-          {activeCoupons.length > 0 && (
-            <div className="space-y-1.5">
-              <p style={{ fontSize: 11, color: 'var(--mute)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                Available Coupons
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {activeCoupons.slice(0, 8).map((c) => (
-                  <button key={c.id} type="button"
-                    onClick={() => !hasCoupon && handleApplyCoupon(c.code)}
-                    disabled={applyCoupon.isPending || hasCoupon}
-                    className="rounded-[6px] px-2 py-1 transition-colors"
-                    style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--accent)', cursor: hasCoupon ? 'default' : 'pointer', opacity: hasCoupon ? 0.5 : 1 }}>
-                    {c.code}
-                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--mute)', marginLeft: 4 }}>
-                      {c.discount_type === 'percent' ? `${c.discount_value}%` : `flat ${c.discount_value}`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Manual coupon input */}
-          {!hasCoupon && (
-            <div className="space-y-1.5">
-              <div className="flex gap-2">
-                <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="Or enter coupon code" className="input flex-1"
-                  style={{ fontSize: 12, textTransform: 'uppercase' }} />
-                <button type="button" onClick={() => handleApplyCoupon()} disabled={applyCoupon.isPending}
-                  className="btn-secondary" style={{ padding: '0 10px', fontSize: 12 }}>
-                  {applyCoupon.isPending ? '…' : 'Apply'}
-                </button>
-              </div>
-              {couponErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{couponErr}</p>}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -387,6 +413,7 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
           <div className="pt-1.5 mt-1 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
             <BillRow label="Subtotal" value={bill.subtotal} format={format} />
             {showDiscount && <DiscountSection orderId={orderId} bill={bill} format={format} />}
+            {showDiscount && <CouponSection orderId={orderId} bill={bill} format={format} />}
             {showDiscount && <CustomerLookupSection orderId={orderId} bill={bill} format={format} />}
             {bill.taxRate > 0 && (
               <BillRow label={`Tax (${+(bill.taxRate * 100).toFixed(4)}%)`} value={bill.taxAmount} format={format} />

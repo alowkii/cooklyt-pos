@@ -73,8 +73,10 @@ async function previewCoupon(restaurantId, code, orderSubtotal) {
 }
 
 // Apply: validate + persist redemption + return { couponId, discountAmount }
+// Removes any existing redemption first so swapping coupons on an order is safe.
 async function validateAndApplyCoupon(restaurantId, code, orderSubtotal, orderId) {
   const { coupon, discountAmount } = await previewCoupon(restaurantId, code, orderSubtotal);
+  await repo.removeRedemption(orderId);
   await repo.recordRedemption(restaurantId, coupon.id, orderId, discountAmount);
   return { couponId: coupon.id, discountAmount };
 }
