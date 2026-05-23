@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import api from '../api/client';
 
@@ -39,16 +39,18 @@ export default function Login() {
 
         {/* Brand mark — above the card */}
         <div className="mb-7 flex flex-col items-center text-center">
-          <svg width="52" height="52" viewBox="0 0 200 200" fill="none" role="img" aria-label="CookLyt" style={{ marginBottom: 14 }}>
-            <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
-                  fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
-            <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
-          </svg>
-          <svg width="158" height="28" viewBox="0 0 360 64" role="img" aria-label="CookLyt" style={{ marginBottom: 10 }}>
-            <text x="0" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>COOKLY</text>
-            <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b"/>
-            <text x="309.33" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>T</text>
-          </svg>
+          <Link to="/" className="flex flex-col items-center" style={{ textDecoration: 'none' }}>
+            <svg width="52" height="52" viewBox="0 0 200 200" fill="none" role="img" aria-label="CookLyt" style={{ marginBottom: 14 }}>
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
+            <svg width="158" height="28" viewBox="0 0 360 64" role="img" aria-label="CookLyt" style={{ marginBottom: 10 }}>
+              <text x="0" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>COOKLY</text>
+              <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b"/>
+              <text x="309.33" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: '10.08px' }}>T</text>
+            </svg>
+          </Link>
           <p style={{ fontSize: 12.5, color: 'var(--mute)', margin: 0 }}>
             Sign in to your restaurant dashboard
           </p>
