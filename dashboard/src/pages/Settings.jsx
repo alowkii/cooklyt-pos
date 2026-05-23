@@ -485,32 +485,6 @@ export default function Settings() {
             onChange={(v) => { setLoyaltyEnabled(v); markDirty(); }}
           />
         </div>
-        {loyaltyEnabled && (
-          <div className="flex flex-wrap items-end gap-3 mt-3 pl-5">
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>
-                Points per currency unit spent
-              </label>
-              <input type="number" min="0.01" step="0.01" value={loyaltyPointsPerUnit}
-                onChange={(e) => { setLoyaltyPointsPerUnit(e.target.value); markDirty(); }}
-                className="input mono" style={{ width: 100 }} placeholder="e.g. 1" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>
-                1 point = {currencies[code]?.symbol ?? '$'}
-              </label>
-              <input type="number" min="0.001" step="0.001" value={loyaltyPointsValue}
-                onChange={(e) => { setLoyaltyPointsValue(e.target.value); markDirty(); }}
-                className="input mono" style={{ width: 100 }} placeholder="e.g. 0.01" />
-            </div>
-            {loyaltyPointsPerUnit && loyaltyPointsValue && (
-              <p style={{ fontSize: 11.5, color: 'var(--mute)', alignSelf: 'center' }}>
-                Spend {currencies[code]?.symbol ?? '$'}100 → earn {Math.floor(100 * parseFloat(loyaltyPointsPerUnit))} pts
-                → worth {format(Math.floor(100 * parseFloat(loyaltyPointsPerUnit)) * parseFloat(loyaltyPointsValue))}
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Bottom bar ──────────────────────────────────────── */}

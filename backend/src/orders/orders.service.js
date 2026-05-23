@@ -301,8 +301,6 @@ async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
     settingsRepo.getAll(restaurantId),
     repo.calculateTotal(orderId),
   ]);
-  if (settings.loyalty_enabled !== 'true')
-    throw new ValidationError('Loyalty programme is not enabled');
 
   const customer = await loyaltyInterface.lookupCustomer(restaurantId, phone);
   if (!customer) throw new ValidationError('No loyalty account found for this phone number');
@@ -342,9 +340,8 @@ module.exports = {
   getHistory,
 };
 
-async function getHistory(restaurantId, { from, to, status, channel }) {
-  const settings = await settingsRepo.getAll(restaurantId);
-  const timezone = settings.timezone || 'UTC';
+async function getHistory(restaurantId, { from, to, status, channel, timezone: tzParam }) {
+  const timezone = tzParam || await settingsRepo.getAll(restaurantId).then((s) => s.timezone || 'UTC');
   const orders = await repo.getHistory(restaurantId, { from, to, status, channel, timezone });
 
   const stats = orders.reduce(

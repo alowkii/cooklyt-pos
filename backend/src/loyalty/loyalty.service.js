@@ -73,7 +73,7 @@ function validateRedemption(customer, pointsToRedeem, orderSubtotal, settings) {
     throw new ValidationError(`Customer only has ${customer.points_balance} points`);
   }
   const pointsValue = parseFloat(settings.loyalty_points_value || '0');
-  if (pointsValue <= 0) throw new ValidationError('Loyalty redemption is not configured');
+  if (pointsValue <= 0) throw new ValidationError('Loyalty redemption rate is not configured. Set it in Loyalty → Programme Settings.');
   const redemptionValue = parseFloat((n * pointsValue).toFixed(2));
   if (redemptionValue > orderSubtotal) {
     throw new ValidationError('Redemption value exceeds order total');
@@ -81,8 +81,43 @@ function validateRedemption(customer, pointsToRedeem, orderSubtotal, settings) {
   return { redemptionValue };
 }
 
+async function deleteCustomer(restaurantId, customerId) {
+  const deleted = await repo.remove(restaurantId, customerId);
+  if (!deleted) throw new NotFoundError('Customer');
+  return deleted;
+}
+
+async function updateCustomerName(restaurantId, customerId, name) {
+  if (!name || !name.trim()) throw new ValidationError('name is required');
+  const updated = await repo.updateName(restaurantId, customerId, name.trim());
+  if (!updated) throw new NotFoundError('Customer');
+  return updated;
+}
+
+async function listTiers(restaurantId) {
+  return repo.listTiers(restaurantId);
+}
+
+async function saveTiers(restaurantId, tiers) {
+  if (!Array.isArray(tiers) || tiers.length === 0) throw new ValidationError('tiers must be a non-empty array');
+  const first = [...tiers].sort((a, b) => (a.min_points ?? 0) - (b.min_points ?? 0))[0];
+  if ((first.min_points ?? 0) !== 0) throw new ValidationError('The first tier must start at 0 points');
+  return repo.replaceTiers(restaurantId, tiers);
+}
+
+async function listRewards(restaurantId) {
+  return repo.listRewards(restaurantId);
+}
+
+async function saveRewards(restaurantId, rewards) {
+  if (!Array.isArray(rewards)) throw new ValidationError('rewards must be an array');
+  return repo.replaceRewards(restaurantId, rewards);
+}
+
 module.exports = {
   lookupCustomer, getOrCreateCustomer, listCustomers, getCustomer,
   getTransactionHistory, adjustPoints,
   earnPoints, deductPoints, validateRedemption,
+  deleteCustomer, updateCustomerName,
+  listTiers, saveTiers, listRewards, saveRewards,
 };

@@ -4,6 +4,7 @@ import { useTables } from '../hooks/useTables';
 import { useActiveOrders, useKitchenQueue } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import { useAuth } from '../hooks/useAuth';
+import { useTimezone } from '../context/TimezoneContext';
 
 const TABLE_DOT = {
   available: 'var(--ok)',
@@ -91,7 +92,8 @@ function elapsedColor(dateStr) {
 }
 
 export default function Overview() {
-  const today = new Date().toISOString().split('T')[0];
+  const { iana, todayLocal }    = useTimezone();
+  const today = todayLocal();
 
   const { data: report }        = useDailyReport(today);
   const { data: tables = [] }   = useTables();
@@ -104,7 +106,7 @@ export default function Overview() {
   const orderCount   = report?.summary?.total_orders  ?? null;
   const occupiedCount = tables.filter((t) => t.status === 'occupied').length;
 
-  const today_label = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+  const today_label = new Date().toLocaleDateString('en-US', { timeZone: iana, weekday: 'short', day: 'numeric', month: 'short' });
 
   const hours = [2, 1, 1, 3, 8, 16, 22, 28, 24, 18, 12, 9, 14, 21, 30, 34, 28, 19];
   const active = orders.filter((o) => o.status !== 'served').slice(0, 6);

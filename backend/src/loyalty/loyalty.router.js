@@ -2,6 +2,36 @@ const router = require('express').Router();
 const service = require('./loyalty.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 
+// --- Tiers ---
+
+router.get('/tiers', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    res.json(await service.listTiers(req.user.restaurantId));
+  } catch (e) { next(e); }
+});
+
+router.put('/tiers', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    res.json(await service.saveTiers(req.user.restaurantId, req.body));
+  } catch (e) { next(e); }
+});
+
+// --- Rewards ---
+
+router.get('/rewards', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    res.json(await service.listRewards(req.user.restaurantId));
+  } catch (e) { next(e); }
+});
+
+router.put('/rewards', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    res.json(await service.saveRewards(req.user.restaurantId, req.body));
+  } catch (e) { next(e); }
+});
+
+// --- Customers ---
+
 // Lookup by phone — cashier + admin
 router.get('/customers/lookup', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
   try {
@@ -51,6 +81,20 @@ router.patch('/customers/:id/adjust', authenticate, authorize('admin'), async (r
   try {
     const { points, description } = req.body;
     res.json(await service.adjustPoints(req.user.restaurantId, req.params.id, points, description));
+  } catch (e) { next(e); }
+});
+
+// Update customer name — admin
+router.patch('/customers/:id', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    res.json(await service.updateCustomerName(req.user.restaurantId, req.params.id, req.body.name));
+  } catch (e) { next(e); }
+});
+
+// Delete customer — admin
+router.delete('/customers/:id', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    res.json(await service.deleteCustomer(req.user.restaurantId, req.params.id));
   } catch (e) { next(e); }
 });
 

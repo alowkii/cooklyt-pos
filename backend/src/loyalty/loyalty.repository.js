@@ -65,4 +65,87 @@ const addTransaction = async (restaurantId, { customerId, orderId, type, points,
   }
 };
 
-module.exports = { findByPhone, findById, findOrCreate, list, getTransactions, addTransaction };
+const remove = (restaurantId, id) =>
+  db.query(
+    'DELETE FROM loyalty_customers WHERE restaurant_id = $1 AND id = $2 RETURNING *',
+    [restaurantId, id],
+  ).then((r) => r.rows[0] || null);
+
+const updateName = (restaurantId, id, name) =>
+  db.query(
+    'UPDATE loyalty_customers SET name = $1 WHERE restaurant_id = $2 AND id = $3 RETURNING *',
+    [name, restaurantId, id],
+  ).then((r) => r.rows[0] || null);
+
+// --- Tiers ---
+
+const listTiers = (restaurantId) =>
+  db.query(
+    'SELECT * FROM loyalty_tiers WHERE restaurant_id = $1 ORDER BY sort_order, min_points',
+    [restaurantId],
+  ).then((r) => r.rows);
+
+const replaceTiers = async (restaurantId, tiers) => {
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM loyalty_tiers WHERE restaurant_id = $1', [restaurantId]);
+    for (let i = 0; i < tiers.length; i++) {
+      const { name, min_points, color } = tiers[i];
+      await client.query(
+        `INSERT INTO loyalty_tiers (restaurant_id, name, min_points, color, sort_order)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [restaurantId, name, min_points ?? 0, color || null, i],
+      );
+    }
+    await client.query('COMMIT');
+    return client.query(
+      'SELECT * FROM loyalty_tiers WHERE restaurant_id = $1 ORDER BY sort_order, min_points',
+      [restaurantId],
+    ).then((r) => r.rows);
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
+// --- Rewards ---
+
+const listRewards = (restaurantId) =>
+  db.query(
+    'SELECT * FROM loyalty_rewards WHERE restaurant_id = $1 ORDER BY sort_order, id',
+    [restaurantId],
+  ).then((r) => r.rows);
+
+const replaceRewards = async (restaurantId, rewards) => {
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM loyalty_rewards WHERE restaurant_id = $1', [restaurantId]);
+    for (let i = 0; i < rewards.length; i++) {
+      const { name, description, icon, points_cost, is_active } = rewards[i];
+      await client.query(
+        `INSERT INTO loyalty_rewards (restaurant_id, name, description, icon, points_cost, is_active, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [restaurantId, name, description || null, icon || '%', points_cost, is_active !== false, i],
+      );
+    }
+    await client.query('COMMIT');
+    return client.query(
+      'SELECT * FROM loyalty_rewards WHERE restaurant_id = $1 ORDER BY sort_order, id',
+      [restaurantId],
+    ).then((r) => r.rows);
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
+module.exports = {
+  findByPhone, findById, findOrCreate, list, getTransactions, addTransaction, remove, updateName,
+  listTiers, replaceTiers, listRewards, replaceRewards,
+};

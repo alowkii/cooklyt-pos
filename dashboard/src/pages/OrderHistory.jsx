@@ -304,8 +304,9 @@ export default function OrderHistory() {
   const { data, isLoading, isError } = useOrderHistory({
     from,
     to,
-    status:  statusFilter  || undefined,
-    channel: channelFilter || undefined,
+    status:   statusFilter  || undefined,
+    channel:  channelFilter || undefined,
+    timezone: iana,
   });
 
   const { orders = [], stats } = data ?? {};

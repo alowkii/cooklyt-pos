@@ -50,6 +50,18 @@ export function printReceipt(receipt, currency, win = null) {
         <td style="text-align:right;color:#15803d">&minus;${fmt(receipt.discount_amount)}</td>
       </tr>` : '';
 
+  const couponRow = parseFloat(receipt.coupon_discount_amount) > 0
+    ? `<tr>
+        <td style="color:#15803d">Coupon discount</td>
+        <td style="text-align:right;color:#15803d">&minus;${fmt(receipt.coupon_discount_amount)}</td>
+      </tr>` : '';
+
+  const loyaltyRow = parseFloat(receipt.loyalty_discount_amount) > 0
+    ? `<tr>
+        <td style="color:#15803d">Loyalty redemption</td>
+        <td style="text-align:right;color:#15803d">&minus;${fmt(receipt.loyalty_discount_amount)}</td>
+      </tr>` : '';
+
   const taxRow = parseFloat(receipt.tax_rate) > 0
     ? `<tr>
         <td>Tax (${+(parseFloat(receipt.tax_rate) * 100).toFixed(4)}%)</td>
@@ -103,7 +115,7 @@ export function printReceipt(receipt, currency, win = null) {
   <hr>
   <table>
     <tr><td>Subtotal</td><td style="text-align:right">${fmt(receipt.subtotal)}</td></tr>
-    ${discountRow}${taxRow}${scRow}${packagingRow}
+    ${discountRow}${couponRow}${loyaltyRow}${taxRow}${scRow}${packagingRow}
     <tr class="total-row"><td>TOTAL</td><td style="text-align:right">${fmt(receipt.total_charged)}</td></tr>
   </table>
   <hr>

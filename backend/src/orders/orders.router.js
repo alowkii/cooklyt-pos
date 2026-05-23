@@ -8,9 +8,9 @@ const pos = (req) => ({ actorType: 'user', actorId: req.user.userId, restaurantI
 // Must be declared before /:id so "history" is not consumed as an id param
 router.get('/history', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
   try {
-    const { from, to, status, channel } = req.query;
+    const { from, to, status, channel, timezone } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from and to dates are required' });
-    res.json(await service.getHistory(req.user.restaurantId, { from, to, status, channel }));
+    res.json(await service.getHistory(req.user.restaurantId, { from, to, status, channel, timezone }));
   } catch (e) {
     next(e);
   }

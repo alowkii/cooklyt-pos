@@ -9,6 +9,8 @@ export function useDailyReport(date) {
 
   return useQuery({
     queryKey: ['reports', 'daily', dateStr, iana],
+    staleTime: 0,
+    refetchInterval: 60_000,
     queryFn: async () => {
       try {
         const { data } = await api.get(

@@ -53,6 +53,8 @@ export function useProcessPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['order-history'] });
+      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
     },
   });
 }
@@ -74,6 +76,8 @@ export function useProcessSplitPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['order-history'] });
+      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
     },
   });
 }

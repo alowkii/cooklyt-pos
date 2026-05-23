@@ -22,7 +22,7 @@ const corsOptions = {
     return cb(new Error('Origin not allowed'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 };
 
 // Security & parsing
@@ -32,6 +32,12 @@ app.use(helmet({
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+
+// Prevent browser HTTP caching of API responses — all data is dynamic
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // Public API — mounted before restricted CORS so customer phones can reach it
 app.use('/api/public', require('./public/public.router'));

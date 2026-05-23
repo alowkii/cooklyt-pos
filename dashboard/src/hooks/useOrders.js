@@ -123,22 +123,25 @@ export function useCreateOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['order-history'] });
     },
   });
 }
 
-export function useOrderHistory({ from, to, status, channel }) {
+export function useOrderHistory({ from, to, status, channel, timezone }) {
   return useQuery({
-    queryKey: ['order-history', from, to, status, channel],
+    queryKey: ['order-history', from, to, status, channel, timezone],
     queryFn: async () => {
       const params = new URLSearchParams({ from, to });
-      if (status)  params.set('status',  status);
-      if (channel) params.set('channel', channel);
+      if (status)   params.set('status',   status);
+      if (channel)  params.set('channel',  channel);
+      if (timezone) params.set('timezone', timezone);
       const { data } = await api.get(`/orders/history?${params}`);
       return data;
     },
-    enabled: !!from && !!to,
-    staleTime: 60_000,
+    enabled: !!from && !!to && !!timezone,
+    staleTime: 0,
+    refetchInterval: 30_000,
   });
 }
 

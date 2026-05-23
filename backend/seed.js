@@ -365,11 +365,17 @@ async function main() {
     DELETE FROM order_items
     WHERE order_id IN (SELECT id FROM orders WHERE restaurant_id = $1)
   `, [RESTAURANT_ID]);
-  await client.query('DELETE FROM orders     WHERE restaurant_id = $1', [RESTAURANT_ID]);
-  await client.query('DELETE FROM menu_items WHERE restaurant_id = $1', [RESTAURANT_ID]);
-  await client.query('DELETE FROM tables     WHERE restaurant_id = $1', [RESTAURANT_ID]);
-  await client.query('DELETE FROM users      WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM orders              WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM menu_items          WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM tables              WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM shift_counts        WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM staff_notifications WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM users               WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM settings   WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM loyalty_transactions WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM loyalty_customers   WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM loyalty_tiers       WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM loyalty_rewards     WHERE restaurant_id = $1', [RESTAURANT_ID]);
 
   // ── 2. Restaurant ──────────────────────────────────────────────────────────
   console.log('Ensuring restaurant…');
@@ -387,9 +393,40 @@ async function main() {
       ($1, 'currency',                 'INR'),
       ($1, 'tax_rate',                 '5'),
       ($1, 'service_charge',           '0'),
-      ($1, 'staff_assignment_enabled', 'true'),
-      ($1, 'reservations_enabled',     'true')
+      ($1, 'staff_assignment_enabled',  'true'),
+      ($1, 'reservations_enabled',      'true'),
+      ($1, 'loyalty_points_per_unit',   '10'),
+      ($1, 'loyalty_points_value',      '0.1')
   `, [RESTAURANT_ID]);
+
+  // ── 3.5. Loyalty tiers & rewards ──────────────────────────────────────────
+  console.log('Seeding loyalty tiers and rewards…');
+  const DEFAULT_TIERS = [
+    { name: 'Bronze',   min_points: 0,     color: '#a06b2a', sort_order: 0 },
+    { name: 'Silver',   min_points: 1000,  color: '#5a6068', sort_order: 1 },
+    { name: 'Gold',     min_points: 5000,  color: '#8a6a14', sort_order: 2 },
+    { name: 'Platinum', min_points: 10000, color: '#3a3a47', sort_order: 3 },
+  ];
+  const DEFAULT_REWARDS = [
+    { name: 'Free Filter Coffee',    description: 'House blend · any size',  icon: '☕', points_cost: 500,  sort_order: 0 },
+    { name: '15% off next bill',     description: 'Max ₹500 · dine-in only', icon: '%',  points_cost: 1500, sort_order: 1 },
+    { name: 'Complimentary Dessert', description: 'Choice of three',         icon: '🍰', points_cost: 2000, sort_order: 2 },
+  ];
+  for (const t of DEFAULT_TIERS) {
+    await client.query(
+      `INSERT INTO loyalty_tiers (restaurant_id, name, min_points, color, sort_order)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [RESTAURANT_ID, t.name, t.min_points, t.color, t.sort_order],
+    );
+  }
+  for (const r of DEFAULT_REWARDS) {
+    await client.query(
+      `INSERT INTO loyalty_rewards (restaurant_id, name, description, icon, points_cost, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [RESTAURANT_ID, r.name, r.description, r.icon, r.points_cost, r.sort_order],
+    );
+  }
+  console.log(`  ${DEFAULT_TIERS.length} tiers, ${DEFAULT_REWARDS.length} rewards inserted`);
 
   // ── 4. Users ───────────────────────────────────────────────────────────────
   console.log('Seeding users…');
@@ -434,8 +471,12 @@ async function main() {
   // ── 7. Orders, items, payments ────────────────────────────────────────────
   console.log('Seeding orders and payments…');
   const ordersCreated = []; // saved for SALE transaction generation in step 11.5
+  const nowMs = Date.now();
   for (const [hour, minute, tableIdx, lines] of ORDER_SCHEDULE) {
-    const ts = `${today} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+00`;
+    const scheduledMs = new Date(`${today}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00Z`).getTime();
+    // Never use a future timestamp — cap to 2 minutes ago so real orders always sort above seed orders
+    const effectiveMs = Math.min(scheduledMs, nowMs - 2 * 60 * 1000);
+    const ts = new Date(effectiveMs).toISOString();
 
     const { rows: [order] } = await client.query(`
       INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel)
@@ -657,6 +698,90 @@ async function main() {
   }
   console.log(`  ${resCount} reservations inserted`);
 
+  // ── 16. Loyalty customers & transactions ───────────────────────────────────
+  console.log('Seeding loyalty customers and transactions…');
+
+  // daysAgo helper
+  const dAgo = (d) => new Date(Date.now() - d * 86400_000).toISOString();
+
+  // [phone, name, balance, transactions: [type, points, description, daysAgo]]
+  const LOYALTY_CUSTOMERS = [
+    ['9876543210', 'Priya Sharma',    6200, [
+      ['earn',   1500, 'Earned from order',          92],
+      ['earn',   2200, 'Earned from order',          61],
+      ['redeem', -500, 'Redeemed on order',          46],
+      ['earn',   1800, 'Earned from order',          21],
+      ['earn',   1200, 'Earned from order',           7],
+    ]],
+    ['9845678901', 'Rahul Mehta',     2800, [
+      ['earn',   1000, 'Earned from order',          58],
+      ['earn',    800, 'Earned from order',          30],
+      ['earn',   1000, 'Earned from order',          14],
+    ]],
+    ['9812345670', 'Ananya Krishnan', 12500, [
+      ['earn',   3000, 'Earned from order',         180],
+      ['earn',   2500, 'Earned from order',         120],
+      ['redeem',-1500, 'Redeemed on order',          90],
+      ['earn',   2000, 'Earned from order',          60],
+      ['earn',   3000, 'Earned from order',          30],
+      ['earn',   3500, 'Earned from order',          14],
+    ]],
+    ['9700011220', 'Vikram Nair',      450, [
+      ['earn',    450, 'Earned from order',          14],
+    ]],
+    ['9988776650', 'Sunita Patel',    1750, [
+      ['earn',    900, 'Earned from order',          42],
+      ['earn',    850, 'Earned from order',          21],
+    ]],
+    ['9123456789', 'Amit Joshi',      7800, [
+      ['earn',   2000, 'Earned from order',          90],
+      ['earn',   1500, 'Earned from order',          60],
+      ['redeem', -500, 'Redeemed on order',          45],
+      ['earn',   2800, 'Earned from order',          30],
+      ['earn',   2000, 'Earned from order',          14],
+    ]],
+    ['9876501234', 'Deepa Iyer',       200, [
+      ['earn',    200, 'Earned from order',           5],
+    ]],
+    ['9654321098', 'Karan Malhotra',  3400, [
+      ['earn',   1200, 'Earned from order',          56],
+      ['earn',    700, 'Earned from order',          35],
+      ['adjust',  500, 'Welcome bonus',              21],
+      ['earn',   1000, 'Earned from order',           7],
+    ]],
+    ['9543210987', 'Neha Gupta',     15200, [
+      ['earn',   4000, 'Earned from order',         180],
+      ['earn',   3500, 'Earned from order',         120],
+      ['redeem',-2000, 'Redeemed on order',          90],
+      ['earn',   3000, 'Earned from order',          60],
+      ['earn',   4200, 'Earned from order',          30],
+      ['earn',   2500, 'Earned from order',          14],
+    ]],
+    ['9432109876', 'Rohan Bose',       800, [
+      ['earn',    800, 'Earned from order',          21],
+    ]],
+  ];
+
+  let loyaltyCustomerCount = 0;
+  let loyaltyTxnCount = 0;
+  for (const [phone, name, balance, txns] of LOYALTY_CUSTOMERS) {
+    const { rows: [cust] } = await client.query(
+      `INSERT INTO loyalty_customers (restaurant_id, phone, name, points_balance)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [RESTAURANT_ID, phone, name, balance],
+    );
+    loyaltyCustomerCount++;
+    for (const [type, points, description, daysAgo] of txns) {
+      await client.query(
+        `INSERT INTO loyalty_transactions (restaurant_id, customer_id, type, points, description, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [RESTAURANT_ID, cust.id, type, points, description, dAgo(daysAgo)],
+      );
+      loyaltyTxnCount++;
+    }
+  }
+  console.log(`  ${loyaltyCustomerCount} customers, ${loyaltyTxnCount} transactions inserted`);
+
   await client.end();
 
   console.log('\nSeed complete!');
@@ -674,6 +799,10 @@ async function main() {
   console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
   console.log(`  Snapshots  : ${snapshotCount}`);
   console.log(`  Reservations: ${resCount} (2 seated, 2 upcoming)`);
+  console.log(`  Loyalty tiers  : ${DEFAULT_TIERS.length}`);
+  console.log(`  Loyalty rewards: ${DEFAULT_REWARDS.length}`);
+  console.log(`  Loyalty members: ${loyaltyCustomerCount} (3 Bronze, 3 Silver, 2 Gold, 2 Platinum)`);
+  console.log(`  Loyalty txns   : ${loyaltyTxnCount}`);
 }
 
 main().catch((e) => {

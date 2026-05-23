@@ -36,6 +36,7 @@ export function useWebSocket({ onEvent } = {}) {
               qc.invalidateQueries({ queryKey: ['kitchen'] });
               qc.invalidateQueries({ queryKey: ['orders'] });
               qc.invalidateQueries({ queryKey: ['tables'] });
+              qc.invalidateQueries({ queryKey: ['order-history'] });
               break;
             case 'ORDER_UPDATED':
             case 'ORDER_STATUS_CHANGED':
@@ -43,11 +44,14 @@ export function useWebSocket({ onEvent } = {}) {
             case 'ORDER_READY':
               qc.invalidateQueries({ queryKey: ['kitchen'] });
               qc.invalidateQueries({ queryKey: ['orders'] });
+              qc.invalidateQueries({ queryKey: ['order-history'] });
               break;
             case 'PAYMENT_COMPLETED':
               qc.invalidateQueries({ queryKey: ['orders'] });
               qc.invalidateQueries({ queryKey: ['tables'] });
               qc.invalidateQueries({ queryKey: ['reports'] });
+              qc.invalidateQueries({ queryKey: ['order-history'] });
+              qc.invalidateQueries({ queryKey: ['loyalty-customers'] });
               break;
             case 'TABLE_UPDATED':
               qc.invalidateQueries({ queryKey: ['tables'] });

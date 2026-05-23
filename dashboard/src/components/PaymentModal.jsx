@@ -1,16 +1,26 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
-  Printer, Split, Plus, Minus, ArrowLeft, Gift,
+  Printer, Split, Plus, Minus, ArrowLeft, Phone,
 } from 'lucide-react';
 import Modal from './Modal';
 import { useBill, useApplyDiscount, useProcessPayment, useProcessSplitPayment } from '../hooks/usePayments';
-import { useApplyCoupon, useRemoveCoupon } from '../hooks/useCoupons';
-import { useApplyLoyalty, useRemoveLoyalty } from '../hooks/useLoyalty';
-import { useSettings } from '../hooks/useSettings';
+import { useCoupons, useApplyCoupon, useRemoveCoupon } from '../hooks/useCoupons';
+import { useLookupLoyaltyCustomer, useApplyLoyalty, useRemoveLoyalty } from '../hooks/useLoyalty';
 import { useCurrency } from '../context/CurrencyContext';
 import api from '../api/client';
 import { printReceipt } from '../utils/printReceipt';
+
+const LOYALTY_TIERS = [
+  { name: 'Bronze',   min: 0,     max: 999,      color: '#b87333' },
+  { name: 'Silver',   min: 1000,  max: 4999,     color: '#6b7280' },
+  { name: 'Gold',     min: 5000,  max: 9999,     color: '#d97706' },
+  { name: 'Platinum', min: 10000, max: Infinity, color: '#6366f1' },
+];
+
+function getLoyaltyTier(pts) {
+  return LOYALTY_TIERS.find((t) => pts >= t.min && (t.max === Infinity || pts <= t.max)) ?? LOYALTY_TIERS[0];
+}
 
 const METHODS = [
   { id: 'cash',   label: 'Cash',   Icon: Banknote   },
@@ -149,134 +159,219 @@ function DiscountSection({ orderId, bill, format }) {
   );
 }
 
-function CouponSection({ orderId, bill, format }) {
-  const applyCoupon = useApplyCoupon(orderId);
-  const removeCoupon = useRemoveCoupon(orderId);
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
-
-  const hasCoupon = (bill?.couponDiscountAmount ?? 0) > 0;
-
-  if (hasCoupon) {
-    return (
-      <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
-        <span>Coupon discount</span>
-        <div className="flex items-center gap-2">
-          <span className="mono num">−{format(bill.couponDiscountAmount)}</span>
-          <button type="button" onClick={async () => { try { await removeCoupon.mutateAsync(); } catch {} }}
-            className="rounded-md p-0.5 transition-colors"
-            style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
-            <X size={13} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-1"
-        style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
-        <Tag size={12} /> Apply coupon
-      </button>
-    );
-  }
-
+function RemoveBtn({ onClick }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="COUPON CODE" className="input flex-1" style={{ textTransform: 'uppercase' }} autoFocus />
-        <button type="button" onClick={async () => {
-          setError('');
-          if (!code.trim()) { setError('Enter a code'); return; }
-          try {
-            await applyCoupon.mutateAsync(code.trim());
-            setOpen(false); setCode('');
-          } catch (err) { setError(err?.response?.data?.error || 'Invalid coupon'); }
-        }} className="btn-primary" style={{ padding: '0 12px' }} disabled={applyCoupon.isPending}>
-          {applyCoupon.isPending ? '…' : 'Apply'}
-        </button>
-        <button type="button" onClick={() => { setOpen(false); setCode(''); setError(''); }}
-          className="btn-secondary" style={{ padding: '0 12px' }}>Cancel</button>
-      </div>
-      {error && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{error}</p>}
-    </div>
+    <button type="button" onClick={onClick}
+      className="rounded-md p-0.5 transition-colors"
+      style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
+      <X size={13} />
+    </button>
   );
 }
 
-function LoyaltySection({ orderId, bill, format }) {
-  const applyLoyalty = useApplyLoyalty(orderId);
-  const removeLoyalty = useRemoveLoyalty(orderId);
-  const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [points, setPoints] = useState('');
-  const [error, setError] = useState('');
+function CustomerLookupSection({ orderId, bill, format }) {
+  const lookupMutation = useLookupLoyaltyCustomer();
+  const applyLoyalty   = useApplyLoyalty(orderId);
+  const removeLoyalty  = useRemoveLoyalty(orderId);
+  const applyCoupon    = useApplyCoupon(orderId);
+  const removeCoupon   = useRemoveCoupon(orderId);
+  const { data: activeCoupons = [] } = useCoupons();
+
+  const [open, setOpen]           = useState(false);
+  const [phone, setPhone]         = useState('');
+  const [customer, setCustomer]   = useState(null);
+  const [points, setPoints]       = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [lookupErr, setLookupErr] = useState('');
+  const [loyaltyErr, setLoyaltyErr] = useState('');
+  const [couponErr, setCouponErr] = useState('');
 
   const hasLoyalty = (bill?.loyaltyDiscountAmount ?? 0) > 0;
+  const hasCoupon  = (bill?.couponDiscountAmount  ?? 0) > 0;
 
-  if (hasLoyalty) {
-    return (
-      <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
-        <span>Loyalty discount</span>
-        <div className="flex items-center gap-2">
-          <span className="mono num">−{format(bill.loyaltyDiscountAmount)}</span>
-          <button type="button" onClick={async () => { try { await removeLoyalty.mutateAsync(); } catch {} }}
-            className="rounded-md p-0.5 transition-colors"
-            style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
-            <X size={13} />
-          </button>
-        </div>
-      </div>
-    );
+  function reset() {
+    setOpen(false); setPhone(''); setCustomer(null); setPoints('');
+    setCouponCode(''); setLookupErr(''); setLoyaltyErr(''); setCouponErr('');
   }
 
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-1"
-        style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
-        <Gift size={12} /> Apply loyalty points
-      </button>
-    );
+  async function handleLookup() {
+    setLookupErr(''); setCustomer(null);
+    if (!phone.trim()) return;
+    try {
+      const c = await lookupMutation.mutateAsync(phone.trim());
+      setCustomer(c);
+    } catch {
+      setLookupErr('No loyalty account found for this number');
+    }
   }
+
+  async function handleApplyLoyalty() {
+    setLoyaltyErr('');
+    const n = parseInt(points) || 0;
+    if (n <= 0) { setLoyaltyErr('Enter points to redeem'); return; }
+    try {
+      await applyLoyalty.mutateAsync({ phone: customer.phone, pointsToRedeem: n });
+      setOpen(false);
+    } catch (err) {
+      setLoyaltyErr(err?.response?.data?.error || 'Failed to apply loyalty');
+    }
+  }
+
+  async function handleApplyCoupon(code) {
+    setCouponErr('');
+    const c = (code ?? couponCode).trim();
+    if (!c) { setCouponErr('Enter a code'); return; }
+    try {
+      await applyCoupon.mutateAsync(c);
+      setOpen(false); setCouponCode('');
+    } catch (err) {
+      setCouponErr(err?.response?.data?.error || 'Invalid coupon');
+    }
+  }
+
+  const tier = customer ? getLoyaltyTier(customer.points_balance) : null;
 
   return (
     <div className="space-y-1.5">
-      <div className="flex gap-2 flex-wrap">
-        <input value={phone} onChange={(e) => setPhone(e.target.value)}
-          placeholder="Phone number" className="input" style={{ flex: '1 1 130px' }} autoFocus />
-        <input value={points} onChange={(e) => setPoints(e.target.value)}
-          placeholder="Points to redeem" type="number" min="0" className="input" style={{ flex: '0 0 130px' }} />
-        <button type="button" onClick={async () => {
-          setError('');
-          if (!phone.trim()) { setError('Enter a phone number'); return; }
-          try {
-            await applyLoyalty.mutateAsync({ phone: phone.trim(), pointsToRedeem: parseInt(points) || 0 });
-            setOpen(false);
-          } catch (err) { setError(err?.response?.data?.error || 'Failed to apply loyalty'); }
-        }} className="btn-primary" style={{ padding: '0 12px' }} disabled={applyLoyalty.isPending}>
-          {applyLoyalty.isPending ? '…' : 'Apply'}
+      {/* Applied discount rows */}
+      {hasCoupon && (
+        <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
+          <span>Coupon discount</span>
+          <div className="flex items-center gap-2">
+            <span className="mono num">−{format(bill.couponDiscountAmount)}</span>
+            <RemoveBtn onClick={() => removeCoupon.mutateAsync().catch(() => {})} />
+          </div>
+        </div>
+      )}
+      {hasLoyalty && (
+        <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
+          <span>Loyalty discount</span>
+          <div className="flex items-center gap-2">
+            <span className="mono num">−{format(bill.loyaltyDiscountAmount)}</span>
+            <RemoveBtn onClick={() => removeLoyalty.mutateAsync().catch(() => {})} />
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed trigger */}
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)}
+          className="flex items-center gap-1"
+          style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
+          <Phone size={12} />
+          {hasCoupon && hasLoyalty ? 'Discounts applied' : 'Find customer by phone'}
         </button>
-        <button type="button" onClick={() => { setOpen(false); setPhone(''); setPoints(''); setError(''); }}
-          className="btn-secondary" style={{ padding: '0 12px' }}>Cancel</button>
-      </div>
-      {error && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{error}</p>}
+      ) : (
+        <div className="space-y-3 rounded-[6px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+          <div className="flex items-center justify-between">
+            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
+              Customer Lookup
+            </p>
+            <button type="button" onClick={reset}
+              style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mute)', display: 'flex' }}>
+              <X size={13} />
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <input value={phone} onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleLookup())}
+              placeholder="Customer phone number" className="input flex-1" autoFocus />
+            <button type="button" onClick={handleLookup} disabled={lookupMutation.isPending}
+              className="btn-secondary" style={{ padding: '0 12px', whiteSpace: 'nowrap' }}>
+              {lookupMutation.isPending ? '…' : 'Find'}
+            </button>
+          </div>
+          {lookupErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{lookupErr}</p>}
+
+          {/* Customer card */}
+          {customer && (
+            <div className="rounded-[6px] p-3 space-y-2"
+              style={{ border: `1px solid ${tier.color}40`, background: `${tier.color}08` }}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-semibold" style={{ fontSize: 13, color: 'var(--ink)' }}>
+                    {customer.name || customer.phone}
+                  </span>
+                  {customer.name && (
+                    <span style={{ fontSize: 11, color: 'var(--mute)', marginLeft: 6 }}>{customer.phone}</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap', color: tier.color, background: `${tier.color}18` }}>
+                  {tier.name.toUpperCase()}
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--mute)', margin: 0 }}>
+                Balance: <strong style={{ color: 'var(--ink)' }}>{customer.points_balance.toLocaleString()} pts</strong>
+              </p>
+              {!hasLoyalty ? (
+                <>
+                  <div className="flex gap-2">
+                    <input value={points} onChange={(e) => setPoints(e.target.value)}
+                      placeholder="Points to redeem" type="number" min="1" max={customer.points_balance}
+                      className="input flex-1" style={{ fontSize: 12 }} />
+                    <button type="button" onClick={handleApplyLoyalty} disabled={applyLoyalty.isPending}
+                      className="btn-primary" style={{ padding: '0 10px', fontSize: 12 }}>
+                      {applyLoyalty.isPending ? '…' : 'Redeem'}
+                    </button>
+                  </div>
+                  {loyaltyErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{loyaltyErr}</p>}
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: 'var(--ok)', margin: 0 }}>✓ Loyalty points applied</p>
+              )}
+            </div>
+          )}
+
+          {/* Available coupon chips */}
+          {activeCoupons.length > 0 && (
+            <div className="space-y-1.5">
+              <p style={{ fontSize: 11, color: 'var(--mute)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                Available Coupons
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {activeCoupons.slice(0, 8).map((c) => (
+                  <button key={c.id} type="button"
+                    onClick={() => !hasCoupon && handleApplyCoupon(c.code)}
+                    disabled={applyCoupon.isPending || hasCoupon}
+                    className="rounded-[6px] px-2 py-1 transition-colors"
+                    style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--accent)', cursor: hasCoupon ? 'default' : 'pointer', opacity: hasCoupon ? 0.5 : 1 }}>
+                    {c.code}
+                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--mute)', marginLeft: 4 }}>
+                      {c.discount_type === 'percent' ? `${c.discount_value}%` : `flat ${c.discount_value}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manual coupon input */}
+          {!hasCoupon && (
+            <div className="space-y-1.5">
+              <div className="flex gap-2">
+                <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="Or enter coupon code" className="input flex-1"
+                  style={{ fontSize: 12, textTransform: 'uppercase' }} />
+                <button type="button" onClick={() => handleApplyCoupon()} disabled={applyCoupon.isPending}
+                  className="btn-secondary" style={{ padding: '0 10px', fontSize: 12 }}>
+                  {applyCoupon.isPending ? '…' : 'Apply'}
+                </button>
+              </div>
+              {couponErr && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{couponErr}</p>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, loyaltyEnabled = false, waiveServiceCharge = false, onWaiveChange }) {
+function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, waiveServiceCharge = false, onWaiveChange }) {
   return (
     <div className="rounded-[6px] p-4 space-y-1.5" style={{ border: '1px solid var(--line)', background: 'var(--paper-2)' }}>
       {billLoading ? (
@@ -292,8 +387,7 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
           <div className="pt-1.5 mt-1 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
             <BillRow label="Subtotal" value={bill.subtotal} format={format} />
             {showDiscount && <DiscountSection orderId={orderId} bill={bill} format={format} />}
-            {showDiscount && <CouponSection orderId={orderId} bill={bill} format={format} />}
-            {showDiscount && loyaltyEnabled && <LoyaltySection orderId={orderId} bill={bill} format={format} />}
+            {showDiscount && <CustomerLookupSection orderId={orderId} bill={bill} format={format} />}
             {bill.taxRate > 0 && (
               <BillRow label={`Tax (${+(bill.taxRate * 100).toFixed(4)}%)`} value={bill.taxAmount} format={format} />
             )}
@@ -361,8 +455,6 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const processPayment      = useProcessPayment();
   const processSplitPayment = useProcessSplitPayment();
   const { format, currency } = useCurrency();
-  const { data: settings }  = useSettings();
-  const loyaltyEnabled = settings?.loyalty_enabled === 'true';
 
   const [mode, setMode] = useState('full');
   const [method,            setMethod]            = useState('cash');
@@ -526,7 +618,6 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
         {mode === 'full' && (
           <form onSubmit={handleFullSubmit} className="space-y-5">
             <BillBreakdown bill={bill} billLoading={billLoading} orderId={order.id} format={format}
-              loyaltyEnabled={loyaltyEnabled}
               waiveServiceCharge={waiveServiceCharge} onWaiveChange={setWaiveServiceCharge} />
 
             <div>
