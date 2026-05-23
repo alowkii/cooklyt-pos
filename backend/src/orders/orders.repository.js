@@ -206,6 +206,32 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
     [restaurantId, timezone, from, to, status || null, channel || null],
   ).then((r) => r.rows);
 
+const setCoupon = (id, couponId, couponDiscountAmount) =>
+  db.query(
+    'UPDATE orders SET coupon_id = $1, coupon_discount_amount = $2 WHERE id = $3 RETURNING *',
+    [couponId, couponDiscountAmount, id],
+  ).then((r) => r.rows[0]);
+
+const clearCoupon = (id) =>
+  db.query(
+    'UPDATE orders SET coupon_id = NULL, coupon_discount_amount = 0 WHERE id = $1 RETURNING *',
+    [id],
+  ).then((r) => r.rows[0]);
+
+const setLoyalty = (id, customerId, pointsRedeemed, discountAmount) =>
+  db.query(
+    `UPDATE orders SET loyalty_customer_id = $1, loyalty_points_redeemed = $2, loyalty_discount_amount = $3
+     WHERE id = $4 RETURNING *`,
+    [customerId, pointsRedeemed, discountAmount, id],
+  ).then((r) => r.rows[0]);
+
+const clearLoyalty = (id) =>
+  db.query(
+    `UPDATE orders SET loyalty_customer_id = NULL, loyalty_points_redeemed = 0, loyalty_discount_amount = 0
+     WHERE id = $1 RETURNING *`,
+    [id],
+  ).then((r) => r.rows[0]);
+
 module.exports = {
   getById,
   getActiveByTable,
@@ -219,4 +245,6 @@ module.exports = {
   setDiscount,
   calculateTotal,
   getHistory,
+  setCoupon, clearCoupon,
+  setLoyalty, clearLoyalty,
 };

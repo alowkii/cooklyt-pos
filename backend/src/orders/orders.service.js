@@ -3,6 +3,8 @@ const tablesInterface = require('../tables/tables.interface');
 const menuInterface = require('../menu/menu.interface');
 const settingsRepo = require('../settings/settings.repository');
 const inventoryService = require('../inventory/inventory.service');
+const couponsInterface = require('../coupons/coupons.interface');
+const loyaltyInterface = require('../loyalty/loyalty.interface');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
@@ -271,6 +273,55 @@ async function applyDiscount(orderId, discountType, discountValue, restaurantId)
   return repo.setDiscount(orderId, discountType, value);
 }
 
+async function applyCoupon(orderId, code, restaurantId) {
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot modify a paid or cancelled order');
+  const subtotal = await repo.calculateTotal(orderId);
+  const { couponId, discountAmount } = await couponsInterface.validateAndApplyCoupon(
+    restaurantId, code, subtotal, orderId,
+  );
+  return repo.setCoupon(orderId, couponId, discountAmount);
+}
+
+async function removeCoupon(orderId, restaurantId) {
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot modify a paid or cancelled order');
+  await couponsInterface.removeCouponFromOrder(orderId);
+  return repo.clearCoupon(orderId);
+}
+
+async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot modify a paid or cancelled order');
+
+  const [settings, subtotal] = await Promise.all([
+    settingsRepo.getAll(restaurantId),
+    repo.calculateTotal(orderId),
+  ]);
+  if (settings.loyalty_enabled !== 'true')
+    throw new ValidationError('Loyalty programme is not enabled');
+
+  const customer = await loyaltyInterface.lookupCustomer(restaurantId, phone);
+  if (!customer) throw new ValidationError('No loyalty account found for this phone number');
+
+  const n = parseInt(pointsToRedeem || 0);
+  let redemptionValue = 0;
+  if (n > 0) {
+    ({ redemptionValue } = loyaltyInterface.validateRedemption(customer, n, subtotal, settings));
+  }
+  return repo.setLoyalty(orderId, customer.id, n, redemptionValue);
+}
+
+async function removeLoyalty(orderId, restaurantId) {
+  const order = await getById(orderId, restaurantId);
+  if (['paid', 'cancelled'].includes(order.status))
+    throw new ValidationError('Cannot modify a paid or cancelled order');
+  return repo.clearLoyalty(orderId);
+}
+
 module.exports = {
   getById,
   getActiveByTable,
@@ -284,6 +335,10 @@ module.exports = {
   markOrderPaid,
   getItems,
   applyDiscount,
+  applyCoupon,
+  removeCoupon,
+  applyLoyalty,
+  removeLoyalty,
   getHistory,
 };
 

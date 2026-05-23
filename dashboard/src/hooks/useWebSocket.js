@@ -77,7 +77,16 @@ export function useWebSocket({ onEvent } = {}) {
         }, 5000);
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        // Suppress console error — onclose fires next and handles reconnect
+        ws.onclose = null;
+        ws.close();
+        if (mounted) {
+          timerRef.current = setTimeout(() => {
+            if (localStorage.getItem('pos_user')) connect();
+          }, 5000);
+        }
+      };
     }
 
     connect();
@@ -85,7 +94,13 @@ export function useWebSocket({ onEvent } = {}) {
     return () => {
       mounted = false;
       clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      if (!ws) return;
+      // StrictMode double-invoke: if the socket hasn't opened yet, set a
+      // no-op onclose so the reconnect timer never fires for the phantom mount.
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close();
     };
   }, [qc]);
 }

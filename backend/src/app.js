@@ -63,6 +63,8 @@ app.use('/api/waste',        require('./waste/waste.router'));
 app.use('/api/inventory',    require('./inventory/inventory.router'));
 app.use('/api/notifications',  require('./notifications/notifications.router'));
 app.use('/api/reservations',  require('./reservations/reservations.router'));
+app.use('/api/loyalty',       require('./loyalty/loyalty.router'));
+app.use('/api/coupons',       require('./coupons/coupons.router'));
 
 // 404
 app.use((req, res) => {

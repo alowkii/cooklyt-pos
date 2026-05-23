@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw, Gift } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
@@ -153,6 +153,9 @@ export default function Settings() {
   const [packagingFee,    setPackagingFee]     = useState('');
   const [staffAssignment,   setStaffAssignment]   = useState(false);
   const [reservationsEnabled, setReservationsEnabled] = useState(false);
+  const [loyaltyEnabled,      setLoyaltyEnabled]      = useState(false);
+  const [loyaltyPointsPerUnit, setLoyaltyPointsPerUnit] = useState('');
+  const [loyaltyPointsValue,   setLoyaltyPointsValue]   = useState('');
   const [saving,          setSaving]          = useState(false);
   const [saveErr,         setSaveErr]         = useState('');
   const [saved,           setSaved]           = useState(false);
@@ -180,6 +183,11 @@ export default function Settings() {
     if (settings.reservations_enabled !== undefined) {
       setReservationsEnabled(settings.reservations_enabled === 'true');
     }
+    if (settings.loyalty_enabled !== undefined) {
+      setLoyaltyEnabled(settings.loyalty_enabled === 'true');
+    }
+    if (settings.loyalty_points_per_unit !== undefined) setLoyaltyPointsPerUnit(settings.loyalty_points_per_unit || '');
+    if (settings.loyalty_points_value    !== undefined) setLoyaltyPointsValue(settings.loyalty_points_value     || '');
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
@@ -221,6 +229,11 @@ export default function Settings() {
       await updateSetting.mutateAsync({ key: 'packaging_fee',  value: parseFloat(packagingFee || '0').toFixed(4) });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
       await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });
+      await updateSetting.mutateAsync({ key: 'loyalty_enabled', value: String(loyaltyEnabled) });
+      if (loyaltyEnabled) {
+        if (loyaltyPointsPerUnit) await updateSetting.mutateAsync({ key: 'loyalty_points_per_unit', value: loyaltyPointsPerUnit });
+        if (loyaltyPointsValue)   await updateSetting.mutateAsync({ key: 'loyalty_points_value',   value: loyaltyPointsValue });
+      }
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -238,7 +251,7 @@ export default function Settings() {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => saveRef.current?.(), 900);
     return () => clearTimeout(debounceRef.current);
-  }, [taxRate, serviceCharge, packagingFee, staffAssignment, reservationsEnabled, autosave, dirty]);
+  }, [taxRate, serviceCharge, packagingFee, staffAssignment, reservationsEnabled, loyaltyEnabled, loyaltyPointsPerUnit, loyaltyPointsValue, autosave, dirty]);
 
   function markDirty() { setDirty(true); }
 
@@ -453,6 +466,51 @@ export default function Settings() {
             onChange={(v) => { setReservationsEnabled(v); markDirty(); }}
           />
         </div>
+      </div>
+
+      {/* ── Loyalty Programme ───────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-2.5">
+            <Gift size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Loyalty Programme</p>
+              <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
+                Award points on purchases; customers redeem for discounts at checkout.
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={loyaltyEnabled}
+            onChange={(v) => { setLoyaltyEnabled(v); markDirty(); }}
+          />
+        </div>
+        {loyaltyEnabled && (
+          <div className="flex flex-wrap items-end gap-3 mt-3 pl-5">
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>
+                Points per currency unit spent
+              </label>
+              <input type="number" min="0.01" step="0.01" value={loyaltyPointsPerUnit}
+                onChange={(e) => { setLoyaltyPointsPerUnit(e.target.value); markDirty(); }}
+                className="input mono" style={{ width: 100 }} placeholder="e.g. 1" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>
+                1 point = {currencies[code]?.symbol ?? '$'}
+              </label>
+              <input type="number" min="0.001" step="0.001" value={loyaltyPointsValue}
+                onChange={(e) => { setLoyaltyPointsValue(e.target.value); markDirty(); }}
+                className="input mono" style={{ width: 100 }} placeholder="e.g. 0.01" />
+            </div>
+            {loyaltyPointsPerUnit && loyaltyPointsValue && (
+              <p style={{ fontSize: 11.5, color: 'var(--mute)', alignSelf: 'center' }}>
+                Spend {currencies[code]?.symbol ?? '$'}100 → earn {Math.floor(100 * parseFloat(loyaltyPointsPerUnit))} pts
+                → worth {format(Math.floor(100 * parseFloat(loyaltyPointsPerUnit)) * parseFloat(loyaltyPointsValue))}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Bottom bar ──────────────────────────────────────── */}

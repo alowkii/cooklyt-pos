@@ -113,4 +113,36 @@ router.patch('/:id/discount', authenticate, authorize('admin', 'staff'), async (
   }
 });
 
+router.patch('/:id/coupon', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'code is required' });
+    const updated = await service.applyCoupon(req.params.id, code, req.user.restaurantId);
+    res.json(updated);
+  } catch (e) { next(e); }
+});
+
+router.delete('/:id/coupon', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    const updated = await service.removeCoupon(req.params.id, req.user.restaurantId);
+    res.json(updated);
+  } catch (e) { next(e); }
+});
+
+router.patch('/:id/loyalty', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    const { phone, pointsToRedeem } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone is required' });
+    const updated = await service.applyLoyalty(req.params.id, phone, pointsToRedeem ?? 0, req.user.restaurantId);
+    res.json(updated);
+  } catch (e) { next(e); }
+});
+
+router.delete('/:id/loyalty', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    const updated = await service.removeLoyalty(req.params.id, req.user.restaurantId);
+    res.json(updated);
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

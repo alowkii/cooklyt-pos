@@ -24,6 +24,9 @@ import {
   Layers,
   QrCode,
   MapPin,
+  Tag,
+  Gift,
+  Megaphone,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -39,8 +42,9 @@ import { useMeProfile, useSetUserPresent } from '../hooks/useUsers';
 import { useSettings } from '../hooks/useSettings';
 
 const GROUP_PATHS = {
-  analytics: ['/reports', '/history', '/waste', '/costing'],
-  rms:       ['/ingredients', '/inventory', '/recipes', '/combos'],
+  analytics:  ['/reports', '/history', '/waste', '/costing'],
+  rms:        ['/ingredients', '/inventory', '/recipes', '/combos'],
+  marketing:  ['/coupons', '/loyalty'],
 };
 
 const ALL_NAV = [
@@ -65,6 +69,13 @@ const ALL_NAV = [
       { to: '/inventory',   label: 'Ledger',       Icon: Layers      },
       { to: '/recipes',     label: 'Recipes',      Icon: BookOpen    },
       { to: '/combos',      label: 'Combos',       Icon: Package     },
+    ],
+  },
+  {
+    type: 'group', key: 'marketing', label: 'Marketing', Icon: Megaphone, adminOnly: true,
+    children: [
+      { to: '/coupons', label: 'Coupons', Icon: Tag  },
+      { to: '/loyalty', label: 'Loyalty', Icon: Gift },
     ],
   },
   { to: '/users',    label: 'Users',    Icon: Users,    adminOnly: true },

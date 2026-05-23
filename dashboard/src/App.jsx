@@ -25,6 +25,8 @@ import WasteLog         from './pages/WasteLog';
 import CostingReports   from './pages/CostingReports';
 import InventoryLedger  from './pages/InventoryLedger';
 import Reservations     from './pages/Reservations';
+import Coupons          from './pages/Coupons';
+import Loyalty          from './pages/Loyalty';
 
 function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch { return null; }
@@ -113,6 +115,8 @@ export default function App() {
           <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
           <Route path="/waste"       element={<RequireAdmin><WasteLog /></RequireAdmin>} />
           <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
+          <Route path="/coupons"     element={<RequireAdmin><Coupons /></RequireAdmin>} />
+          <Route path="/loyalty"     element={<RequireAdmin><Loyalty /></RequireAdmin>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

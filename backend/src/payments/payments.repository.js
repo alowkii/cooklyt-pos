@@ -10,21 +10,24 @@ const create = ({
   orderId, amount, method,
   subtotal, taxRate, taxAmount,
   serviceChargeRate, serviceChargeAmount,
-  discountAmount, packagingFee = 0, totalCharged, tenders = null,
+  discountAmount, couponDiscountAmount = 0, loyaltyDiscountAmount = 0,
+  packagingFee = 0, totalCharged, tenders = null,
 }) =>
   db.query(
     `INSERT INTO payments
        (order_id, amount, method, status,
         subtotal, tax_rate, tax_amount,
         service_charge_rate, service_charge_amount,
-        discount_amount, packaging_fee, total_charged, tenders)
-     VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        discount_amount, coupon_discount_amount, loyalty_discount_amount,
+        packaging_fee, total_charged, tenders)
+     VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING *`,
     [
       orderId, amount, method,
       subtotal, taxRate, taxAmount,
       serviceChargeRate, serviceChargeAmount,
-      discountAmount ?? 0, packagingFee ?? 0, totalCharged ?? amount,
+      discountAmount ?? 0, couponDiscountAmount ?? 0, loyaltyDiscountAmount ?? 0,
+      packagingFee ?? 0, totalCharged ?? amount,
       tenders ? JSON.stringify(tenders) : null,
     ],
   ).then((r) => r.rows[0]);
@@ -45,6 +48,8 @@ const getReceiptData = (orderId, restaurantId) =>
          SUM(tax_amount)               AS tax_amount,
          SUM(service_charge_amount)    AS service_charge_amount,
          SUM(discount_amount)          AS discount_amount,
+         SUM(coupon_discount_amount)   AS coupon_discount_amount,
+         SUM(loyalty_discount_amount)  AS loyalty_discount_amount,
          SUM(packaging_fee)            AS packaging_fee,
          CASE WHEN COUNT(*) = 1 THEN MAX(method) ELSE 'split' END AS method,
          jsonb_agg(
@@ -76,6 +81,8 @@ const getReceiptData = (orderId, restaurantId) =>
        pa.service_charge_rate,
        pa.service_charge_amount,
        pa.discount_amount,
+       pa.coupon_discount_amount,
+       pa.loyalty_discount_amount,
        pa.packaging_fee,
        COALESCE(
          jsonb_agg(
@@ -100,7 +107,8 @@ const getReceiptData = (orderId, restaurantId) =>
               pa.method, pa.payments_detail, pa.total_charged, pa.subtotal,
               pa.tax_rate, pa.tax_amount,
               pa.service_charge_rate, pa.service_charge_amount,
-              pa.discount_amount, pa.packaging_fee`,
+              pa.discount_amount, pa.coupon_discount_amount,
+              pa.loyalty_discount_amount, pa.packaging_fee`,
     [orderId, restaurantId],
   ).then((r) => r.rows[0] || null);
 

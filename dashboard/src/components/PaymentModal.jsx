@@ -1,10 +1,13 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
-  Printer, Split, Plus, Minus, ArrowLeft,
+  Printer, Split, Plus, Minus, ArrowLeft, Gift,
 } from 'lucide-react';
 import Modal from './Modal';
 import { useBill, useApplyDiscount, useProcessPayment, useProcessSplitPayment } from '../hooks/usePayments';
+import { useApplyCoupon, useRemoveCoupon } from '../hooks/useCoupons';
+import { useApplyLoyalty, useRemoveLoyalty } from '../hooks/useLoyalty';
+import { useSettings } from '../hooks/useSettings';
 import { useCurrency } from '../context/CurrencyContext';
 import api from '../api/client';
 import { printReceipt } from '../utils/printReceipt';
@@ -146,7 +149,134 @@ function DiscountSection({ orderId, bill, format }) {
   );
 }
 
-function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, waiveServiceCharge = false, onWaiveChange }) {
+function CouponSection({ orderId, bill, format }) {
+  const applyCoupon = useApplyCoupon(orderId);
+  const removeCoupon = useRemoveCoupon(orderId);
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+
+  const hasCoupon = (bill?.couponDiscountAmount ?? 0) > 0;
+
+  if (hasCoupon) {
+    return (
+      <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
+        <span>Coupon discount</span>
+        <div className="flex items-center gap-2">
+          <span className="mono num">−{format(bill.couponDiscountAmount)}</span>
+          <button type="button" onClick={async () => { try { await removeCoupon.mutateAsync(); } catch {} }}
+            className="rounded-md p-0.5 transition-colors"
+            style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1"
+        style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
+        <Tag size={12} /> Apply coupon
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2">
+        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="COUPON CODE" className="input flex-1" style={{ textTransform: 'uppercase' }} autoFocus />
+        <button type="button" onClick={async () => {
+          setError('');
+          if (!code.trim()) { setError('Enter a code'); return; }
+          try {
+            await applyCoupon.mutateAsync(code.trim());
+            setOpen(false); setCode('');
+          } catch (err) { setError(err?.response?.data?.error || 'Invalid coupon'); }
+        }} className="btn-primary" style={{ padding: '0 12px' }} disabled={applyCoupon.isPending}>
+          {applyCoupon.isPending ? '…' : 'Apply'}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setCode(''); setError(''); }}
+          className="btn-secondary" style={{ padding: '0 12px' }}>Cancel</button>
+      </div>
+      {error && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{error}</p>}
+    </div>
+  );
+}
+
+function LoyaltySection({ orderId, bill, format }) {
+  const applyLoyalty = useApplyLoyalty(orderId);
+  const removeLoyalty = useRemoveLoyalty(orderId);
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [points, setPoints] = useState('');
+  const [error, setError] = useState('');
+
+  const hasLoyalty = (bill?.loyaltyDiscountAmount ?? 0) > 0;
+
+  if (hasLoyalty) {
+    return (
+      <div className="flex justify-between items-center" style={{ fontSize: 13, color: 'var(--ok)' }}>
+        <span>Loyalty discount</span>
+        <div className="flex items-center gap-2">
+          <span className="mono num">−{format(bill.loyaltyDiscountAmount)}</span>
+          <button type="button" onClick={async () => { try { await removeLoyalty.mutateAsync(); } catch {} }}
+            className="rounded-md p-0.5 transition-colors"
+            style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1"
+        style={{ fontSize: 12, color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}>
+        <Gift size={12} /> Apply loyalty points
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2 flex-wrap">
+        <input value={phone} onChange={(e) => setPhone(e.target.value)}
+          placeholder="Phone number" className="input" style={{ flex: '1 1 130px' }} autoFocus />
+        <input value={points} onChange={(e) => setPoints(e.target.value)}
+          placeholder="Points to redeem" type="number" min="0" className="input" style={{ flex: '0 0 130px' }} />
+        <button type="button" onClick={async () => {
+          setError('');
+          if (!phone.trim()) { setError('Enter a phone number'); return; }
+          try {
+            await applyLoyalty.mutateAsync({ phone: phone.trim(), pointsToRedeem: parseInt(points) || 0 });
+            setOpen(false);
+          } catch (err) { setError(err?.response?.data?.error || 'Failed to apply loyalty'); }
+        }} className="btn-primary" style={{ padding: '0 12px' }} disabled={applyLoyalty.isPending}>
+          {applyLoyalty.isPending ? '…' : 'Apply'}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setPhone(''); setPoints(''); setError(''); }}
+          className="btn-secondary" style={{ padding: '0 12px' }}>Cancel</button>
+      </div>
+      {error && <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{error}</p>}
+    </div>
+  );
+}
+
+function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, loyaltyEnabled = false, waiveServiceCharge = false, onWaiveChange }) {
   return (
     <div className="rounded-[6px] p-4 space-y-1.5" style={{ border: '1px solid var(--line)', background: 'var(--paper-2)' }}>
       {billLoading ? (
@@ -162,6 +292,8 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
           <div className="pt-1.5 mt-1 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
             <BillRow label="Subtotal" value={bill.subtotal} format={format} />
             {showDiscount && <DiscountSection orderId={orderId} bill={bill} format={format} />}
+            {showDiscount && <CouponSection orderId={orderId} bill={bill} format={format} />}
+            {showDiscount && loyaltyEnabled && <LoyaltySection orderId={orderId} bill={bill} format={format} />}
             {bill.taxRate > 0 && (
               <BillRow label={`Tax (${+(bill.taxRate * 100).toFixed(4)}%)`} value={bill.taxAmount} format={format} />
             )}
@@ -229,6 +361,8 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
   const processPayment      = useProcessPayment();
   const processSplitPayment = useProcessSplitPayment();
   const { format, currency } = useCurrency();
+  const { data: settings }  = useSettings();
+  const loyaltyEnabled = settings?.loyalty_enabled === 'true';
 
   const [mode, setMode] = useState('full');
   const [method,            setMethod]            = useState('cash');
@@ -392,6 +526,7 @@ export default function PaymentModal({ order, tableNumber, onClose }) {
         {mode === 'full' && (
           <form onSubmit={handleFullSubmit} className="space-y-5">
             <BillBreakdown bill={bill} billLoading={billLoading} orderId={order.id} format={format}
+              loyaltyEnabled={loyaltyEnabled}
               waiveServiceCharge={waiveServiceCharge} onWaiveChange={setWaiveServiceCharge} />
 
             <div>

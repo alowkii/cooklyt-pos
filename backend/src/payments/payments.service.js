@@ -2,20 +2,25 @@ const repo = require('./payments.repository');
 const ordersInterface = require('../orders/orders.interface');
 const tablesInterface = require('../tables/tables.interface');
 const settingsRepo = require('../settings/settings.repository');
+const loyaltyInterface = require('../loyalty/loyalty.interface');
 const ws = require('../shared/websocket');
 const { NotFoundError, ValidationError, AppError } = require('../shared/errors');
 
 const VALID_METHODS = ['cash', 'card', 'mobile'];
 
-function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, discountValue = 0, packagingFee = 0) {
-  let discountAmount = 0;
+function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, discountValue = 0, packagingFee = 0, couponDiscountAmount = 0, loyaltyDiscountAmount = 0) {
+  let manualDiscount = 0;
   if (discountType === 'percent') {
-    discountAmount = parseFloat((subtotal * (discountValue / 100)).toFixed(2));
+    manualDiscount = parseFloat((subtotal * (discountValue / 100)).toFixed(2));
   } else if (discountType === 'flat') {
-    discountAmount = parseFloat(Math.min(discountValue, subtotal).toFixed(2));
+    manualDiscount = parseFloat(Math.min(discountValue, subtotal).toFixed(2));
   }
 
-  const discountedSubtotal = parseFloat((subtotal - discountAmount).toFixed(2));
+  const couponDiscount  = parseFloat(Math.min(parseFloat(couponDiscountAmount  || 0), subtotal).toFixed(2));
+  const loyaltyDiscount = parseFloat(Math.min(parseFloat(loyaltyDiscountAmount || 0), subtotal).toFixed(2));
+  const totalDiscounts  = parseFloat((manualDiscount + couponDiscount + loyaltyDiscount).toFixed(2));
+
+  const discountedSubtotal = parseFloat(Math.max(subtotal - totalDiscounts, 0).toFixed(2));
   const tax           = parseFloat((discountedSubtotal * taxRate).toFixed(2));
   const serviceCharge = parseFloat((discountedSubtotal * serviceChargeRate).toFixed(2));
   const fee           = parseFloat((packagingFee || 0).toFixed(2));
@@ -23,14 +28,16 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
 
   return {
     subtotal,
-    discountType:         discountType || null,
-    discountValue:        parseFloat(discountValue) || 0,
-    discountAmount,
+    discountType:          discountType || null,
+    discountValue:         parseFloat(discountValue) || 0,
+    discountAmount:        manualDiscount,
+    couponDiscountAmount:  couponDiscount,
+    loyaltyDiscountAmount: loyaltyDiscount,
     taxRate,
-    taxAmount:            tax,
+    taxAmount:             tax,
     serviceChargeRate,
-    serviceChargeAmount:  serviceCharge,
-    packagingFee:         fee,
+    serviceChargeAmount:   serviceCharge,
+    packagingFee:          fee,
     total,
   };
 }
@@ -56,22 +63,27 @@ async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceC
     const subtotal      = parseFloat(items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
     const totalSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
 
-    // Prorate flat discount and packaging fee by proportion of subtotal
+    // Prorate flat discount, coupon, loyalty, and packaging fee by proportion of subtotal
     let { discount_type: discountType, discount_value: discountValue } = order;
     discountValue = parseFloat(discountValue || 0);
     if (discountType === 'flat' && totalSubtotal > 0) {
       discountValue = parseFloat((discountValue * subtotal / totalSubtotal).toFixed(2));
     }
-    const packagingFee = totalSubtotal > 0
-      ? parseFloat((packagingFeeTotal * subtotal / totalSubtotal).toFixed(2))
-      : 0;
+    const ratio = totalSubtotal > 0 ? subtotal / totalSubtotal : 0;
+    const packagingFee    = parseFloat((packagingFeeTotal * ratio).toFixed(2));
+    const couponDiscount  = parseFloat((parseFloat(order.coupon_discount_amount  || 0) * ratio).toFixed(2));
+    const loyaltyDiscount = parseFloat((parseFloat(order.loyalty_discount_amount || 0) * ratio).toFixed(2));
 
-    const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee);
+    const bill = computeBill(subtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee, couponDiscount, loyaltyDiscount);
     return { ...bill, items };
   }
 
   const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
-  const bill = computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFeeTotal);
+  const bill = computeBill(
+    subtotal, taxRate, serviceChargeRate,
+    order.discount_type, order.discount_value, packagingFeeTotal,
+    order.coupon_discount_amount, order.loyalty_discount_amount,
+  );
   return { ...bill, items: allItems };
 }
 
@@ -106,8 +118,9 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     : 0;
   const subtotal          = await ordersInterface.getOrderTotal(orderId, restaurantId);
 
-  const { taxAmount, serviceChargeAmount, discountAmount, total } =
-    computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFee);
+  const { taxAmount, serviceChargeAmount, discountAmount, couponDiscountAmount, loyaltyDiscountAmount, total } =
+    computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFee,
+      order.coupon_discount_amount, order.loyalty_discount_amount);
 
   if (effectiveTenders) {
     const sum = parseFloat(effectiveTenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
@@ -122,7 +135,8 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     orderId, amount: total, method: effectiveMethod,
     subtotal, taxRate, taxAmount,
     serviceChargeRate, serviceChargeAmount,
-    discountAmount, packagingFee, totalCharged: total,
+    discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
+    packagingFee, totalCharged: total,
     tenders: effectiveTenders,
   });
 
@@ -131,6 +145,14 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
     await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
+  }
+
+  // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
+  if (order.loyalty_customer_id) {
+    Promise.all([
+      loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0),
+      loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, subtotal, settings),
+    ]).catch((err) => console.error('[loyalty] post-payment update failed for order', orderId, err?.message));
   }
 
   ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
@@ -215,13 +237,14 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
       discountValue = parseFloat((discountValue * splitSubtotal / totalSubtotal).toFixed(2));
     }
 
-    // Prorate packaging fee by proportion of this split's subtotal
-    const packagingFee = totalSubtotal > 0
-      ? parseFloat((packagingFeeTotal * splitSubtotal / totalSubtotal).toFixed(2))
-      : 0;
+    // Prorate packaging fee, coupon, and loyalty by proportion of this split's subtotal
+    const splitRatio      = totalSubtotal > 0 ? splitSubtotal / totalSubtotal : 0;
+    const packagingFee    = parseFloat((packagingFeeTotal * splitRatio).toFixed(2));
+    const couponDiscount  = parseFloat((parseFloat(order.coupon_discount_amount  || 0) * splitRatio).toFixed(2));
+    const loyaltyDiscount = parseFloat((parseFloat(order.loyalty_discount_amount || 0) * splitRatio).toFixed(2));
 
-    const { taxAmount, serviceChargeAmount, discountAmount, total } =
-      computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee);
+    const { taxAmount, serviceChargeAmount, discountAmount, couponDiscountAmount, loyaltyDiscountAmount, total } =
+      computeBill(splitSubtotal, taxRate, serviceChargeRate, discountType, discountValue, packagingFee, couponDiscount, loyaltyDiscount);
 
     const tendersSum = parseFloat(tenders.reduce((s, t) => s + t.amount, 0).toFixed(2));
     if (Math.abs(tendersSum - total) > 0.05) {
@@ -236,7 +259,8 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
       orderId, amount: total, method,
       subtotal: splitSubtotal, taxRate, taxAmount,
       serviceChargeRate, serviceChargeAmount,
-      discountAmount, packagingFee, totalCharged: total,
+      discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
+      packagingFee, totalCharged: total,
       tenders: tenders.length > 1 ? tenders : null,
     });
     await repo.updateStatus(payment.id, 'completed');
@@ -247,6 +271,15 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
     await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
+  }
+
+  // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
+  if (order.loyalty_customer_id) {
+    const fullSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+    Promise.all([
+      loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0),
+      loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, fullSubtotal, settings),
+    ]).catch((err) => console.error('[loyalty] post-payment update failed for order', orderId, err?.message));
   }
 
   const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));
