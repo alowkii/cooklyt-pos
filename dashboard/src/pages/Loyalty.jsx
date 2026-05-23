@@ -175,7 +175,7 @@ function DetailPanel({ customer, sortedTiers, rewards, onAdjust, onAddPoints, on
   }
 
   return (
-    <div style={{ background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', position: 'sticky', top: 80 }}>
+    <div className="lg:sticky lg:top-20" style={{ background: 'var(--paper)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
       {/* Hero */}
       <div style={{ padding: '20px 20px 16px', background: 'linear-gradient(180deg,#fffdf6 0%,#ffffff 100%)', borderBottom: '1px solid var(--border)', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 }}>
@@ -644,6 +644,7 @@ export default function Loyalty() {
   const [adjustForm, setAdjustForm]   = useState({ points: '', description: '' });
   const [adjustError, setAdjustError] = useState('');
 
+  const [sortBy, setSortBy]               = useState('points_desc');
   const [menuOpen, setMenuOpen]           = useState(null); // customer id
   const [menuPos, setMenuPos]             = useState({ top: 0, right: 0 });
   const [deleteTarget, setDeleteTarget]   = useState(null); // customer object
@@ -679,9 +680,17 @@ export default function Loyalty() {
   );
 
   const filtered = useMemo(() => {
-    if (tierFilter === 'all') return customers;
-    return customers.filter((c) => getTier(c.points_balance, sortedTiers).name === tierFilter);
-  }, [customers, tierFilter, sortedTiers]);
+    const list = tierFilter === 'all'
+      ? customers
+      : customers.filter((c) => getTier(c.points_balance, sortedTiers).name === tierFilter);
+    return [...list].sort((a, b) => {
+      if (sortBy === 'points_desc') return b.points_balance - a.points_balance;
+      if (sortBy === 'points_asc')  return a.points_balance - b.points_balance;
+      if (sortBy === 'name')        return (a.name || '').localeCompare(b.name || '');
+      if (sortBy === 'newest')      return new Date(b.created_at) - new Date(a.created_at);
+      return 0;
+    });
+  }, [customers, tierFilter, sortedTiers, sortBy]);
 
   const totalPts = useMemo(() => customers.reduce((s, c) => s + (c.points_balance || 0), 0), [customers]);
 
@@ -819,36 +828,60 @@ export default function Loyalty() {
 
       {/* ── Members tab ── */}
       {activeTab === 'members' && (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedFresh ? '1fr 400px' : '1fr', gap: 18, alignItems: 'start' }}>
+        <div className={`grid grid-cols-1 items-start gap-4${selectedFresh ? ' lg:grid-cols-[1fr_400px]' : ''}`}>
 
           <div style={{ background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden' }}>
 
             {/* Toolbar */}
-            <div className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 12px', borderBottom: '1px solid var(--line-2)' }}>
-              <div className="flex items-center gap-2" style={{ flex: 1, minWidth: 160, background: 'var(--paper-2)', borderRadius: 999, padding: '6px 12px' }}>
-                <Search size={14} style={{ color: 'var(--mute)', flexShrink: 0 }} />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or phone…"
-                  style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: 'var(--ink)' }} />
-              </div>
-              {TIER_CHIPS.map(({ key, label }) => (
-                <button key={key} onClick={() => setTierFilter(key)} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
-                  height: 28, padding: '0 10px', borderRadius: 999,
-                  border: tierFilter === key ? '1px solid var(--accent)' : '1px solid var(--line-2)',
-                  background: tierFilter === key ? 'var(--accent)' : 'var(--paper)',
-                  color: tierFilter === key ? '#fff' : 'var(--ink-2)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                }}>
-                  {label}
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line-2)' }}>
+              {/* Row 1: search + sort */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0" style={{ background: 'var(--paper-2)', borderRadius: 999, padding: '6px 12px' }}>
+                  <Search size={14} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or phone…"
+                    style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: 'var(--ink)' }} />
+                </div>
+                {/* Tier chips — inline on sm+, hidden on mobile */}
+                <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
+                  {TIER_CHIPS.map(({ key, label }) => (
+                    <button key={key} onClick={() => setTierFilter(key)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                      height: 28, padding: '0 10px', borderRadius: 999,
+                      border: tierFilter === key ? '1px solid var(--accent)' : '1px solid var(--line-2)',
+                      background: tierFilter === key ? 'var(--accent)' : 'var(--paper)',
+                      color: tierFilter === key ? '#fff' : 'var(--ink-2)',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button className="btn btn-sm shrink-0" onClick={() =>
+                  setSortBy((s) => s === 'points_desc' ? 'points_asc' : s === 'points_asc' ? 'name' : s === 'name' ? 'newest' : 'points_desc')
+                }>
+                  <ArrowUpDown size={12} style={{ color: 'var(--mute)' }} />
+                  {{ points_desc: 'Points ↓', points_asc: 'Points ↑', name: 'Name A–Z', newest: 'Newest' }[sortBy]}
                 </button>
-              ))}
-              <button className="btn btn-sm" style={{ flexShrink: 0 }}>
-                <ArrowUpDown size={12} style={{ color: 'var(--mute)' }} /> Sort: Points
-              </button>
+              </div>
+              {/* Row 2: tier chips — scrollable on mobile only */}
+              <div className="flex sm:hidden items-center gap-1.5 mt-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+                {TIER_CHIPS.map(({ key, label }) => (
+                  <button key={key} onClick={() => setTierFilter(key)} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                    height: 28, padding: '0 10px', borderRadius: 999,
+                    border: tierFilter === key ? '1px solid var(--accent)' : '1px solid var(--line-2)',
+                    background: tierFilter === key ? 'var(--accent)' : 'var(--paper)',
+                    color: tierFilter === key ? '#fff' : 'var(--ink-2)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* List header */}
-            <div style={{ display: 'grid', gridTemplateColumns: COL, gap: 14, padding: '8px 16px', background: 'var(--paper-2)', fontSize: 10, fontWeight: 700, letterSpacing: '.07em', color: 'var(--mute)', textTransform: 'uppercase', borderBottom: '1px solid var(--line-2)' }}>
+            {/* List header — desktop only */}
+            <div className="hidden sm:grid" style={{ gridTemplateColumns: COL, gap: 14, padding: '8px 16px', background: 'var(--paper-2)', fontSize: 10, fontWeight: 700, letterSpacing: '.07em', color: 'var(--mute)', textTransform: 'uppercase', borderBottom: '1px solid var(--line-2)' }}>
               <div>Member</div><div>Phone</div><div>Tier</div>
               <div style={{ textAlign: 'right' }}>Points</div><div>Since</div>
               <div style={{ textAlign: 'right' }}>Actions</div>
@@ -865,64 +898,96 @@ export default function Loyalty() {
             ) : filtered.map((c) => {
               const tier  = getTier(c.points_balance, sortedTiers);
               const isSel = selected?.id === c.id;
-              return (
-                <div key={c.id} onClick={() => setSelected(isSel ? null : c)}
-                  style={{ display: 'grid', gridTemplateColumns: COL, gap: 14, padding: '12px 16px', alignItems: 'center', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', background: isSel ? 'var(--paper-2)' : 'var(--paper)', transition: 'background .1s' }}
-                  onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = 'var(--hover)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = isSel ? 'var(--paper-2)' : 'var(--paper)'; }}
+              const rowBg = isSel ? 'var(--paper-2)' : 'var(--paper)';
+              const menuBtn = (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (menuOpen === c.id) { setMenuOpen(null); return; }
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+                    setMenuOpen(c.id);
+                  }}
+                  style={{ width: 26, height: 26, borderRadius: 7, display: 'grid', placeItems: 'center', background: menuOpen === c.id ? 'var(--paper-2)' : 'transparent', border: '1px solid var(--line-2)', cursor: 'pointer', color: 'var(--mute)', flexShrink: 0 }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, color: '#fff', background: `linear-gradient(135deg,${tier.gradA},${tier.gradB})` }}>
-                      {initials(c.name, c.phone)}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>
-                        {c.name || <span style={{ color: 'var(--mute)', fontStyle: 'italic' }}>No name</span>}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--mute)', marginTop: 1 }}>
-                        {`LM-${String(c.id).padStart(5, '0')}`}
-                      </div>
-                    </div>
-                  </div>
-                  <PhoneCopyCell phone={c.phone} />
-                  <div><TierBadge tier={tier} /></div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="mono num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{c.points_balance.toLocaleString()}</div>
-                    <div style={{ fontSize: 10, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>pts</div>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--mute)' }}>{fmtSince(c.created_at)}</div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => { setSelected(c); openAdjust(); }} className="btn btn-sm">
-                      Adjust
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        if (menuOpen === c.id) { setMenuOpen(null); return; }
-                        const r = e.currentTarget.getBoundingClientRect();
-                        setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
-                        setMenuOpen(c.id);
-                      }}
-                      style={{ width: 26, height: 26, borderRadius: 7, display: 'grid', placeItems: 'center', background: menuOpen === c.id ? 'var(--paper-2)' : 'transparent', border: '1px solid var(--line-2)', cursor: 'pointer', color: 'var(--mute)' }}
+                  <MoreHorizontal size={13} />
+                </button>
+              );
+              const contextMenu = menuOpen === c.id && (
+                <div ref={menuRef} style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 160, overflow: 'hidden' }}>
+                  {[
+                    { label: 'View Details',  fn: () => { setSelected(c); setMenuOpen(null); } },
+                    { label: 'Adjust Points', fn: () => { setSelected(c); openAdjust(); setMenuOpen(null); } },
+                    { label: 'Edit Name',     fn: () => { setRenameTarget(c); setRenameName(c.name || ''); setMenuOpen(null); } },
+                    { label: 'Delete',        fn: () => { setDeleteTarget(c); setMenuOpen(null); }, danger: true },
+                  ].map(({ label, fn, danger }) => (
+                    <button key={label} onClick={fn} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', color: danger ? 'var(--bad)' : 'var(--ink)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = danger ? 'rgba(179,55,43,.06)' : 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                     >
-                      <MoreHorizontal size={13} />
+                      {label}
                     </button>
-                    {menuOpen === c.id && (
-                      <div ref={menuRef} style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 160, overflow: 'hidden' }}>
-                        {[
-                          { label: 'View Details',   fn: () => { setSelected(c); setMenuOpen(null); } },
-                          { label: 'Adjust Points',  fn: () => { setSelected(c); openAdjust(); setMenuOpen(null); } },
-                          { label: 'Edit Name',      fn: () => { setRenameTarget(c); setRenameName(c.name || ''); setMenuOpen(null); } },
-                          { label: 'Delete',         fn: () => { setDeleteTarget(c); setMenuOpen(null); }, danger: true },
-                        ].map(({ label, fn, danger }) => (
-                          <button key={label} onClick={fn} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', color: danger ? 'var(--bad)' : 'var(--ink)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = danger ? 'rgba(179,55,43,.06)' : 'var(--hover)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                  ))}
+                </div>
+              );
+              return (
+                <div key={c.id}>
+                  {/* Mobile card row */}
+                  <div className="sm:hidden" onClick={() => setSelected(isSel ? null : c)}
+                    style={{ padding: '11px 14px', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', background: rowBg }}>
+                    <div className="flex items-center gap-3">
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, color: '#fff', background: `linear-gradient(135deg,${tier.gradA},${tier.gradB})` }}>
+                        {initials(c.name, c.phone)}
                       </div>
-                    )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>
+                          {c.name || <span style={{ color: 'var(--mute)', fontStyle: 'italic' }}>No name</span>}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1 }}>{c.phone}</div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <TierBadge tier={tier} />
+                        <div className="mono num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginTop: 3 }}>
+                          {c.points_balance.toLocaleString()} <span style={{ fontSize: 10, color: 'var(--mute)', fontWeight: 500 }}>pts</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setSelected(c); openAdjust(); }} className="btn btn-sm">Adjust</button>
+                        {menuBtn}
+                        {contextMenu}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop table row */}
+                  <div className="hidden sm:grid" onClick={() => setSelected(isSel ? null : c)}
+                    style={{ gridTemplateColumns: COL, gap: 14, padding: '12px 16px', alignItems: 'center', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', background: rowBg, transition: 'background .1s' }}
+                    onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = 'var(--hover)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, color: '#fff', background: `linear-gradient(135deg,${tier.gradA},${tier.gradB})` }}>
+                        {initials(c.name, c.phone)}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>
+                          {c.name || <span style={{ color: 'var(--mute)', fontStyle: 'italic' }}>No name</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--mute)', marginTop: 1 }}>{`LM-${String(c.id).padStart(5, '0')}`}</div>
+                      </div>
+                    </div>
+                    <PhoneCopyCell phone={c.phone} />
+                    <div><TierBadge tier={tier} /></div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="mono num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{c.points_balance.toLocaleString()}</div>
+                      <div style={{ fontSize: 10, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>pts</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--mute)' }}>{fmtSince(c.created_at)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => { setSelected(c); openAdjust(); }} className="btn btn-sm">Adjust</button>
+                      {menuBtn}
+                      {contextMenu}
+                    </div>
                   </div>
                 </div>
               );

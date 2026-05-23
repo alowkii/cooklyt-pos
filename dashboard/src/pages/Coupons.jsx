@@ -285,7 +285,7 @@ export default function Coupons() {
       {formOpen && (
         <Modal onClose={() => setFormOpen(false)} title={editing ? 'Edit Coupon' : 'New Coupon'}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label style={LABEL}>Code</label>
                 <input style={{ ...INPUT, textTransform: 'uppercase', letterSpacing: 1 }} placeholder="e.g. SAVE20"
