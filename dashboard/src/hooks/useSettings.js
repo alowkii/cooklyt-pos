@@ -10,7 +10,7 @@ export function useSettings() {
       return data;
     },
     // Only fetch when a token is present (avoids 401 redirect on login page)
-    enabled: !!localStorage.getItem('pos_token'),
+    enabled: !!localStorage.getItem('pos_user'),
     staleTime: 5 * 60_000,
   });
 }

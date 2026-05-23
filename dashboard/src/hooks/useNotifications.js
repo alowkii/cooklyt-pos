@@ -6,10 +6,8 @@ const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function localKey() {
   try {
-    const token = localStorage.getItem('pos_token');
-    if (!token) return 'pos_notifications_anon';
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return `pos_notifications_${payload.userId ?? 'anon'}`;
+    const user = JSON.parse(localStorage.getItem('pos_user') || 'null');
+    return `pos_notifications_${user?.id ?? 'anon'}`;
   } catch {
     return 'pos_notifications_anon';
   }
@@ -56,7 +54,7 @@ export function useNotifications() {
   useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
-    if (!localStorage.getItem('pos_token')) return;
+    if (!localStorage.getItem('pos_user')) return;
     api.get('/notifications').then(({ data }) => {
       setNotifications((prev) => mergeServer(prev, data));
     }).catch(() => { /* offline — use local */ });
