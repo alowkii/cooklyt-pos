@@ -503,6 +503,7 @@ export default function Landing() {
               role="img"
               aria-label="CookLyt"
             >
+              <title>CookLyt</title>
               <text
                 x="0"
                 y="49"
@@ -1176,6 +1177,7 @@ export default function Landing() {
               role="img"
               aria-label="CookLyt"
             >
+              <title>CookLyt</title>
               <text
                 x="0"
                 y="49"
