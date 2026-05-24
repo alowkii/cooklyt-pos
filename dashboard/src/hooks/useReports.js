@@ -32,3 +32,51 @@ export function useDailyReport(date) {
     },
   });
 }
+
+export function useTrends(from, to, group = 'day') {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'trends', from, to, group, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/trends?from=${from}&to=${to}&group=${group}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useItemProfitability(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'items', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/items?from=${from}&to=${to}&limit=100&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useStaffPerformance(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'staff', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/staff?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}

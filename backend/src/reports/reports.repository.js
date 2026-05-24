@@ -85,9 +85,91 @@ const getHourlySales = (date, tz = 'UTC', restaurantId) =>
     )
     .then((r) => r.rows);
 
+// ── New range-based queries ───────────────────────────────────────────────────
+
+// group must be one of 'day' | 'week' | 'month' — validated before this call
+const getTrends = (from, to, tz = 'UTC', group, restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
+      COUNT(DISTINCT o.id)::int                                          AS orders,
+      COALESCE(SUM(p.amount), 0)                                         AS revenue
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY 1
+    ORDER BY 1
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      mi.id,
+      mi.name,
+      mi.category,
+      mi.price                              AS selling_price,
+      SUM(oi.quantity)::int                 AS total_sold,
+      SUM(mi.price * oi.quantity)           AS revenue,
+      (
+        SELECT COALESCE(SUM(ri.quantity * ri.cost_per_unit), NULL)
+        FROM recipe_ingredients ri
+        WHERE ri.recipe_id = mi.recipe_id
+      )                                     AS cost_per_unit
+    FROM order_items oi
+    JOIN menu_items mi ON mi.id = oi.menu_item_id
+    JOIN orders o      ON o.id = oi.order_id
+    JOIN payments p    ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY mi.id, mi.name, mi.category, mi.price
+    ORDER BY revenue DESC
+    LIMIT $5
+  `,
+      [from, to, tz, restaurantId, limit],
+    )
+    .then((r) => r.rows);
+
+const getStaffPerformance = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      u.id,
+      COALESCE(u.name, u.email)             AS name,
+      u.email,
+      u.role,
+      COUNT(DISTINCT o.id)::int             AS orders_created,
+      COALESCE(SUM(p.amount), 0)            AS revenue_handled
+    FROM users u
+    LEFT JOIN orders o ON o.created_by = u.id
+      AND (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+    LEFT JOIN payments p ON p.order_id = o.id AND p.status = 'completed'
+    WHERE u.restaurant_id = $4
+      AND u.is_active = true
+      AND u.role IN ('admin', 'staff', 'cashier')
+    GROUP BY u.id, u.name, u.email, u.role
+    ORDER BY revenue_handled DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
 module.exports = {
   getDailySummary,
   getRevenueByCategory,
   getTopItems,
   getHourlySales,
+  getTrends,
+  getItemProfitability,
+  getStaffPerformance,
 };
