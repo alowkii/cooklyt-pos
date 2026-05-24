@@ -41,4 +41,22 @@ router.get('/staff', ...adminOnly, async (req, res, next) => {
   }
 });
 
+router.get('/items-trend', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC', group = 'day', limit } = req.query;
+    res.json(await service.getItemsByPeriod(from, to, tz, group, limit, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/staff-trend', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC', group = 'day' } = req.query;
+    res.json(await service.getStaffByPeriod(from, to, tz, group, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

@@ -166,4 +166,8 @@
 
   /* ── Divider ─────────────────────────────────────── */
   .h-r { height: 1px; background: var(--line); border: 0; }
+
+  /* ── Scrollbar-free overflow (tab bars, horizontal lists) ── */
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
 }

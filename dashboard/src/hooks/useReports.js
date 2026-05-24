@@ -80,3 +80,35 @@ export function useStaffPerformance(from, to) {
     },
   });
 }
+
+export function useItemsTrend(from, to, group = 'day') {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'items-trend', from, to, group, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/items-trend?from=${from}&to=${to}&group=${group}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useStaffTrend(from, to, group = 'day') {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'staff-trend', from, to, group, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/staff-trend?from=${from}&to=${to}&group=${group}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}

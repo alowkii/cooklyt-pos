@@ -114,4 +114,43 @@ async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId) 
   };
 }
 
-module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance };
+async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', limitRaw, restaurantId) {
+  const from  = parseDate(fromStr, 'from');
+  const to    = parseDate(toStr,   'to');
+  const tz    = validateTz(tzStr);
+  const group = validateGroup(groupStr);
+  const limit = Math.min(parseInt(limitRaw, 10) || 8, 20);
+  validateRange(from, to);
+
+  const rows = await repo.getItemsByPeriod(from, to, tz, group, limit, restaurantId);
+  return {
+    from, to, group,
+    rows: rows.map((r) => ({
+      period:     r.period,
+      name:       r.name,
+      total_sold: r.total_sold,
+      revenue:    parseFloat(r.revenue),
+    })),
+  };
+}
+
+async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId) {
+  const from  = parseDate(fromStr, 'from');
+  const to    = parseDate(toStr,   'to');
+  const tz    = validateTz(tzStr);
+  const group = validateGroup(groupStr);
+  validateRange(from, to);
+
+  const rows = await repo.getStaffByPeriod(from, to, tz, group, restaurantId);
+  return {
+    from, to, group,
+    rows: rows.map((r) => ({
+      period:          r.period,
+      name:            r.name,
+      orders_created:  r.orders_created,
+      revenue_handled: parseFloat(r.revenue_handled),
+    })),
+  };
+}
+
+module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance, getItemsByPeriod, getStaffByPeriod };

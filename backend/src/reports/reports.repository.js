@@ -164,6 +164,68 @@ const getStaffPerformance = (from, to, tz = 'UTC', restaurantId) =>
     )
     .then((r) => r.rows);
 
+// Revenue of the top `limit` items broken down by time period.
+// Uses a CTE to identify top items first, then fetches their time series.
+const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) =>
+  db
+    .query(
+      `
+    WITH top_items AS (
+      SELECT mi.id
+      FROM order_items oi
+      JOIN menu_items mi ON mi.id = oi.menu_item_id
+      JOIN orders o      ON o.id  = oi.order_id
+      JOIN payments p    ON p.order_id = o.id
+      WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+        AND p.status = 'completed'
+        AND o.restaurant_id = $4
+      GROUP BY mi.id
+      ORDER BY SUM(mi.price * oi.quantity) DESC
+      LIMIT $5
+    )
+    SELECT
+      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
+      mi.name,
+      SUM(oi.quantity)::int                AS total_sold,
+      SUM(mi.price * oi.quantity)          AS revenue
+    FROM order_items oi
+    JOIN menu_items mi ON mi.id = oi.menu_item_id AND mi.id IN (SELECT id FROM top_items)
+    JOIN orders o      ON o.id  = oi.order_id
+    JOIN payments p    ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY 1, mi.name
+    ORDER BY 1, revenue DESC
+  `,
+      [from, to, tz, restaurantId, limit],
+    )
+    .then((r) => r.rows);
+
+// Orders and revenue per staff member broken down by time period.
+const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
+      COALESCE(u.name, u.email)              AS name,
+      COUNT(DISTINCT o.id)::int              AS orders_created,
+      COALESCE(SUM(p.amount), 0)             AS revenue_handled
+    FROM users u
+    JOIN orders o   ON o.created_by = u.id
+      AND (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+    JOIN payments p ON p.order_id = o.id AND p.status = 'completed'
+    WHERE u.restaurant_id = $4
+      AND u.is_active = true
+      AND u.role IN ('admin', 'staff', 'cashier')
+    GROUP BY 1, u.id, u.name, u.email
+    ORDER BY 1, revenue_handled DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
 module.exports = {
   getDailySummary,
   getRevenueByCategory,
@@ -172,4 +234,6 @@ module.exports = {
   getTrends,
   getItemProfitability,
   getStaffPerformance,
+  getItemsByPeriod,
+  getStaffByPeriod,
 };

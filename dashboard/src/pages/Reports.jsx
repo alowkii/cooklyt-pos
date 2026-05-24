@@ -6,7 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Trash2, TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react';
-import { useDailyReport, useTrends, useItemProfitability, useStaffPerformance } from '../hooks/useReports';
+import { useDailyReport, useTrends, useItemProfitability, useStaffPerformance, useItemsTrend, useStaffTrend } from '../hooks/useReports';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 
@@ -48,6 +48,61 @@ function PRESETS(today) {
     { label: 'This month',  from: firstOfMonth(today),  to: today },
     { label: 'Last month',  from: prevYm + '-01',        to: lastOfMonth(prevYm + '-01') },
   ];
+}
+
+// Colors drawn directly from the design token palette
+const SERIES_COLORS = ['#0A0A0A', '#1f8a5b', '#b3781f', '#1f5bb3', '#b3372b', '#6E6D67', '#2A2A28', '#9B9A92'];
+
+function SeriesLegend({ names }) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+      {names.map((name, i) => (
+        <span key={name} className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--mute)' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: SERIES_COLORS[i % SERIES_COLORS.length], flexShrink: 0 }} />
+          {name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function periodLabel(period, group) {
+  if (group === 'month') return period.slice(0, 7);
+  if (group === 'week')  return `w/c ${period.slice(5)}`;
+  return period.slice(5);
+}
+
+function pivotRows(rows, nameKey, valueKey) {
+  const names = [...new Set(rows.map((r) => r[nameKey]))];
+  const map = {};
+  rows.forEach((r) => {
+    if (!map[r.period]) map[r.period] = { period: r.period };
+    map[r.period][r[nameKey]] = r[valueKey];
+  });
+  return { names, data: Object.values(map).sort((a, b) => a.period.localeCompare(b.period)) };
+}
+
+function GroupToggle({ group, setGroup }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span style={{ fontSize: 12, color: 'var(--mute)' }}>Group by</span>
+      {['day', 'week', 'month'].map((g) => (
+        <button
+          key={g}
+          onClick={() => setGroup(g)}
+          className="rounded-[6px] px-3 capitalize transition-colors duration-75"
+          style={{
+            height: 30, fontSize: 12, fontWeight: 500,
+            background: group === g ? 'var(--ink)' : 'var(--paper)',
+            color:      group === g ? 'var(--paper)' : 'var(--mute)',
+            border: '1px solid var(--line-2)',
+          }}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ── Small shared components ───────────────────────────────────────────────────
@@ -253,25 +308,7 @@ function TrendsTab({ from, to }) {
 
   return (
     <div className="space-y-5">
-      {/* Group toggle */}
-      <div className="flex items-center gap-2">
-        <span style={{ fontSize: 12, color: 'var(--mute)' }}>Group by</span>
-        {['day', 'week', 'month'].map((g) => (
-          <button
-            key={g}
-            onClick={() => setGroup(g)}
-            className="rounded-[6px] px-3 capitalize transition-colors duration-75"
-            style={{
-              height: 30, fontSize: 12, fontWeight: 500,
-              background: group === g ? 'var(--ink)' : 'var(--paper)',
-              color:      group === g ? 'var(--paper)' : 'var(--mute)',
-              border: '1px solid var(--line-2)',
-            }}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
+      <GroupToggle group={group} setGroup={setGroup} />
 
       {isLoading && <Spinner />}
       {isError   && <ErrorMsg />}
@@ -324,19 +361,43 @@ function TrendsTab({ from, to }) {
 }
 
 function ItemsTab({ from, to }) {
-  const { data, isLoading, isError } = useItemProfitability(from, to);
-  const { format } = useCurrency();
+  const [view,  setView]  = useState('table');
+  const [group, setGroup] = useState('day');
+  const { format, currency } = useCurrency();
   const [sort, setSort] = useState('revenue');
 
+  const { data: profData, isLoading: profLoading, isError: profError } = useItemProfitability(from, to);
+  const { data: trendData, isLoading: trendLoading, isError: trendError } = useItemsTrend(
+    view === 'chart' ? from : null,
+    view === 'chart' ? to   : null,
+    group,
+  );
+
+  const fmtTick = useCallback((v) => {
+    const val = parseFloat(v);
+    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1)}M`;
+    if (val >= 1_000)     return `${currency.symbol}${(val / 1_000).toFixed(1)}k`;
+    return `${currency.symbol}${val.toFixed(0)}`;
+  }, [currency]);
+
   const items = useMemo(() => {
-    if (!data?.items) return [];
-    return [...data.items].sort((a, b) => {
+    if (!profData?.items) return [];
+    return [...profData.items].sort((a, b) => {
       if (sort === 'margin')   return (b.margin_pct ?? -Infinity) - (a.margin_pct ?? -Infinity);
       if (sort === 'sold')     return b.total_sold - a.total_sold;
       if (sort === 'profit')   return (b.profit ?? -Infinity) - (a.profit ?? -Infinity);
-      return b.revenue - a.revenue; // default: revenue
+      return b.revenue - a.revenue;
     });
-  }, [data, sort]);
+  }, [profData, sort]);
+
+  const { names: itemNames, data: chartData } = useMemo(() => {
+    if (!trendData?.rows) return { names: [], data: [] };
+    const pivoted = pivotRows(trendData.rows, 'name', 'revenue');
+    return {
+      names: pivoted.names,
+      data:  pivoted.data.map((r) => ({ ...r, label: periodLabel(r.period, group) })),
+    };
+  }, [trendData, group]);
 
   const SortBtn = ({ field, label }) => (
     <button
@@ -345,7 +406,8 @@ function ItemsTab({ from, to }) {
         fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em',
         color: sort === field ? 'var(--ink)' : 'var(--mute)',
         background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-        display: 'flex', alignItems: 'center', gap: 2,
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2,
+        width: '100%',
       }}
     >
       {label}
@@ -353,64 +415,140 @@ function ItemsTab({ from, to }) {
     </button>
   );
 
-  if (isLoading) return <Spinner />;
-  if (isError)   return <ErrorMsg />;
-  if (!items.length) return <p style={{ fontSize: 13, color: 'var(--mute)', padding: '32px 0' }}>No sales data for this period</p>;
+  const ViewToggle = () => (
+    <div className="flex items-center gap-1">
+      {['table', 'chart'].map((v) => (
+        <button
+          key={v}
+          onClick={() => setView(v)}
+          className="rounded-[6px] px-3 capitalize transition-colors duration-75"
+          style={{
+            height: 30, fontSize: 12, fontWeight: 500,
+            background: view === v ? 'var(--ink)' : 'var(--paper)',
+            color:      view === v ? 'var(--paper)' : 'var(--mute)',
+            border: '1px solid var(--line-2)',
+          }}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
-    <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
-      <div className="overflow-x-auto">
-        <table className="w-full" style={{ fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--line)' }}>
-              <th className="px-5 py-3 text-left"  style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Item</th>
-              <th className="px-5 py-3 text-left"  style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Category</th>
-              <th className="px-5 py-3 text-right">
-                <SortBtn field="sold"   label="Sold" />
-              </th>
-              <th className="px-5 py-3 text-right">
-                <SortBtn field="revenue" label="Revenue" />
-              </th>
-              <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Cost/Unit</th>
-              <th className="px-5 py-3 text-right">
-                <SortBtn field="profit" label="Gross Profit" />
-              </th>
-              <th className="px-5 py-3 text-right">
-                <SortBtn field="margin" label="Margin" />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{item.name}</td>
-                <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)' }}>{item.category}</td>
-                <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{item.total_sold}</td>
-                <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(item.revenue)}</td>
-                <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
-                  {item.cost_per_unit != null ? format(item.cost_per_unit) : <span style={{ color: 'var(--mute)', fontSize: 11 }}>no recipe</span>}
-                </td>
-                <td className="px-5 py-2.5 text-right mono num" style={{ color: item.profit != null ? (item.profit >= 0 ? 'var(--ok)' : 'var(--bad)') : 'var(--mute)' }}>
-                  {item.profit != null ? format(item.profit) : '—'}
-                </td>
-                <td className="px-5 py-2.5 text-right">
-                  <MarginBadge pct={item.margin_pct} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <ViewToggle />
+        {view === 'chart' && <GroupToggle group={group} setGroup={setGroup} />}
       </div>
-      <p className="px-5 py-3" style={{ fontSize: 11, color: 'var(--mute)', borderTop: '1px solid var(--line)' }}>
-        Cost data only shown for items linked to a recipe. Link recipes in Menu → edit item.
-      </p>
+
+      {view === 'table' && (
+        <>
+          {profLoading && <Spinner />}
+          {profError   && <ErrorMsg />}
+          {!profLoading && !profError && !items.length && (
+            <p style={{ fontSize: 13, color: 'var(--mute)', padding: '32px 0' }}>No sales data for this period</p>
+          )}
+          {items.length > 0 && (
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      <th className="px-5 py-3 text-left"  style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Item</th>
+                      <th className="px-5 py-3 text-left"  style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Category</th>
+                      <th className="px-5 py-3 text-right"><SortBtn field="sold"    label="Sold" /></th>
+                      <th className="px-5 py-3 text-right"><SortBtn field="revenue" label="Revenue" /></th>
+                      <th className="px-5 py-3 text-right" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Cost/Unit</th>
+                      <th className="px-5 py-3 text-right"><SortBtn field="profit" label="Gross Profit" /></th>
+                      <th className="px-5 py-3 text-right"><SortBtn field="margin" label="Margin" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{item.name}</td>
+                        <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)' }}>{item.category}</td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{item.total_sold}</td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(item.revenue)}</td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                          {item.cost_per_unit != null ? format(item.cost_per_unit) : <span style={{ color: 'var(--mute)', fontSize: 11 }}>no recipe</span>}
+                        </td>
+                        <td className="px-5 py-2.5 text-right mono num" style={{ color: item.profit != null ? (item.profit >= 0 ? 'var(--ok)' : 'var(--bad)') : 'var(--mute)' }}>
+                          {item.profit != null ? format(item.profit) : '—'}
+                        </td>
+                        <td className="px-5 py-2.5 text-right"><MarginBadge pct={item.margin_pct} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="px-5 py-3" style={{ fontSize: 11, color: 'var(--mute)', borderTop: '1px solid var(--line)' }}>
+                Cost data only shown for items linked to a recipe. Link recipes in Menu → edit item.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {view === 'chart' && (
+        <>
+          {trendLoading && <Spinner />}
+          {trendError   && <ErrorMsg />}
+          {!trendLoading && !trendError && chartData.length === 0 && <EmptyChart height={280} />}
+          {chartData.length > 0 && (
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 16 }}>
+                Revenue — top items
+              </p>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--mute)' }} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis width={64} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
+                    domain={[0, (m) => Math.ceil(m * 1.15)]} tickFormatter={fmtTick} />
+                  <Tooltip
+                    formatter={(v, name) => [format(v), name]}
+                    contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)' }}
+                    itemStyle={{ color: 'var(--ink)' }}
+                  />
+                  {itemNames.map((name, i) => (
+                    <Line key={name} type="monotone" dataKey={name}
+                      stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                      strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+              <SeriesLegend names={itemNames} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 function StaffTab({ from, to }) {
-  const { data, isLoading, isError } = useStaffPerformance(from, to);
-  const { format } = useCurrency();
+  const [group, setGroup] = useState('day');
+  const { data, isLoading, isError }                = useStaffPerformance(from, to);
+  const { data: trendData, isLoading: trendLoading } = useStaffTrend(from, to, group);
+  const { format, currency } = useCurrency();
+
+  const fmtTick = useCallback((v) => {
+    const val = parseFloat(v);
+    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1)}M`;
+    if (val >= 1_000)     return `${currency.symbol}${(val / 1_000).toFixed(1)}k`;
+    return `${currency.symbol}${val.toFixed(0)}`;
+  }, [currency]);
+
+  const { names: staffNames, data: chartData } = useMemo(() => {
+    if (!trendData?.rows) return { names: [], data: [] };
+    const pivoted = pivotRows(trendData.rows, 'name', 'revenue_handled');
+    return {
+      names: pivoted.names,
+      data:  pivoted.data.map((r) => ({ ...r, label: periodLabel(r.period, group) })),
+    };
+  }, [trendData, group]);
 
   if (isLoading) return <Spinner />;
   if (isError)   return <ErrorMsg />;
@@ -459,6 +597,39 @@ function StaffTab({ from, to }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Revenue over time — per staff member */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Revenue over time</p>
+          <GroupToggle group={group} setGroup={setGroup} />
+        </div>
+        {trendLoading && <Spinner />}
+        {!trendLoading && chartData.length === 0 && <EmptyChart height={240} />}
+        {chartData.length > 0 && (
+          <>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--mute)' }} tickLine={false} interval="preserveStartEnd" />
+                <YAxis width={64} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
+                  domain={[0, (m) => Math.ceil(m * 1.15)]} tickFormatter={fmtTick} />
+                <Tooltip
+                  formatter={(v, name) => [format(v), name]}
+                  contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)' }}
+                  itemStyle={{ color: 'var(--ink)' }}
+                />
+                {staffNames.map((name, i) => (
+                  <Line key={name} type="monotone" dataKey={name}
+                    stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                    strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+            <SeriesLegend names={staffNames} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -516,62 +687,64 @@ export default function Reports() {
   return (
     <div className="space-y-5">
       {/* Date range controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)' }}>From</label>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        {/* Dates + quick-range picker — all in one wrappable row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', whiteSpace: 'nowrap' }}>From</label>
           <input
             type="date" value={from} max={to}
             onChange={(e) => setFrom(e.target.value)}
             className="input"
-            style={{ width: 150 }}
+            style={{ width: 130, minWidth: 0 }}
           />
-          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)' }}>To</label>
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', whiteSpace: 'nowrap' }}>To</label>
           <input
             type="date" value={to} min={from} max={today}
             onChange={(e) => setTo(e.target.value)}
             className="input"
-            style={{ width: 150 }}
+            style={{ width: 130, minWidth: 0 }}
           />
+
+          {/* Preset picker inline with dates */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowPresets((v) => !v)}
+              className="flex items-center gap-1.5 rounded-[6px] px-3"
+              style={{ height: 32, fontSize: 12, fontWeight: 500, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Quick range <ChevronDown size={12} />
+            </button>
+            {showPresets && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />
+                <div
+                  className="absolute left-0 z-20 mt-1 py-1"
+                  style={{ top: '100%', minWidth: 160, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)' }}
+                >
+                  {presets.map((p) => (
+                    <button
+                      key={p.label}
+                      onClick={() => applyPreset(p)}
+                      className="w-full px-4 py-2 text-left"
+                      style={{ fontSize: 13, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Preset picker */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowPresets((v) => !v)}
-            className="flex items-center gap-1.5 rounded-[6px] px-3"
-            style={{ height: 32, fontSize: 12, fontWeight: 500, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', cursor: 'pointer' }}
-          >
-            Quick range <ChevronDown size={12} />
-          </button>
-          {showPresets && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />
-              <div
-                className="absolute left-0 z-20 mt-1 py-1"
-                style={{ top: '100%', minWidth: 160, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)' }}
-              >
-                {presets.map((p) => (
-                  <button
-                    key={p.label}
-                    onClick={() => applyPreset(p)}
-                    className="w-full px-4 py-2 text-left transition-colors"
-                    style={{ fontSize: 13, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
+        {/* Action links — left on mobile, pushed right on sm+ */}
+        <div className="flex items-center gap-2 sm:ml-auto">
           <button
             onClick={() => navigate('/waste')}
             className="flex items-center gap-1.5 rounded-[6px] px-3 text-[12px] font-medium transition-colors duration-75"
-            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)' }}
+            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', whiteSpace: 'nowrap' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
           >
@@ -580,7 +753,7 @@ export default function Reports() {
           <button
             onClick={() => navigate('/costing')}
             className="flex items-center gap-1.5 rounded-[6px] px-3 text-[12px] font-medium transition-colors duration-75"
-            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)' }}
+            style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', whiteSpace: 'nowrap' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; e.currentTarget.style.color = 'var(--mute)'; }}
           >
@@ -589,14 +762,15 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1" style={{ borderBottom: '1px solid var(--line)' }}>
+      {/* Tabs — scrollable so they never clip on narrow viewports */}
+      <div className="scrollbar-none flex gap-1 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             style={{
               fontSize: 13, fontWeight: 500, padding: '8px 14px', marginBottom: -1,
+              flexShrink: 0, whiteSpace: 'nowrap',
               background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--ink)' : '2px solid transparent',
               color: tab === t ? 'var(--ink)' : 'var(--mute)',
               cursor: 'pointer', transition: 'color 0.1s',
