@@ -3,7 +3,7 @@ const { ValidationError } = require('../shared/errors');
 
 const ALLOWED_KEYS = new Set([
   'timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee',
-  'staff_assignment_enabled', 'reservations_enabled',
+  'staff_assignment_enabled', 'reservations_enabled', 'loyalty_enabled',
   'loyalty_points_per_unit', 'loyalty_points_value',
   'cash_denominations',
 ]);
@@ -48,6 +48,9 @@ async function update(key, value, restaurantId) {
   }
   if (key === 'reservations_enabled') {
     if (value !== 'true' && value !== 'false') throw new ValidationError('reservations_enabled must be true or false');
+  }
+  if (key === 'loyalty_enabled') {
+    if (value !== 'true' && value !== 'false') throw new ValidationError('loyalty_enabled must be true or false');
   }
   if (key === 'loyalty_points_per_unit') {
     const n = parseFloat(value);
