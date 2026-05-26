@@ -25,24 +25,41 @@ async function resolveRestaurantName(restaurantId) {
  * Restaurant name is captured at write time so deletions/renames don't affect history.
  */
 function log({ restaurantId = null, restaurantName: providedName = null, actorType, actorId, action, resourceType, resourceId = null, description, meta = null }) {
+  // actor_id is NOT NULL in audit_logs; entries without a known actor (e.g.
+  // anonymous failed-login attempts) cannot be stored and are silently dropped.
+  if (!actorId) return;
+
   (async () => {
     const restaurantName = providedName ?? await resolveRestaurantName(restaurantId);
-    await db.query(
-      `INSERT INTO audit_logs
-         (restaurant_id, restaurant_name, actor_type, actor_id, action, resource_type, resource_id, description, meta)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        restaurantId || null,
-        sanitize(restaurantName, 255),
-        sanitize(actorType, 20),
-        actorId,
-        sanitize(action, 50),
-        sanitize(resourceType, 50),
-        sanitize(resourceId, 255),
-        sanitize(description, 2000),
-        meta ? JSON.stringify(meta) : null,
-      ],
-    );
+
+    const params = [
+      restaurantId || null,
+      sanitize(restaurantName, 255),
+      sanitize(actorType, 20),
+      actorId,
+      sanitize(action, 50),
+      sanitize(resourceType, 50),
+      sanitize(resourceId, 255),
+      sanitize(description, 2000),
+      meta ? JSON.stringify(meta) : null,
+    ];
+
+    const SQL = `INSERT INTO audit_logs
+       (restaurant_id, restaurant_name, actor_type, actor_id, action, resource_type, resource_id, description, meta)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`;
+
+    try {
+      await db.query(SQL, params);
+    } catch (err) {
+      // 23503 = foreign_key_violation: restaurant was deleted between our name
+      // resolution and the INSERT (TOCTOU race). Retry with restaurant_id = null.
+      if (err.code === '23503' && params[0] != null) {
+        params[0] = null;
+        await db.query(SQL, params);
+      } else {
+        throw err;
+      }
+    }
   })().catch((err) => console.error('[audit] write failed:', err.message));
 }
 

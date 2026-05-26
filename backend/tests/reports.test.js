@@ -1,36 +1,20 @@
 const request = require("supertest");
 const app = require("../src/app");
-const db = require("../src/shared/db");
+const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = require("./helpers");
 
 let adminToken;
 let staffToken;
+let restaurantId;
 
 beforeAll(async () => {
-  const bcrypt = require("bcrypt");
-  const hashed = await bcrypt.hash("password123", 10);
-
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
-    ["reports_admin@test.com", hashed],
-  );
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'staff') ON CONFLICT (email) DO NOTHING`,
-    ["reports_staff@test.com", hashed],
-  );
-
-  const adminRes = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "reports_admin@test.com", password: "password123" });
-  adminToken = adminRes.body.token;
-
-  const staffRes = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "reports_staff@test.com", password: "password123" });
-  staffToken = staffRes.body.token;
+  resetBuckets();
+  restaurantId = await createRestaurant("Reports Test");
+  adminToken = await createTestUser(restaurantId, "reports_admin@test.com", "admin");
+  staffToken = await createTestUser(restaurantId, "reports_staff@test.com", "staff");
 });
 
 afterAll(async () => {
-  await db.query(`DELETE FROM users WHERE email LIKE 'reports_%@test.com'`);
+  await deleteRestaurant(restaurantId);
 });
 
 describe("GET /api/reports/daily", () => {

@@ -1,28 +1,19 @@
 const request = require("supertest");
 const app = require("../src/app");
-const db = require("../src/shared/db");
+const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = require("./helpers");
 
 let adminToken;
 let createdItemId;
+let restaurantId;
 
 beforeAll(async () => {
-  const bcrypt = require("bcrypt");
-  const hashed = await bcrypt.hash("password123", 10);
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
-    ["menutest_admin@test.com", hashed],
-  );
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "menutest_admin@test.com", password: "password123" });
-  adminToken = res.body.token;
+  resetBuckets();
+  restaurantId = await createRestaurant("Menu Test");
+  adminToken = await createTestUser(restaurantId, "menutest_admin@test.com", "admin");
 });
 
 afterAll(async () => {
-  if (createdItemId) {
-    await db.query("DELETE FROM menu_items WHERE id = $1", [createdItemId]);
-  }
-  await db.query(`DELETE FROM users WHERE email = 'menutest_admin@test.com'`);
+  await deleteRestaurant(restaurantId);
 });
 
 describe("GET /api/menu", () => {

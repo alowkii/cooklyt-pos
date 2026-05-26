@@ -1,51 +1,36 @@
 const request = require("supertest");
 const app = require("../src/app");
 const db = require("../src/shared/db");
+const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = require("./helpers");
 
 let token;
-let tableId;
-let menuItemId;
 let orderId;
+let restaurantId;
 
 beforeAll(async () => {
-  const bcrypt = require("bcrypt");
-  const hashed = await bcrypt.hash("password123", 10);
-
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
-    ["kitchen_admin@test.com", hashed],
-  );
-
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "kitchen_admin@test.com", password: "password123" });
-  token = res.body.token;
+  resetBuckets();
+  restaurantId = await createRestaurant("Kitchen Test");
+  token = await createTestUser(restaurantId, "kitchen_admin@test.com", "admin");
 
   const { rows: [table] } = await db.query(
-    `INSERT INTO tables (number, seats) VALUES (97, 4) RETURNING *`,
+    `INSERT INTO tables (number, seats, restaurant_id) VALUES (97, 4, $1) RETURNING *`,
+    [restaurantId],
   );
-  tableId = table.id;
 
   const { rows: [item] } = await db.query(
-    `INSERT INTO menu_items (name, price, category) VALUES ('Kitchen Test Item', 12.00, 'mains') RETURNING *`,
+    `INSERT INTO menu_items (name, price, category, restaurant_id) VALUES ('Kitchen Test Item', 12.00, 'mains', $1) RETURNING *`,
+    [restaurantId],
   );
-  menuItemId = item.id;
 
   const orderRes = await request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)
-    .send({ tableId, items: [{ menuItemId, quantity: 1 }] });
+    .send({ tableId: table.id, items: [{ menuItemId: item.id, quantity: 1 }] });
   orderId = orderRes.body.id;
 });
 
 afterAll(async () => {
-  if (orderId) {
-    await db.query("DELETE FROM order_items WHERE order_id = $1", [orderId]);
-    await db.query("DELETE FROM orders WHERE id = $1", [orderId]);
-  }
-  await db.query("DELETE FROM tables WHERE number = 97");
-  await db.query(`DELETE FROM menu_items WHERE name = 'Kitchen Test Item'`);
-  await db.query(`DELETE FROM users WHERE email = 'kitchen_admin@test.com'`);
+  await deleteRestaurant(restaurantId);
 });
 
 describe("GET /api/kitchen/queue", () => {
@@ -60,7 +45,6 @@ describe("GET /api/kitchen/queue", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    // Our newly created order should be in the queue
     const entry = res.body.find((i) => i.order_id === orderId);
     expect(entry).toBeDefined();
     expect(entry.item_name).toBe("Kitchen Test Item");

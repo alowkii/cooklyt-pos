@@ -14,7 +14,7 @@
     "migrate:test": "cross-env DATABASE_URL=postgres://pos_user:pos_password@localhost:5433/pos_test node-pg-migrate up",
     "migrate:create": "node-pg-migrate create",
     "seed": "cross-env DATABASE_URL=postgres://pos_user:pos_password@localhost:5434/pos_dev node seed.js",
-    "test": "cross-env DATABASE_URL=postgres://pos_user:pos_password@localhost:5433/pos_test JWT_SECRET=test-secret-do-not-use-in-prod-32chars NODE_ENV=test jest --runInBand"
+    "test": "cross-env DATABASE_URL=postgres://pos_user:pos_password@localhost:5433/pos_test JWT_SECRET=test-secret-do-not-use-in-prod-32chars NODE_ENV=test jest --runInBand --forceExit"
   },
   "jest": {
     "testEnvironment": "node",

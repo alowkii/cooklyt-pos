@@ -1,47 +1,34 @@
 const request = require("supertest");
 const app = require("../src/app");
 const db = require("../src/shared/db");
+const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = require("./helpers");
 
 let token;
 let tableId;
 let menuItemId;
 let orderId;
+let restaurantId;
 
 beforeAll(async () => {
-  const bcrypt = require("bcrypt");
-  const hashed = await bcrypt.hash("password123", 10);
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
-    ["orders_admin@test.com", hashed],
-  );
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "orders_admin@test.com", password: "password123" });
-  token = res.body.token;
+  resetBuckets();
+  restaurantId = await createRestaurant("Orders Test");
+  token = await createTestUser(restaurantId, "orders_admin@test.com", "admin");
 
-  const {
-    rows: [table],
-  } = await db.query(
-    `INSERT INTO tables (number, seats) VALUES (99, 4) RETURNING *`,
+  const { rows: [table] } = await db.query(
+    `INSERT INTO tables (number, seats, restaurant_id) VALUES (99, 4, $1) RETURNING *`,
+    [restaurantId],
   );
   tableId = table.id;
 
-  const {
-    rows: [item],
-  } = await db.query(
-    `INSERT INTO menu_items (name, price, category) VALUES ('Test Item', 10.00, 'mains') RETURNING *`,
+  const { rows: [item] } = await db.query(
+    `INSERT INTO menu_items (name, price, category, restaurant_id) VALUES ('Test Item', 10.00, 'mains', $1) RETURNING *`,
+    [restaurantId],
   );
   menuItemId = item.id;
 });
 
 afterAll(async () => {
-  if (orderId) {
-    await db.query("DELETE FROM order_items WHERE order_id = $1", [orderId]);
-    await db.query("DELETE FROM orders WHERE id = $1", [orderId]);
-  }
-  await db.query("DELETE FROM tables WHERE number = 99");
-  await db.query(`DELETE FROM menu_items WHERE name = 'Test Item'`);
-  await db.query(`DELETE FROM users WHERE email = 'orders_admin@test.com'`);
+  await deleteRestaurant(restaurantId);
 });
 
 describe("POST /api/orders", () => {

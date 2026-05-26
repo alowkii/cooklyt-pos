@@ -1,52 +1,36 @@
 const request = require("supertest");
 const app = require("../src/app");
 const db = require("../src/shared/db");
+const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = require("./helpers");
 
 let token;
 let orderId;
-let tableId;
-let menuItemId;
+let restaurantId;
 
 beforeAll(async () => {
-  const bcrypt = require("bcrypt");
-  const hashed = await bcrypt.hash("password123", 10);
-  await db.query(
-    `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
-    ["payments_admin@test.com", hashed],
-  );
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "payments_admin@test.com", password: "password123" });
-  token = res.body.token;
+  resetBuckets();
+  restaurantId = await createRestaurant("Payments Test");
+  token = await createTestUser(restaurantId, "payments_admin@test.com", "admin");
 
-  const {
-    rows: [table],
-  } = await db.query(
-    `INSERT INTO tables (number, seats) VALUES (98, 4) RETURNING *`,
+  const { rows: [table] } = await db.query(
+    `INSERT INTO tables (number, seats, restaurant_id) VALUES (98, 4, $1) RETURNING *`,
+    [restaurantId],
   );
-  tableId = table.id;
 
-  const {
-    rows: [item],
-  } = await db.query(
-    `INSERT INTO menu_items (name, price, category) VALUES ('Payment Test Item', 15.00, 'mains') RETURNING *`,
+  const { rows: [item] } = await db.query(
+    `INSERT INTO menu_items (name, price, category, restaurant_id) VALUES ('Payment Test Item', 15.00, 'mains', $1) RETURNING *`,
+    [restaurantId],
   );
-  menuItemId = item.id;
 
   const orderRes = await request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)
-    .send({ tableId, items: [{ menuItemId, quantity: 1 }] });
+    .send({ tableId: table.id, items: [{ menuItemId: item.id, quantity: 1 }] });
   orderId = orderRes.body.id;
 });
 
 afterAll(async () => {
-  await db.query("DELETE FROM payments WHERE order_id = $1", [orderId]);
-  await db.query("DELETE FROM order_items WHERE order_id = $1", [orderId]);
-  await db.query("DELETE FROM orders WHERE id = $1", [orderId]);
-  await db.query("DELETE FROM tables WHERE number = 98");
-  await db.query(`DELETE FROM menu_items WHERE name = 'Payment Test Item'`);
-  await db.query(`DELETE FROM users WHERE email = 'payments_admin@test.com'`);
+  await deleteRestaurant(restaurantId);
 });
 
 describe("POST /api/payments/:orderId", () => {
