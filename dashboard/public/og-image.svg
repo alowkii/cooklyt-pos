@@ -10,88 +10,29 @@
   <rect x="28" y="28" width="1144" height="574" fill="none" stroke="#0D0C0B" stroke-opacity="0.10" stroke-width="1"></rect>
 
   
-  <g fill="none" stroke="#0D0C0B" stroke-opacity="0.18" stroke-width="1">
-    <path d="M32 24 L24 24 L24 32"></path>
-    <path d="M1168 24 L1176 24 L1176 32"></path>
-    <path d="M24 598 L24 606 L32 606"></path>
-    <path d="M1168 606 L1176 606 L1176 598"></path>
+  <g transform="translate(494 90)">
+    <svg width="28" height="28" viewBox="0 0 200 200">
+      <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"></path>
+      <circle cx="100" cy="100" r="12" fill="#B06A3B"></circle>
+    </svg>
   </g>
 
-  
-  <g font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="11" letter-spacing="1.54">
-    <circle cx="58" cy="60" r="2.5" fill="#B06A3B"></circle>
-    <text x="69" y="64" fill="#6E6D67">COOKLYT <tspan fill="#9B9A92">·</tspan> 01</text>
-    <text x="1144" y="64" text-anchor="end" fill="#9B9A92">A PRODUCT BY KRILOK</text>
-  </g>
-
-  
-  <g font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="11" letter-spacing="1.54">
-    <text x="56" y="582" fill="#9B9A92">OVERVIEW</text>
-    <text x="1144" y="582" text-anchor="end" fill="#6E6D67">COOKLYT.IN</text>
-  </g>
-
-  
-  <line x1="476" y1="96" x2="476" y2="534" stroke="#0D0C0B" stroke-opacity="0.10" stroke-width="1"></line>
-
-  
-
-  
-  <text x="64" y="135" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="10.5" letter-spacing="2.31" fill="#9B9A92">THE MARK</text>
-
-  
-  <g transform="translate(130 180) scale(1.2)">
-    <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="14" stroke-linecap="round"></path>
-    <circle cx="100" cy="100" r="10" fill="#B06A3B"></circle>
-  </g>
-
-  
-  <svg x="64" y="457" width="200" height="32" viewBox="0 0 360 64" preserveAspectRatio="xMinYMid meet">
-    <text x="0" y="49" font-family="&#39;Marcellus&#39;,Georgia,&#39;Times New Roman&#39;,serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">COOKLY</text>
+  <svg x="536" y="90" width="170" height="28" viewBox="0 0 360 64" preserveAspectRatio="xMinYMid meet">
+    <text x="0" y="49" class="serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">COOKLY</text>
     <circle cx="294.2" cy="29.43" r="5.03" fill="#B06A3B"></circle>
-    <text x="309.33" y="49" font-family="&#39;Marcellus&#39;,Georgia,&#39;Times New Roman&#39;,serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">T</text>
+    <text x="309.33" y="49" class="serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">T</text>
   </svg>
 
   
-  <text x="64" y="510" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="11" letter-spacing="3.3" fill="#2A2A28">POINT <tspan fill="#9B9A92">OF</tspan> SALE</text>
+  <text x="600" y="297" text-anchor="middle" class="geist" font-weight="500" font-size="64" fill="#0D0C0B" letter-spacing="-2.24">The POS your restaurant</text>
+
+  <text x="592" y="365" text-anchor="end" class="serif" font-style="italic" font-weight="400" font-size="64" fill="#0D0C0B" letter-spacing="-0.64" textLength="217" lengthAdjust="spacingAndGlyphs">actually</text>
+  <text x="608" y="365" text-anchor="start" class="geist" font-weight="500" font-size="64" fill="#0D0C0B" letter-spacing="-2.24">deserves.</text>
 
   
+  <rect x="375" y="376" width="217" height="2" fill="#B06A3B" fill-opacity="0.9"></rect>
 
   
-  <g font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="10.5" letter-spacing="2.31">
-    <text x="525" y="130" fill="#0D0C0B" font-weight="500">01</text>
-    <line x1="557" y1="126.5" x2="593" y2="126.5" stroke="#0D0C0B" stroke-opacity="0.18" stroke-width="1"></line>
-    <text x="605" y="130" fill="#6E6D67">OVERVIEW</text>
-  </g>
-
-  
-  <g font-family="&#39;Geist&#39;,-apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,Helvetica,Arial,sans-serif" font-weight="500" font-size="58" fill="#0D0C0B" letter-spacing="-2.03">
-    <text x="525" y="213">The POS your</text>
-    <text x="525" y="272">restaurant <tspan font-family="&#39;Marcellus&#39;,Georgia,&#39;Times New Roman&#39;,serif" font-style="italic" font-weight="400" letter-spacing="-0.58" fill="#0D0C0B">actually</tspan></text>
-    <text x="525" y="331">deserves.</text>
-  </g>
-
-  
-  <rect x="798" y="280" width="222" height="2" fill="#B06A3B" fill-opacity="0.85"></rect>
-
-  
-  <g font-family="&#39;Geist&#39;,-apple-system,BlinkMacSystemFont,sans-serif" font-size="16.5" fill="#6E6D67" letter-spacing="-0.08">
-    <text x="525" y="378">One quiet system that handles every part of service —</text>
-    <text x="525" y="403">so your team can focus on the food.</text>
-  </g>
-
-  
-  <g>
-    
-    <text x="525" y="488" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="24" font-weight="500" fill="#0D0C0B" letter-spacing="-0.48">&lt; 3<tspan fill="#9B9A92">s</tspan></text>
-    <text x="525" y="513" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="9.5" letter-spacing="1.52" fill="#6E6D67">ORDER → KITCHEN</text>
-
-    
-    <text x="685" y="488" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="24" font-weight="500" fill="#0D0C0B" letter-spacing="-0.48">100<tspan fill="#9B9A92">%</tspan></text>
-    <text x="685" y="513" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="9.5" letter-spacing="1.52" fill="#6E6D67">REAL-TIME SYNC</text>
-
-    
-    <text x="855" y="488" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="24" font-weight="500" fill="#0D0C0B" letter-spacing="-0.48">24<tspan fill="#9B9A92">h</tspan></text>
-    <text x="855" y="513" font-family="&#39;Geist Mono&#39;,&#39;Courier New&#39;,monospace" font-size="9.5" letter-spacing="1.52" fill="#6E6D67">TO WORKING DEMO</text>
-  </g>
+  <text x="600" y="555" text-anchor="middle" class="mono" font-size="12" fill="#6E6D67" letter-spacing="3.84">COOKLYT.IN</text>
 
 </svg>
