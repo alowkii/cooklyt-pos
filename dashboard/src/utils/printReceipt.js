@@ -1,6 +1,22 @@
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
+// Merge duplicate items (same name + notes) by summing quantities.
+function mergeItems(items, nameKey = 'name') {
+  const map = {};
+  const result = [];
+  for (const item of items) {
+    const k = `${item[nameKey] || item.name || ''}|${item.notes || ''}`;
+    if (map[k] !== undefined) {
+      result[map[k]] = { ...result[map[k]], quantity: result[map[k]].quantity + item.quantity };
+    } else {
+      map[k] = result.length;
+      result.push({ ...item });
+    }
+  }
+  return result;
+}
+
 function formatPaymentMethod(receipt) {
   const detail = receipt.payments_detail;
   if (!detail || detail.length === 0) return receipt.payment_method || '';
@@ -31,7 +47,7 @@ export function printReceipt(receipt, currency, win = null) {
     ? (receipt.table_number ? `Table ${receipt.table_number}` : 'Dine-in')
     : (receipt.customer_ref || channelLabel);
 
-  const itemsHtml = (receipt.items || []).map((item) => {
+  const itemsHtml = mergeItems(receipt.items || []).map((item) => {
     const custLabels = Object.entries(item.customizations || {})
       .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
     return `<tr>
@@ -148,7 +164,10 @@ export function printKOT(order) {
     ? (order.table_number ? `TABLE ${order.table_number}` : 'DINE-IN')
     : (order.customer_ref || (order.channel === 'takeaway' ? 'TAKEAWAY' : 'DELIVERY'));
 
-  const liveItems = (order.items || []).filter((i) => i.item_status !== 'cancelled');
+  const liveItems = mergeItems(
+    (order.items || []).filter((i) => i.item_status !== 'cancelled'),
+    'item_name',
+  );
 
   const byCategory = liveItems.reduce((acc, item) => {
     const cat = item.category || 'Other';
@@ -156,6 +175,9 @@ export function printKOT(order) {
     acc[cat].push(item);
     return acc;
   }, {});
+
+  const categories = Object.keys(byCategory);
+  const showHeaders = categories.length > 1 || (categories.length === 1 && categories[0] !== 'Other');
 
   const categoryBlocks = Object.entries(byCategory).map(([cat, items]) => {
     const rows = items.map((item) => {
@@ -174,7 +196,7 @@ export function printKOT(order) {
     }).join('');
     return `
       <div style="margin-bottom:10px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#777;border-bottom:1px solid #bbb;padding-bottom:3px;margin-bottom:4px">${esc(cat)}</div>
+        ${showHeaders ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#777;border-bottom:1px solid #bbb;padding-bottom:3px;margin-bottom:4px">${esc(cat)}</div>` : ''}
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
   }).join('');

@@ -56,6 +56,45 @@ const CHANNEL_COLORS = {
   delivery: 'var(--info)',
 };
 
+function mergeHistoryItems(items) {
+  const map = {};
+  const result = [];
+  for (const item of items) {
+    const k = `${item.name || ''}|${item.notes || ''}`;
+    if (map[k] !== undefined) {
+      result[map[k]] = { ...result[map[k]], quantity: result[map[k]].quantity + item.quantity };
+    } else {
+      map[k] = result.length;
+      result.push({ ...item });
+    }
+  }
+  return result;
+}
+
+// ── Session grouping ─────────────────────────────────────────────────────────
+// Group dining orders that share the same table_session_id into one row.
+
+function buildDisplayRows(orders) {
+  const sorted = [...orders].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const sessionMap = {}; // table_session_id → row index
+  const rows = [];
+
+  for (const order of sorted) {
+    const sid = order.table_session_id;
+    if (sid && order.channel === 'dining' && sessionMap[sid] !== undefined) {
+      rows[sessionMap[sid]].orders.push(order);
+    } else if (sid && order.channel === 'dining') {
+      sessionMap[sid] = rows.length;
+      rows.push({ type: 'session', tableNumber: order.table_number, orders: [order] });
+    } else {
+      rows.push({ type: 'order', order });
+    }
+  }
+
+  // Single-order sessions are just plain order rows
+  return rows.map((r) => r.type === 'session' && r.orders.length === 1 ? { type: 'order', order: r.orders[0] } : r);
+}
+
 // ── Print button ─────────────────────────────────────────────────────────────
 
 function PrintReceiptButton({ orderId, currency }) {
@@ -99,6 +138,155 @@ function PrintReceiptButton({ orderId, currency }) {
       </button>
       {err && <span style={{ fontSize: 12, color: 'var(--bad)' }}>{err}</span>}
     </span>
+  );
+}
+
+function SessionPrintButton({ orders, currency }) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr]         = useState('');
+
+  async function handlePrint() {
+    const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
+    if (!win) { alert('Please allow pop-ups for this site to print receipts.'); return; }
+    setLoading(true); setErr('');
+    try {
+      const receipts = await Promise.all(orders.map((o) => api.get(`/payments/${o.id}/receipt`).then((r) => r.data)));
+      const combined = {
+        ...receipts[0],
+        items:                  receipts.flatMap((r) => r.items || []),
+        subtotal:               receipts.reduce((s, r) => s + parseFloat(r.subtotal              || 0), 0),
+        tax_amount:             receipts.reduce((s, r) => s + parseFloat(r.tax_amount            || 0), 0),
+        service_charge_amount:  receipts.reduce((s, r) => s + parseFloat(r.service_charge_amount || 0), 0),
+        total_charged:          receipts.reduce((s, r) => s + parseFloat(r.total_charged         || 0), 0),
+      };
+      printReceipt(combined, currency, win);
+    } catch {
+      win.close();
+      setErr('Failed to load receipt');
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      <button type="button" onClick={handlePrint} disabled={loading}
+        className="flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+        style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+      >
+        <Printer size={13} />
+        {loading ? 'Opening…' : 'Print Receipt'}
+      </button>
+      {err && <span style={{ fontSize: 12, color: 'var(--bad)' }}>{err}</span>}
+    </span>
+  );
+}
+
+// ── Session row (multi-round dining table) ────────────────────────────────────
+
+function SessionRow({ session, format, formatTime, currency }) {
+  const [open, setOpen] = useState(false);
+  const { tableNumber, orders } = session;
+  const firstOrder = orders[0];
+
+  const allPaid  = orders.every((o) => o.status === 'paid');
+  const status   = allPaid ? 'paid' : (orders.find((o) => o.status !== 'paid')?.status ?? orders[0].status);
+  const paidOrder = orders.find((o) => o.status === 'paid');
+
+  const allItems        = mergeHistoryItems(orders.flatMap((o) => o.items || []));
+  const combinedTotal   = orders.reduce((s, o) => s + parseFloat(o.total_charged         || 0), 0);
+  const combinedSub     = orders.reduce((s, o) => s + parseFloat(o.bill_subtotal ?? o.items_total ?? 0), 0);
+  const combinedTax     = orders.reduce((s, o) => s + parseFloat(o.tax_amount            || 0), 0);
+  const combinedSC      = orders.reduce((s, o) => s + parseFloat(o.service_charge_amount || 0), 0);
+  const combinedDisc    = orders.reduce((s, o) => s + parseFloat(o.bill_discount_amount  || 0), 0);
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--line)' }} className="last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors min-w-[480px]"
+        style={{ background: 'transparent', border: 0, cursor: 'pointer' }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+      >
+        <span style={{ color: 'var(--mute-2)', width: 14, flexShrink: 0, display: 'flex' }}>
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
+        <span className="w-14 mono num shrink-0" style={{ fontSize: 12, color: 'var(--mute)' }}>
+          {formatTime(new Date(firstOrder.created_at))}
+        </span>
+        <span className="w-16 mono shrink-0" style={{ fontSize: 11.5, color: 'var(--mute-2)' }}>
+          {orders.length} rounds
+        </span>
+        <span className="w-5 shrink-0 flex" style={{ color: CHANNEL_COLORS.dining }}>
+          <UtensilsCrossed size={14} />
+        </span>
+        <span className="flex-1 truncate" style={{ fontSize: 13, color: 'var(--ink)' }}>
+          Table {tableNumber}
+        </span>
+        <span className="w-28 truncate hidden sm:block" style={{ fontSize: 12, color: 'var(--mute)' }}>
+          {firstOrder.created_by_email?.split('@')[0] ?? '—'}
+        </span>
+        <span className="w-20 text-right mono num shrink-0" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>
+          {allPaid ? format(combinedTotal) : '—'}
+        </span>
+        <span className="w-20 text-right capitalize shrink-0" style={{ fontSize: 12, fontWeight: 500, color: STATUS_COLORS[status] ?? 'var(--mute-2)' }}>
+          {status}
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-10 pb-4 pt-3 space-y-4" style={{ background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
+          <div className="space-y-1.5">
+            {allItems.map((item, i) => (
+              <div key={i} className="flex justify-between" style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+                <span>
+                  {item.name}
+                  <span style={{ color: 'var(--mute)', marginLeft: 4 }}>× {item.quantity}</span>
+                  {item.notes && (
+                    <span style={{ marginLeft: 8, fontSize: 11.5, color: 'var(--mute)', fontStyle: 'italic' }}>{item.notes}</span>
+                  )}
+                </span>
+                <span className="mono num">{format(item.price * item.quantity)}</span>
+              </div>
+            ))}
+          </div>
+
+          {allPaid && (
+            <div className="space-y-1.5" style={{ borderRadius: 6, border: '1px solid var(--line-2)', background: 'var(--paper)', padding: '12px 14px', fontSize: 13 }}>
+              <div className="flex justify-between" style={{ color: 'var(--mute)' }}>
+                <span>Subtotal</span><span className="mono num">{format(combinedSub)}</span>
+              </div>
+              {combinedDisc > 0 && (
+                <div className="flex justify-between" style={{ color: 'var(--ok)' }}>
+                  <span>Discount</span><span className="mono num">−{format(combinedDisc)}</span>
+                </div>
+              )}
+              {combinedTax > 0 && (
+                <div className="flex justify-between" style={{ color: 'var(--mute)' }}>
+                  <span>Tax</span><span className="mono num">{format(combinedTax)}</span>
+                </div>
+              )}
+              {combinedSC > 0 && (
+                <div className="flex justify-between" style={{ color: 'var(--mute)' }}>
+                  <span>Service charge</span><span className="mono num">{format(combinedSC)}</span>
+                </div>
+              )}
+              <div className="flex justify-between" style={{ fontWeight: 600, color: 'var(--ink)', borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 4 }}>
+                <span>Total charged</span><span className="mono num">{format(combinedTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between" style={{ paddingTop: 2 }}>
+                <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+                  Paid via <span className="capitalize">{paidOrder?.payment_method}</span>
+                </span>
+                <SessionPrintButton orders={orders} currency={currency} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -311,6 +499,8 @@ export default function OrderHistory() {
 
   const { orders = [], stats } = data ?? {};
 
+  const displayRows = useMemo(() => buildDisplayRows(orders), [orders]);
+
   return (
     <div className="space-y-5">
 
@@ -470,18 +660,28 @@ export default function OrderHistory() {
         {isError && (
           <p className="p-8 text-center" style={{ fontSize: 13, color: 'var(--bad)' }}>Failed to load orders.</p>
         )}
-        {!isLoading && !isError && orders.length === 0 && (
+        {!isLoading && !isError && displayRows.length === 0 && (
           <p className="p-8 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>No orders found for this period.</p>
         )}
-        {!isLoading && orders.map((order) => (
-          <OrderRow
-            key={order.id}
-            order={order}
-            format={format}
-            formatTime={formatTime}
-            currency={currency}
-          />
-        ))}
+        {!isLoading && displayRows.map((row) =>
+          row.type === 'session' ? (
+            <SessionRow
+              key={`session-${row.orders[0].table_session_id}`}
+              session={row}
+              format={format}
+              formatTime={formatTime}
+              currency={currency}
+            />
+          ) : (
+            <OrderRow
+              key={row.order.id}
+              order={row.order}
+              format={format}
+              formatTime={formatTime}
+              currency={currency}
+            />
+          )
+        )}
         </div>
       </div>
     </div>

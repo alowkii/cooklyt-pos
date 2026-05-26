@@ -46,12 +46,24 @@ const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dini
   try {
     await client.query('BEGIN');
 
+    // Reuse the session ID if this table already has active orders; otherwise start a new session.
+    let sessionId = null;
+    if (tableId) {
+      const { rows } = await client.query(
+        `SELECT table_session_id FROM orders
+         WHERE table_id = $1 AND restaurant_id = $2 AND status NOT IN ('paid', 'cancelled')
+         LIMIT 1`,
+        [tableId, restaurantId],
+      );
+      sessionId = rows[0]?.table_session_id ?? null;
+    }
+
     const {
       rows: [order],
     } = await client.query(
-      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref, assigned_staff_id)
-       VALUES ($1, $2, $3, 'received', $4, $5, $6) RETURNING *`,
-      [restaurantId, tableId || null, createdBy, channel, customerRef, assignedStaffId],
+      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref, assigned_staff_id, table_session_id)
+       VALUES ($1, $2, $3, 'received', $4, $5, $6, COALESCE($7, gen_random_uuid())) RETURNING *`,
+      [restaurantId, tableId || null, createdBy, channel, customerRef, assignedStaffId, sessionId],
     );
 
     for (const item of items) {
@@ -147,6 +159,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        o.created_at,
        o.discount_type,
        o.discount_value,
+       o.table_session_id,
        t.number        AS table_number,
        u.email         AS created_by_email,
        su.email        AS assigned_staff_email,
@@ -197,7 +210,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        AND (o.created_at AT TIME ZONE $2)::date <= $4::date
        AND ($5::text IS NULL OR o.status  = $5)
        AND ($6::text IS NULL OR o.channel = $6)
-     GROUP BY o.id, t.number, u.email, su.email, su.name,
+     GROUP BY o.id, o.table_session_id, t.number, u.email, su.email, su.name,
               p.method, p.total_charged, p.subtotal,
               p.tax_rate, p.tax_amount,
               p.service_charge_rate, p.service_charge_amount,

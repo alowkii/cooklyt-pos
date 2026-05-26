@@ -176,7 +176,7 @@ function ItemRow({ orderId, item, canUpdate }) {
 
 /* ── OrderExpandedDetail ─────────────────────────────────── */
 
-function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, canCancel, onPay, onAddItems }) {
+function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, canCancel, onPay, onAddItems, hidePayment = false, hideGlobalActions = false }) {
   const updateStatus  = useUpdateOrderStatus();
   const cancelPending = useCancelPendingItems();
 
@@ -221,15 +221,17 @@ function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, 
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button className="btn btn-sm" onClick={() => printKOT(order)}>
-            <Printer size={12} /> Print KOT
-          </button>
-          {canAddItems && (
+          {!hideGlobalActions && (
+            <button className="btn btn-sm" onClick={() => printKOT(order)}>
+              <Printer size={12} /> Print KOT
+            </button>
+          )}
+          {!hideGlobalActions && canAddItems && (
             <button onClick={() => onAddItems({ order, orderTitle })} className="btn btn-sm">
               <Plus size={12} /> Add items
             </button>
           )}
-          {canCancel && hasPending && (
+          {canCancel && hasPending && order.status !== 'served' && (
             <button
               onClick={() => cancelPending.mutate(order.id)}
               disabled={cancelPending.isPending}
@@ -239,7 +241,7 @@ function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, 
               {hasServedOrReady ? 'Cancel remaining' : 'Cancel'}
             </button>
           )}
-          {order.status === 'served' && canOrder && (
+          {order.status === 'served' && canOrder && !hidePayment && (
             <button
               onClick={() => onPay({ order, tableNumber: order.channel === 'dining' ? table?.number : null })}
               className="btn-primary btn-sm"
@@ -495,11 +497,43 @@ function TableSessionRow({ session, table, isOpen, onToggle, canOrder, canPrepar
                 canCancel={canCancel}
                 onPay={onPay}
                 onAddItems={onAddItems}
+                hidePayment={multiRound}
+                hideGlobalActions={multiRound}
               />
             )}
           </div>
         );
       })}
+
+      {/* Session-level actions: single Print KOT, Add items, Collect payment after all rounds */}
+      {isOpen && multiRound && (() => {
+        const latestOrder  = [...orders].reverse()[0];
+        const payableOrder = [...orders].reverse().find((o) => o.status === 'served');
+        const mergedKOT = {
+          ...orders[0],
+          items: orders.flatMap((o) => o.items),
+        };
+        return (
+          <div className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 8px 10px 52px', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+            <button className="btn btn-sm" onClick={() => printKOT(mergedKOT)}>
+              <Printer size={12} /> Print KOT
+            </button>
+            {canAddItems && (
+              <button onClick={() => onAddItems({ order: latestOrder, orderTitle: `Table ${tableNumber}` })} className="btn btn-sm">
+                <Plus size={12} /> Add items
+              </button>
+            )}
+            {payableOrder && canOrder && (
+              <button
+                onClick={() => onPay({ orders, tableNumber: table?.number ?? null })}
+                className="btn-primary btn-sm"
+              >
+                <DollarSign size={12} /> Collect payment
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -688,6 +722,7 @@ export default function Orders() {
       {payingOrder && (
         <PaymentModal
           order={payingOrder.order}
+          orders={payingOrder.orders}
           tableNumber={payingOrder.tableNumber}
           onClose={() => setPayingOrder(null)}
         />

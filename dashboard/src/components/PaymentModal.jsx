@@ -3,13 +3,30 @@ import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
   Printer, Split, Plus, Minus, ArrowLeft, Phone,
 } from 'lucide-react';
+import { useQueries } from '@tanstack/react-query';
 import Modal from './Modal';
+import { queryClient } from '../lib/queryClient';
 import { useBill, useApplyDiscount, useProcessPayment, useProcessSplitPayment } from '../hooks/usePayments';
 import { useCoupons, useApplyCoupon, useRemoveCoupon } from '../hooks/useCoupons';
 import { useLookupLoyaltyCustomer, useApplyLoyalty, useRemoveLoyalty } from '../hooks/useLoyalty';
 import { useCurrency } from '../context/CurrencyContext';
 import api from '../api/client';
 import { printReceipt } from '../utils/printReceipt';
+
+function mergeBillItems(items) {
+  const map = {};
+  const result = [];
+  for (const item of items) {
+    const k = item.name || '';
+    if (map[k] !== undefined) {
+      result[map[k]] = { ...result[map[k]], quantity: result[map[k]].quantity + item.quantity };
+    } else {
+      map[k] = result.length;
+      result.push({ ...item });
+    }
+  }
+  return result;
+}
 
 const LOYALTY_TIERS = [
   { name: 'Bronze',   min: 0,     max: 999,      color: '#b87333' },
@@ -478,7 +495,251 @@ function computeSubTotal(items, bill) {
   return parseFloat((discounted + taxAndSc + packagingFee).toFixed(2));
 }
 
-export default function PaymentModal({ order, tableNumber, onClose }) {
+/* ── SessionPaymentModal ─────────────────────────────────── */
+// Handles payment for a multi-round dining session (all orders at once).
+
+function SessionPaymentModal({ orders, tableNumber, onClose }) {
+  const { format, currency } = useCurrency();
+
+  const [method,            setMethod]            = useState('cash');
+  const [amountTendered,    setAmountTendered]    = useState('');
+  const [waiveServiceCharge, setWaiveServiceCharge] = useState(false);
+  const [submitting,        setSubmitting]        = useState(false);
+  const [result,            setResult]            = useState(null);
+  const [error,             setError]             = useState('');
+  const [printing,          setPrinting]          = useState(false);
+  const [printError,        setPrintError]        = useState('');
+  const printWinRef = useRef(null);
+
+  const billQueries = useQueries({
+    queries: orders.map((o) => ({
+      queryKey: ['bill', o.id, null, waiveServiceCharge],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (waiveServiceCharge) params.set('waive', 'true');
+        const query = params.toString() ? `?${params}` : '';
+        const { data } = await api.get(`/payments/${o.id}/bill${query}`);
+        return data;
+      },
+      staleTime: 30_000,
+    })),
+  });
+
+  const billsLoading = billQueries.some((q) => q.isLoading);
+  const bills        = billQueries.map((q) => q.data).filter(Boolean);
+
+  const allItems            = mergeBillItems(bills.flatMap((b) => b.items || []));
+  const combinedSubtotal    = bills.reduce((s, b) => s + (parseFloat(b.subtotal)          || 0), 0);
+  const combinedTax         = bills.reduce((s, b) => s + (parseFloat(b.taxAmount)         || 0), 0);
+  const combinedServiceCharge = bills.reduce((s, b) => s + (parseFloat(b.serviceChargeAmount) || 0), 0);
+  const combinedTotal       = parseFloat(bills.reduce((s, b) => s + (parseFloat(b.total)  || 0), 0).toFixed(currency.decimals ?? 2));
+  const hasTax              = bills.some((b) => (b.taxRate || 0) > 0);
+  const hasServiceCharge    = bills.some((b) => (b.serviceChargeRate || 0) > 0);
+  const taxRate             = bills[0]?.taxRate || 0;
+  const serviceChargeRate   = bills[0]?.serviceChargeRate || 0;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      for (const order of orders) {
+        const body = { method };
+        if (waiveServiceCharge) body.waiveServiceCharge = true;
+        await api.post(`/payments/${order.id}`, body);
+      }
+      // Invalidate once after all orders are paid
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['order-history'] });
+      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
+      const tendered = parseFloat(amountTendered) || 0;
+      setResult({
+        totalCharged: combinedTotal,
+        method,
+        change: method === 'cash' && tendered > combinedTotal ? tendered - combinedTotal : 0,
+      });
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Payment failed');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePrintReceipt() {
+    if (printWinRef.current && !printWinRef.current.closed) printWinRef.current.close();
+    const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
+    if (!win) { alert('Please allow pop-ups for this site to print receipts.'); return; }
+    printWinRef.current = win;
+    setPrinting(true); setPrintError('');
+    try {
+      const receipts = await Promise.all(orders.map((o) => api.get(`/payments/${o.id}/receipt`).then((r) => r.data)));
+      const combined = {
+        ...receipts[0],
+        items:                  receipts.flatMap((r) => r.items || []),
+        subtotal:               receipts.reduce((s, r) => s + parseFloat(r.subtotal              || 0), 0),
+        tax_amount:             receipts.reduce((s, r) => s + parseFloat(r.tax_amount            || 0), 0),
+        service_charge_amount:  receipts.reduce((s, r) => s + parseFloat(r.service_charge_amount || 0), 0),
+        total_charged:          receipts.reduce((s, r) => s + parseFloat(r.total_charged         || 0), 0),
+      };
+      printReceipt(combined, currency, win);
+    } catch {
+      win.close();
+      printWinRef.current = null;
+      setPrintError('Could not load receipt. Try again.');
+    } finally { setPrinting(false); }
+  }
+
+  const label = `Table ${tableNumber}`;
+
+  if (result) {
+    return (
+      <Modal title="Payment Complete" onClose={onClose}>
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <CheckCircle size={36} style={{ color: 'var(--ok)' }} />
+          <p style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>
+            {format(result.totalCharged)} collected
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--mute)', textTransform: 'capitalize' }}>
+            {label} · {result.method}
+          </p>
+          {result.change > 0 && (
+            <div className="w-full rounded-[6px] px-4 py-3" style={{ background: 'rgba(179,120,31,.08)' }}>
+              <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--warn)' }}>
+                Change due: {format(result.change)}
+              </p>
+            </div>
+          )}
+          {printError && (
+            <div className="w-full rounded-[6px] px-3 py-2 flex items-center justify-between gap-3" style={{ background: 'rgba(179,55,43,.06)' }}>
+              <p style={{ fontSize: 12, color: 'var(--bad)', margin: 0 }}>{printError}</p>
+              <button onClick={handlePrintReceipt} disabled={printing}
+                style={{ fontSize: 12, color: 'var(--bad)', border: 0, background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Retry
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2 mt-2 w-full">
+            <button onClick={handlePrintReceipt} disabled={printing}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2">
+              <Printer size={14} />
+              {printing ? 'Opening…' : 'Print Receipt'}
+            </button>
+            <button onClick={onClose} className="btn-primary flex-1 justify-center">Done</button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title={`Collect Payment — ${label}`} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="rounded-[6px] p-4 space-y-1.5" style={{ border: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+          {billsLoading ? (
+            <p className="text-center py-2" style={{ fontSize: 12.5, color: 'var(--mute)' }}>Calculating bill…</p>
+          ) : (
+            <>
+              {allItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between" style={{ fontSize: 13, color: 'var(--ink)' }}>
+                  <span>{item.name} <span style={{ color: 'var(--mute)' }}>× {item.quantity}</span></span>
+                  <span className="mono num">{format(item.price * item.quantity)}</span>
+                </div>
+              ))}
+              <div className="pt-1.5 mt-1 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
+                <div className="flex justify-between" style={{ fontSize: 13, color: 'var(--mute)' }}>
+                  <span>Subtotal</span>
+                  <span className="mono num">{format(combinedSubtotal)}</span>
+                </div>
+                {hasTax && (
+                  <div className="flex justify-between" style={{ fontSize: 13, color: 'var(--mute)' }}>
+                    <span>Tax ({+(taxRate * 100).toFixed(4)}%)</span>
+                    <span className="mono num">{format(combinedTax)}</span>
+                  </div>
+                )}
+                {hasServiceCharge && (
+                  waiveServiceCharge ? (
+                    <div className="flex items-center justify-between" style={{ fontSize: 13, color: 'var(--ok)' }}>
+                      <span>Service charge waived</span>
+                      <button type="button" onClick={() => setWaiveServiceCharge(false)}
+                        className="rounded-md p-0.5 transition-colors"
+                        style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
+                        title="Restore service charge">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between" style={{ fontSize: 13, color: 'var(--mute)' }}>
+                      <span>Service charge ({+(serviceChargeRate * 100).toFixed(4)}%)</span>
+                      <div className="flex items-center gap-2">
+                        <span className="mono num">{format(combinedServiceCharge)}</span>
+                        <button type="button" onClick={() => setWaiveServiceCharge(true)}
+                          className="rounded-md p-0.5 transition-colors"
+                          style={{ color: 'var(--mute)', border: 0, background: 'transparent', cursor: 'pointer' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}
+                          title="Waive service charge">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+              <div className="pt-2 mt-1" style={{ borderTop: '1px solid var(--line-2)' }}>
+                <div className="flex justify-between" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                  <span>Total</span>
+                  <span className="mono num">{format(combinedTotal)}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--mute)', marginBottom: 8 }}>
+            Payment Method
+          </p>
+          <MethodPicker value={method} onChange={setMethod} />
+        </div>
+
+        {method === 'cash' && (
+          <div>
+            <label style={{ display: 'block', fontSize: 11, color: 'var(--mute)', marginBottom: 4 }}>
+              Amount Tendered ({currency.code})
+              <span style={{ fontWeight: 400, marginLeft: 4, color: 'var(--mute-2)' }}>(optional)</span>
+            </label>
+            <input type="number" min="0" step="0.01" value={amountTendered}
+              onChange={(e) => setAmountTendered(e.target.value)}
+              placeholder="e.g. 500" className="input" />
+          </div>
+        )}
+
+        {error && (
+          <p className="rounded-[6px] px-3 py-2" style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)' }}>{error}</p>
+        )}
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose}
+            className="btn-secondary flex-1 flex items-center justify-center gap-1.5">
+            <ArrowLeft size={13} /> Back
+          </button>
+          <button type="submit" disabled={submitting || billsLoading} className="btn-primary flex-1 justify-center">
+            {submitting ? 'Processing…' : 'Confirm Payment'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ── PaymentModal ─────────────────────────────────────────── */
+
+export default function PaymentModal({ order, orders, tableNumber, onClose }) {
+  if (orders) {
+    return <SessionPaymentModal orders={orders} tableNumber={tableNumber} onClose={onClose} />;
+  }
   const processPayment      = useProcessPayment();
   const processSplitPayment = useProcessSplitPayment();
   const { format, currency } = useCurrency();
