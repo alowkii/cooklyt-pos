@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Plus, Minus, ShoppingCart, CheckCircle, AlertCircle,
-  X, ClipboardList, Utensils, Receipt, SlidersHorizontal,
+  X, ClipboardList, Utensils, Receipt, SlidersHorizontal, Star,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -11,6 +11,31 @@ const STATUS_CONFIG = {
   ready:     { label: 'Ready to serve', color: 'var(--ok)',   canCancel: false },
   served:    { label: 'Served',         color: 'var(--mute-2)', canCancel: false },
 };
+
+function StarRow({ value, onChange, label }) {
+  return (
+    <div>
+      <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--mute)', margin: '0 0 6px' }}>
+        {label}
+      </p>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            onClick={() => onChange(n === value ? 0 : n)}
+            style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', lineHeight: 0, fontFamily: 'inherit' }}
+          >
+            <Star
+              size={28}
+              fill={n <= value ? '#b3781f' : 'none'}
+              stroke={n <= value ? '#b3781f' : 'var(--mute-2)'}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function OrderMenu() {
   const { tableId }          = useParams();
@@ -52,10 +77,18 @@ export default function OrderMenu() {
   const [staffAssigned,  setStaffAssigned]  = useState(false);
 
   const BILL_COOLDOWN_MS = 5 * 60 * 1000;
-  const billKey  = `bill_requested_at_${tableId}`;
-  const storedAt = parseInt(localStorage.getItem(billKey) || '0', 10);
-  const remaining = BILL_COOLDOWN_MS - (Date.now() - storedAt);
-  const [billDone, setBillDone] = useState(remaining > 0);
+  const billKey = `bill_requested_at_${tableId}`;
+  const [billTs, setBillTs] = useState(() => parseInt(localStorage.getItem(billKey) || '0', 10));
+  const billDone = billTs > 0 && (BILL_COOLDOWN_MS - (Date.now() - billTs)) > 0;
+
+  const reviewKey = `review_done_${tableId}`;
+  const [reviewDone,          setReviewDone]          = useState(() => !!localStorage.getItem(`review_done_${tableId}`));
+  const [reviewRating,        setReviewRating]        = useState(0);
+  const [reviewFoodRating,    setReviewFoodRating]    = useState(0);
+  const [reviewServiceRating, setReviewServiceRating] = useState(0);
+  const [reviewComment,       setReviewComment]       = useState('');
+  const [reviewSubmitting,    setReviewSubmitting]    = useState(false);
+  const [reviewSubmitted,     setReviewSubmitted]     = useState(false);
 
   const catRefs = useRef({});
 
@@ -94,10 +127,11 @@ export default function OrderMenu() {
   }
 
   useEffect(() => {
-    if (remaining <= 0) return;
-    const t = setTimeout(() => { localStorage.removeItem(billKey); setBillDone(false); }, remaining);
+    if (!billDone) return;
+    const remaining = BILL_COOLDOWN_MS - (Date.now() - billTs);
+    const t = setTimeout(() => { localStorage.removeItem(billKey); setBillTs(0); }, remaining > 0 ? remaining : 0);
     return () => clearTimeout(t);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [billTs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
@@ -160,9 +194,12 @@ export default function OrderMenu() {
     }).catch(() => {});
   }, [tableInfo?.restaurant_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
-  const cartCount  = cart.reduce((s, l) => s + l.quantity, 0);
-  const cartTotal  = cart.reduce((s, l) => s + (parseFloat(l.item.price) + l.extraPrice) * l.quantity, 0);
+  const categories       = [...new Set(items.map((i) => i.category).filter(Boolean))];
+  const cartCount        = cart.reduce((s, l) => s + l.quantity, 0);
+  const cartTotal        = cart.reduce((s, l) => s + (parseFloat(l.item.price) + l.extraPrice) * l.quantity, 0);
+  const hasServedOrders  = activeOrders.some((o) => o.status === 'served');
+  // Only show orders that haven't been served yet — served means food is on the table
+  const pendingOrders    = activeOrders.filter((o) => o.status !== 'served');
 
   function itemCartQty(itemId) {
     return cart.filter((l) => l.itemId === itemId).reduce((s, l) => s + l.quantity, 0);
@@ -309,6 +346,8 @@ export default function OrderMenu() {
       }
       setCart([]);
       setShowCart(false);
+      localStorage.removeItem(billKey);
+      setBillTs(0);
       await fetchOrders(tableId);
       showToast('Order placed! Kitchen has been notified.');
       setTab('orders');
@@ -349,14 +388,40 @@ export default function OrderMenu() {
         body: JSON.stringify({ tableId }),
       });
       if (!res.ok) throw new Error();
-      localStorage.setItem(billKey, String(Date.now()));
-      setBillDone(true);
+      const ts = Date.now();
+      localStorage.setItem(billKey, String(ts));
+      setBillTs(ts);
       showToast('Staff has been notified. Your bill is on the way!');
-      setTimeout(() => { localStorage.removeItem(billKey); setBillDone(false); }, BILL_COOLDOWN_MS);
     } catch {
       showToast('Could not send request. Please ask staff directly.');
     } finally {
       setBillRequesting(false);
+    }
+  }
+
+  async function submitReview() {
+    if (!reviewRating || reviewSubmitting) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch('/api/public/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          overallRating:   reviewRating,
+          foodRating:      reviewFoodRating    || null,
+          serviceRating:   reviewServiceRating || null,
+          comment:         reviewComment.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      localStorage.setItem(reviewKey, '1');
+      setReviewSubmitted(true);
+      setTimeout(() => setReviewDone(true), 2500);
+    } catch {
+      showToast('Could not submit review. Please try again.');
+    } finally {
+      setReviewSubmitting(false);
     }
   }
 
@@ -774,7 +839,7 @@ export default function OrderMenu() {
 
   const OrdersTab = (
     <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px', paddingBottom: 24 }}>
-      {activeOrders.length === 0 ? (
+      {pendingOrders.length === 0 && !hasServedOrders ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <ClipboardList size={36} style={{ color: 'var(--mute-2)', marginBottom: 12 }} />
           <p style={{ fontSize: 13, color: 'var(--mute)' }}>No active orders yet.</p>
@@ -782,85 +847,100 @@ export default function OrderMenu() {
             Your orders will appear here after you place them.
           </p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {activeOrders.map((order) => {
-            const s     = STATUS_CONFIG[order.status] || STATUS_CONFIG.received;
-            const token = order.id.slice(-6).toUpperCase();
-            const total = (order.items || []).reduce((sum, i) => sum + i.price * i.quantity, 0);
-            return (
-              <div key={order.id} style={{
-                border: '1px solid var(--line-2)',
-                borderRadius: 10,
-                background: 'var(--paper)',
-                overflow: 'hidden',
-              }}>
-                <div className="flex items-center justify-between" style={{
-                  padding: '11px 14px',
-                  borderBottom: '1px solid var(--line)',
-                }}>
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>#{token}</span>
-                    <span className="inline-flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 500, color: s.color }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                      {s.label}
-                    </span>
-                  </div>
-                  {s.canCancel && (
-                    <button
-                      onClick={() => cancelOrder(order.id)}
-                      disabled={cancelling === order.id}
-                      style={{
-                        borderRadius: 6,
-                        border: '1px solid rgba(179,55,43,.22)',
-                        padding: '3px 10px',
-                        fontSize: 11.5, fontWeight: 500,
-                        color: 'var(--bad)',
-                        background: 'transparent',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        opacity: cancelling === order.id ? 0.4 : 1,
-                      }}
-                    >
-                      {cancelling === order.id ? 'Cancelling…' : 'Cancel'}
-                    </button>
-                  )}
-                </div>
-                <div style={{ padding: '11px 14px' }} className="space-y-1.5">
-                  {(order.items || []).map((item, idx) => (
-                    <div key={idx} style={{ fontSize: 13 }}>
-                      <div className="flex items-center justify-between">
-                        <span style={{ color: 'var(--ink)' }}>
-                          {item.name}
-                          <span style={{ color: 'var(--mute)', marginLeft: 6 }}>× {item.quantity}</span>
+      ) : pendingOrders.length === 0 ? null : (() => {
+        // Oldest order first for display (API returns DESC, so reverse)
+        const ordered = [...pendingOrders].reverse();
+        const multiRound = ordered.length > 1;
+        const grandTotal = ordered.reduce((sum, o) =>
+          sum + (o.items || []).reduce((s, it) => s + it.price * it.quantity, 0), 0);
+
+        return (
+          <div style={{ border: '1px solid var(--line-2)', borderRadius: 10, background: 'var(--paper)', overflow: 'hidden' }}>
+            {ordered.map((order, i) => {
+              const s     = STATUS_CONFIG[order.status] || STATUS_CONFIG.received;
+              const total = (order.items || []).reduce((sum, it) => sum + it.price * it.quantity, 0);
+              return (
+                <div key={order.id} style={{ borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                  {/* Round header */}
+                  <div className="flex items-center justify-between" style={{ padding: '10px 14px' }}>
+                    <div className="flex items-center gap-2">
+                      {multiRound && (
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mute)', letterSpacing: '.03em', textTransform: 'uppercase' }}>
+                          Round {i + 1}
                         </span>
-                        <span style={{ color: 'var(--mute)' }}>{fmt(item.price * item.quantity)}</span>
-                      </div>
-                      {item.notes && (
-                        <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2, fontStyle: 'italic' }}>
-                          {item.notes}
-                        </p>
                       )}
+                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 500, color: s.color }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        {s.label}
+                      </span>
                     </div>
-                  ))}
-                  {total > 0 && (
-                    <div className="flex justify-between" style={{
-                      borderTop: '1px solid var(--line)',
-                      paddingTop: 8, marginTop: 4,
-                      fontSize: 13, fontWeight: 600,
-                    }}>
-                      <span style={{ color: 'var(--mute)' }}>Subtotal</span>
-                      <span style={{ color: 'var(--ink)' }}>{fmt(total)}</span>
-                    </div>
-                  )}
+                    {s.canCancel && (
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        disabled={cancelling === order.id}
+                        style={{
+                          borderRadius: 6, border: '1px solid rgba(179,55,43,.22)',
+                          padding: '3px 10px', fontSize: 11.5, fontWeight: 500,
+                          color: 'var(--bad)', background: 'transparent',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          opacity: cancelling === order.id ? 0.4 : 1,
+                        }}
+                      >
+                        {cancelling === order.id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Items */}
+                  <div style={{ padding: '0 14px 11px' }} className="space-y-1.5">
+                    {(order.items || []).map((item, idx) => (
+                      <div key={idx} style={{ fontSize: 13 }}>
+                        <div className="flex items-center justify-between">
+                          <span style={{ color: 'var(--ink)' }}>
+                            {item.name}
+                            <span style={{ color: 'var(--mute)', marginLeft: 6 }}>× {item.quantity}</span>
+                          </span>
+                          <span style={{ color: 'var(--mute)' }}>{fmt(item.price * item.quantity)}</span>
+                        </div>
+                        {item.notes && (
+                          <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2, fontStyle: 'italic' }}>
+                            {item.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {!multiRound && total > 0 && (
+                      <div className="flex justify-between" style={{
+                        borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 4,
+                        fontSize: 13, fontWeight: 600,
+                      }}>
+                        <span style={{ color: 'var(--mute)' }}>Subtotal</span>
+                        <span style={{ color: 'var(--ink)' }}>{fmt(total)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+
+            {/* Grand total footer when multiple rounds */}
+            {multiRound && grandTotal > 0 && (
+              <div className="flex justify-between" style={{
+                borderTop: '1px solid var(--line)',
+                padding: '11px 14px',
+                fontSize: 13, fontWeight: 700,
+                background: 'var(--paper-2)',
+              }}>
+                <span style={{ color: 'var(--mute)' }}>Total (all rounds)</span>
+                <span style={{ color: 'var(--ink)' }}>{fmt(grandTotal)}</span>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {activeOrders.length > 0 && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 16 }}>
           <div style={{
             borderRadius: 10,
             border: '1px solid var(--line-2)',
@@ -892,6 +972,78 @@ export default function OrderMenu() {
               <Receipt size={16} />
               {billRequesting ? 'Requesting…' : billDone ? 'Bill requested ✓' : 'Request Bill'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Review prompt — shown once any order has been served, hidden after submission */}
+      {hasServedOrders && !reviewDone && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ borderRadius: 10, border: '1px solid var(--line-2)', background: 'var(--paper)', padding: '18px 16px' }}>
+            {reviewSubmitted ? (
+              <div className="flex flex-col items-center py-4 text-center">
+                <CheckCircle size={34} style={{ color: 'var(--ok)', marginBottom: 10 }} />
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>Thank you!</p>
+                <p style={{ fontSize: 12, color: 'var(--mute)' }}>Your feedback helps us improve.</p>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+                  How was your experience?
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <StarRow value={reviewRating}        onChange={setReviewRating}        label="Overall *" />
+                  <StarRow value={reviewFoodRating}    onChange={setReviewFoodRating}    label="Food quality" />
+                  <StarRow value={reviewServiceRating} onChange={setReviewServiceRating} label="Service" />
+                </div>
+
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Add a note… (optional)"
+                  maxLength={500}
+                  rows={2}
+                  style={{
+                    width: '100%', boxSizing: 'border-box', marginTop: 14,
+                    borderRadius: 8, border: '1px solid var(--line-2)',
+                    background: 'var(--paper-2)', color: 'var(--ink)',
+                    fontSize: 13, padding: '9px 12px',
+                    fontFamily: 'inherit', resize: 'none', outline: 'none',
+                  }}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                  <button
+                    onClick={submitReview}
+                    disabled={reviewSubmitting || !reviewRating}
+                    style={{
+                      width: '100%', borderRadius: 8, padding: '12px 0',
+                      background: reviewRating ? 'var(--ink)' : 'var(--paper-2)',
+                      color: reviewRating ? 'var(--accent-on)' : 'var(--mute-2)',
+                      border: reviewRating ? 0 : '1px solid var(--line-2)',
+                      fontSize: 14, fontWeight: 600,
+                      cursor: reviewSubmitting || !reviewRating ? 'default' : 'pointer',
+                      fontFamily: 'inherit',
+                      opacity: reviewSubmitting ? 0.6 : 1,
+                      transition: 'all .15s',
+                    }}
+                  >
+                    {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
+                  </button>
+                  <button
+                    onClick={() => { localStorage.setItem(reviewKey, '1'); setReviewDone(true); }}
+                    style={{
+                      background: 'none', border: 'none', fontSize: 12,
+                      color: 'var(--mute)', cursor: 'pointer', fontFamily: 'inherit',
+                      padding: '4px 0', textAlign: 'center',
+                    }}
+                  >
+                    Maybe later
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

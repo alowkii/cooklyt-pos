@@ -232,4 +232,39 @@ router.post('/request-bill', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/public/reviews
+// Submits a customer review; tableId acts as implicit auth (same as order placement)
+router.post('/reviews', async (req, res, next) => {
+  try {
+    const { tableId, overallRating, foodRating, serviceRating, comment } = req.body;
+    if (!tableId || !UUID_RE.test(tableId)) {
+      return res.status(400).json({ error: 'tableId is required' });
+    }
+    const overall = parseInt(overallRating, 10);
+    if (!overall || overall < 1 || overall > 5) {
+      return res.status(400).json({ error: 'overallRating must be between 1 and 5' });
+    }
+
+    const { rows } = await db.query('SELECT restaurant_id FROM tables WHERE id = $1', [tableId]);
+    if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
+
+    const toRating = (v) => { const n = parseInt(v, 10); return n >= 1 && n <= 5 ? n : null; };
+
+    await db.query(
+      `INSERT INTO reviews (restaurant_id, table_id, overall_rating, food_rating, service_rating, comment)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        rows[0].restaurant_id,
+        tableId,
+        overall,
+        toRating(foodRating),
+        toRating(serviceRating),
+        comment ? String(comment).slice(0, 500) : null,
+      ],
+    );
+
+    res.status(201).json({ success: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
