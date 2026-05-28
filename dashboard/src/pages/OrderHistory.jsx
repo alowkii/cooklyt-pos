@@ -314,6 +314,9 @@ function SessionRow({ session, format, formatTime, currency }) {
               </div>
             ))}
           </div>
+          <div>
+            <SessionPrintKOTButton orders={orders} />
+          </div>
 
           {allPaid && (
             <div className="space-y-1.5" style={{ borderRadius: 6, border: '1px solid var(--line-2)', background: 'var(--paper)', padding: '12px 14px', fontSize: 13 }}>
@@ -342,10 +345,7 @@ function SessionRow({ session, format, formatTime, currency }) {
                 <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
                   Paid via <span className="capitalize">{paidOrder?.payment_method}</span>
                 </span>
-                <span className="flex items-center gap-4">
-                  <SessionPrintKOTButton orders={orders} />
-                  <SessionPrintButton orders={orders} currency={currency} />
-                </span>
+                <SessionPrintButton orders={orders} currency={currency} />
               </div>
             </div>
           )}
@@ -421,7 +421,7 @@ function OrderRow({ order, format, formatTime, currency }) {
       {/* Expanded detail */}
       {open && (
         <div className="px-10 pb-4 pt-3 space-y-4" style={{ background: 'var(--paper-2)', borderTop: '1px solid var(--line)' }}>
-          {/* Items */}
+          {/* Items + KOT button */}
           <div className="space-y-1.5">
             {(order.items || []).map((item, i) => (
               <div key={i} className="flex justify-between" style={{ fontSize: 13, color: 'var(--ink-2)' }}>
@@ -437,6 +437,9 @@ function OrderRow({ order, format, formatTime, currency }) {
                 <span className="mono num">{format(item.price * item.quantity)}</span>
               </div>
             ))}
+          </div>
+          <div>
+            <PrintKOTButton order={order} />
           </div>
 
           {/* Bill breakdown — only for paid orders */}
@@ -487,10 +490,7 @@ function OrderRow({ order, format, formatTime, currency }) {
                 <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
                   Paid via <span className="capitalize">{order.payment_method}</span>
                 </span>
-                <span className="flex items-center gap-4">
-                  <PrintKOTButton order={order} />
-                  <PrintReceiptButton orderId={order.id} currency={currency} />
-                </span>
+                <PrintReceiptButton orderId={order.id} currency={currency} />
               </div>
             </div>
           )}
