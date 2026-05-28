@@ -48,8 +48,17 @@ export function useTableData(tableId, showToast) {
       }
     }
     load();
-    const interval = setInterval(() => { fetchOrders(tableId); fetchTableInfo(); }, 12000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => { fetchOrders(tableId); fetchTableInfo(); }, 5000);
+
+    function onVisible() {
+      if (document.visibilityState === 'visible') fetchOrders(tableId);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [tableId, fetchOrders, fetchTableInfo]);
 
   async function cancelOrder(orderId) {
