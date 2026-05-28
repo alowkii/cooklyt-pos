@@ -173,13 +173,22 @@ export default function Ingredients() {
             <AlertTriangle size={12} style={{ display: 'inline', marginRight: 5, verticalAlign: 'middle' }} />
             Low stock items — reorder soon
           </p>
-          <p style={{ fontSize: 11.5, color: '#92400e', lineHeight: 1.6 }}>
-            {lowStock.map((i) => (
-              <span key={i.id} style={{ marginRight: 12 }}>
-                <strong>{i.name}</strong> — {parseFloat(i.stock_on_hand).toFixed(2)} {i.unit} remaining (reorder at {parseFloat(i.reorder_level).toFixed(2)})
-              </span>
-            ))}
-          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '4px 20px', marginTop: 8 }}>
+            {lowStock.map((i) => {
+              const stock = parseFloat(i.stock_on_hand);
+              const outOfStock = stock <= 0;
+              return (
+                <div key={i.id} className="flex items-center justify-between gap-2" style={{ fontSize: 12 }}>
+                  <span style={{ fontWeight: 600, color: '#78350f', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {i.name}
+                  </span>
+                  <span style={{ whiteSpace: 'nowrap', flexShrink: 0, color: outOfStock ? '#b91c1c' : '#92400e', fontWeight: 500 }}>
+                    {outOfStock ? 'Out of stock' : `${stock.toFixed(2)} ${i.unit}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

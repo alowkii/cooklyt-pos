@@ -64,26 +64,117 @@ const MENU = [
   { name: 'Sparkling Water',        price:   80, category: 'Drinks', description: 'Chilled sparkling mineral water, 330 ml.' },
 ];
 
-// Orders spread through today — [hour, minute, tableIndex, [[itemName, qty], ...]]
+// Orders spread across 7 days — [daysAgo, hour, minute, tableIndex, [[itemName, qty], ...], paymentMethod?]
+// daysAgo=0 → today, daysAgo=6 → six days ago. paymentMethod defaults to 'cash'.
 const ORDER_SCHEDULE = [
-  [  8, 15, 0, [['Veg Spring Rolls', 2], ['Masala Chai', 2], ['Garlic Bread', 1]]                                                      ],
-  [  9, 30, 1, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Mango Lassi', 2], ['Garlic Bread', 1]]                                  ],
-  [ 10, 45, 2, [['Bruschetta', 1], ['Pasta Arrabbiata', 2], ['Fresh Lime Soda', 2]]                                                    ],
-  [ 11, 20, 3, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Veg Fried Rice', 1], ['Masala Chai', 3]]                                    ],
-  [ 12,  5, 0, [['Soup of the Day', 2], ['Grilled Chicken Steak', 2], ['Cheesecake', 2], ['Cold Coffee', 2]]                           ],
-  [ 12, 40, 4, [['Onion Rings', 1], ['Chicken Biryani', 3], ['Gulab Jamun (2 pcs)', 3], ['Fresh Lime Soda', 3]]                        ],
-  [ 13, 10, 1, [['Crispy Calamari', 1], ['Fish & Chips', 2], ['Tiramisu', 2], ['Sparkling Water', 2]]                                  ],
-  [ 13, 50, 5, [['Garlic Bread', 2], ['Margherita Pizza', 2], ['Vanilla Ice Cream', 2], ['Soft Drink (Can)', 4]]                       ],
-  [ 14, 30, 2, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 2], ['Mango Sorbet', 2], ['Cold Coffee', 2]]                               ],
-  [ 15, 45, 3, [['Veg Burger', 2], ['Chicken Burger', 2], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 4]]                         ],
-  [ 16, 20, 0, [['Paneer Tikka', 1], ['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Mango Lassi', 2], ['Mineral Water', 2]]        ],
-  [ 17, 10, 4, [['Soup of the Day', 4], ['Grilled Chicken Steak', 4], ['Tiramisu', 2], ['Fresh Orange Juice', 4]]                      ],
-  [ 18,  0, 1, [['Bruschetta', 2], ['BBQ Chicken Pizza', 1], ['Pasta Arrabbiata', 2], ['Cheesecake', 2], ['Sparkling Water', 2]]       ],
-  [ 18, 50, 5, [['Chicken Wings', 2], ['Butter Chicken', 3], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 3], ['Masala Chai', 3]]   ],
-  [ 19, 30, 2, [['Crispy Calamari', 2], ['Fish & Chips', 2], ['Mango Sorbet', 2], ['Mineral Water', 4]]                               ],
-  [ 20, 15, 3, [['Veg Spring Rolls', 2], ['Margherita Pizza', 2], ['Veg Burger', 2], ['Chocolate Lava Cake', 4], ['Cold Coffee', 2]]   ],
-  [ 21,  0, 0, [['Onion Rings', 2], ['Paneer Butter Masala', 2], ['Dal Makhani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]]   ],
-  [ 21, 45, 4, [['Chicken Burger', 3], ['BBQ Chicken Pizza', 1], ['Tiramisu', 3], ['Soft Drink (Can)', 3]]                             ],
+  // ── Day 0 (today) ─────────────────────────────────────────────────────────
+  [ 0,  8, 15, 0, [['Veg Spring Rolls', 2], ['Masala Chai', 2], ['Garlic Bread', 1]],                                                         'cash'   ],
+  [ 0,  9, 30, 1, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Mango Lassi', 2], ['Garlic Bread', 1]],                                      'card'   ],
+  [ 0, 10, 45, 2, [['Bruschetta', 1], ['Pasta Arrabbiata', 2], ['Fresh Lime Soda', 2]],                                                        'cash'   ],
+  [ 0, 11, 20, 3, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Veg Fried Rice', 1], ['Masala Chai', 3]],                                        'cash'   ],
+  [ 0, 12,  5, 0, [['Soup of the Day', 2], ['Grilled Chicken Steak', 2], ['Cheesecake', 2], ['Cold Coffee', 2]],                               'card'   ],
+  [ 0, 12, 40, 4, [['Onion Rings', 1], ['Chicken Biryani', 3], ['Gulab Jamun (2 pcs)', 3], ['Fresh Lime Soda', 3]],                            'mobile' ],
+  [ 0, 13, 10, 1, [['Crispy Calamari', 1], ['Fish & Chips', 2], ['Tiramisu', 2], ['Sparkling Water', 2]],                                      'cash'   ],
+  [ 0, 13, 50, 5, [['Garlic Bread', 2], ['Margherita Pizza', 2], ['Vanilla Ice Cream', 2], ['Soft Drink (Can)', 4]],                           'card'   ],
+  [ 0, 14, 30, 2, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 2], ['Mango Sorbet', 2], ['Cold Coffee', 2]],                                   'cash'   ],
+  [ 0, 15, 45, 3, [['Veg Burger', 2], ['Chicken Burger', 2], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 4]],                             'mobile' ],
+  [ 0, 16, 20, 0, [['Paneer Tikka', 1], ['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Mango Lassi', 2], ['Mineral Water', 2]],            'cash'   ],
+  [ 0, 17, 10, 4, [['Soup of the Day', 4], ['Grilled Chicken Steak', 4], ['Tiramisu', 2], ['Fresh Orange Juice', 4]],                          'card'   ],
+  [ 0, 18,  0, 1, [['Bruschetta', 2], ['BBQ Chicken Pizza', 1], ['Pasta Arrabbiata', 2], ['Cheesecake', 2], ['Sparkling Water', 2]],           'cash'   ],
+  [ 0, 18, 50, 5, [['Chicken Wings', 2], ['Butter Chicken', 3], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 3], ['Masala Chai', 3]],       'mobile' ],
+  [ 0, 19, 30, 2, [['Crispy Calamari', 2], ['Fish & Chips', 2], ['Mango Sorbet', 2], ['Mineral Water', 4]],                                    'card'   ],
+  [ 0, 20, 15, 3, [['Veg Spring Rolls', 2], ['Margherita Pizza', 2], ['Veg Burger', 2], ['Chocolate Lava Cake', 4], ['Cold Coffee', 2]],       'cash'   ],
+  [ 0, 21,  0, 0, [['Onion Rings', 2], ['Paneer Butter Masala', 2], ['Dal Makhani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],       'cash'   ],
+  [ 0, 21, 45, 4, [['Chicken Burger', 3], ['BBQ Chicken Pizza', 1], ['Tiramisu', 3], ['Soft Drink (Can)', 3]],                                 'card'   ],
+
+  // ── Day 1 (yesterday) ─────────────────────────────────────────────────────
+  [ 1,  8, 30, 2, [['Garlic Bread', 2], ['Masala Chai', 3]],                                                                                   'cash'   ],
+  [ 1,  9, 45, 0, [['Bruschetta', 2], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                                'mobile' ],
+  [ 1, 11,  0, 3, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
+  [ 1, 12, 15, 1, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                          'card'   ],
+  [ 1, 12, 50, 4, [['Chicken Biryani', 3], ['Onion Rings', 1], ['Fresh Lime Soda', 3]],                                                        'cash'   ],
+  [ 1, 13, 20, 5, [['Fish & Chips', 2], ['Crispy Calamari', 1], ['Sparkling Water', 2]],                                                       'card'   ],
+  [ 1, 14,  0, 2, [['Margherita Pizza', 2], ['Garlic Bread', 1], ['Soft Drink (Can)', 2]],                                                     'cash'   ],
+  [ 1, 15, 30, 0, [['BBQ Chicken Pizza', 1], ['Chicken Wings', 2], ['Cold Coffee', 2]],                                                        'mobile' ],
+  [ 1, 16, 10, 3, [['Veg Burger', 2], ['Chicken Burger', 1], ['Fresh Lime Soda', 3]],                                                          'cash'   ],
+  [ 1, 17, 30, 1, [['Soup of the Day', 2], ['Grilled Chicken Steak', 2], ['Fresh Orange Juice', 2]],                                           'card'   ],
+  [ 1, 18, 20, 4, [['Paneer Tikka', 1], ['Paneer Butter Masala', 2], ['Masala Chai', 2]],                                                      'cash'   ],
+  [ 1, 19,  0, 5, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Mango Lassi', 3]],                                                           'mobile' ],
+  [ 1, 19, 45, 2, [['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                                                    'card'   ],
+  [ 1, 20, 30, 0, [['Margherita Pizza', 2], ['Veg Spring Rolls', 2], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 4]],                     'cash'   ],
+  [ 1, 21, 15, 3, [['Pasta Arrabbiata', 2], ['Tiramisu', 2], ['Cold Coffee', 2]],                                                              'card'   ],
+  [ 1, 22,  0, 1, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Mineral Water', 4]],                                                     'cash'   ],
+
+  // ── Day 2 ─────────────────────────────────────────────────────────────────
+  [ 2,  9,  0, 1, [['Veg Spring Rolls', 2], ['Masala Chai', 2]],                                                                               'cash'   ],
+  [ 2, 10, 30, 5, [['Garlic Bread', 1], ['Paneer Tikka', 2], ['Fresh Lime Soda', 2]],                                                          'mobile' ],
+  [ 2, 12,  0, 0, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                             'card'   ],
+  [ 2, 12, 45, 2, [['Chicken Biryani', 2], ['Veg Fried Rice', 1], ['Fresh Lime Soda', 2]],                                                     'cash'   ],
+  [ 2, 13, 30, 4, [['Fish & Chips', 2], ['Onion Rings', 1], ['Cold Coffee', 2]],                                                               'cash'   ],
+  [ 2, 14, 15, 1, [['Margherita Pizza', 2], ['Chicken Wings', 2], ['Soft Drink (Can)', 4]],                                                    'card'   ],
+  [ 2, 15, 45, 3, [['BBQ Chicken Pizza', 2], ['Pasta Arrabbiata', 2], ['Sparkling Water', 2]],                                                 'mobile' ],
+  [ 2, 17,  0, 5, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Fresh Orange Juice', 2]],                                           'cash'   ],
+  [ 2, 18, 15, 0, [['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Masala Chai', 3]],                                                       'card'   ],
+  [ 2, 19, 30, 2, [['Chicken Biryani', 3], ['Gulab Jamun (2 pcs)', 3], ['Mango Lassi', 3]],                                                    'cash'   ],
+  [ 2, 20, 45, 4, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Tiramisu', 2], ['Cold Coffee', 2]],                                      'mobile' ],
+  [ 2, 21, 30, 1, [['Veg Burger', 2], ['Chocolate Lava Cake', 2], ['Masala Chai', 2]],                                                         'cash'   ],
+
+  // ── Day 3 ─────────────────────────────────────────────────────────────────
+  [ 3,  8, 45, 3, [['Garlic Bread', 2], ['Masala Chai', 2], ['Bruschetta', 1]],                                                                'cash'   ],
+  [ 3, 10,  0, 0, [['Chicken Wings', 2], ['Mango Lassi', 2], ['Veg Spring Rolls', 1]],                                                         'card'   ],
+  [ 3, 11, 15, 4, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
+  [ 3, 12, 20, 2, [['Butter Chicken', 3], ['Chicken Biryani', 2], ['Fresh Lime Soda', 3]],                                                     'mobile' ],
+  [ 3, 12, 55, 5, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Cold Coffee', 2]],                                                  'card'   ],
+  [ 3, 13, 40, 1, [['Fish & Chips', 2], ['Crispy Calamari', 2], ['Sparkling Water', 2]],                                                       'cash'   ],
+  [ 3, 14, 30, 3, [['Margherita Pizza', 2], ['Garlic Bread', 2], ['Soft Drink (Can)', 4]],                                                     'card'   ],
+  [ 3, 15, 20, 0, [['Pasta Arrabbiata', 2], ['Paneer Butter Masala', 2], ['Fresh Orange Juice', 2]],                                           'cash'   ],
+  [ 3, 16, 45, 4, [['Veg Burger', 2], ['Chicken Burger', 2], ['Cold Coffee', 2]],                                                              'mobile' ],
+  [ 3, 18,  0, 2, [['Chicken Wings', 2], ['Butter Chicken', 3], ['Gulab Jamun (2 pcs)', 3], ['Masala Chai', 3]],                               'cash'   ],
+  [ 3, 19, 15, 5, [['BBQ Chicken Pizza', 2], ['Chicken Biryani', 2], ['Mango Sorbet', 2], ['Mango Lassi', 2]],                                 'card'   ],
+  [ 3, 20,  0, 1, [['Veg Spring Rolls', 2], ['Paneer Tikka', 2], ['Paneer Butter Masala', 2], ['Mineral Water', 4]],                           'cash'   ],
+  [ 3, 21,  0, 3, [['Margherita Pizza', 2], ['Chocolate Lava Cake', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 4]],                             'mobile' ],
+  [ 3, 21, 50, 0, [['Chicken Burger', 2], ['BBQ Chicken Pizza', 1], ['Cold Coffee', 2]],                                                       'cash'   ],
+
+  // ── Day 4 ─────────────────────────────────────────────────────────────────
+  [ 4,  9, 15, 5, [['Veg Spring Rolls', 1], ['Masala Chai', 2]],                                                                               'cash'   ],
+  [ 4, 10, 45, 1, [['Bruschetta', 2], ['Fresh Lime Soda', 2], ['Garlic Bread', 1]],                                                            'card'   ],
+  [ 4, 12,  0, 4, [['Dal Makhani', 2], ['Veg Fried Rice', 2], ['Mango Lassi', 2]],                                                             'cash'   ],
+  [ 4, 12, 40, 2, [['Chicken Biryani', 2], ['Butter Chicken', 2], ['Fresh Lime Soda', 2]],                                                     'mobile' ],
+  [ 4, 13, 25, 0, [['Margherita Pizza', 2], ['Chicken Wings', 2], ['Soft Drink (Can)', 4]],                                                    'cash'   ],
+  [ 4, 14, 10, 3, [['Fish & Chips', 2], ['Onion Rings', 1], ['Sparkling Water', 2]],                                                           'card'   ],
+  [ 4, 15, 50, 5, [['Pasta Arrabbiata', 2], ['Cheesecake', 2], ['Cold Coffee', 2]],                                                            'cash'   ],
+  [ 4, 17, 20, 1, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Fresh Orange Juice', 2]],                                           'card'   ],
+  [ 4, 18, 30, 4, [['Paneer Tikka', 2], ['Paneer Butter Masala', 2], ['Masala Chai', 3]],                                                      'cash'   ],
+  [ 4, 19, 45, 0, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Mango Lassi', 2]],                                                       'mobile' ],
+  [ 4, 20, 30, 2, [['Chicken Wings', 2], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                              'cash'   ],
+  [ 4, 21, 15, 3, [['Veg Burger', 2], ['Margherita Pizza', 1], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 2]],                           'card'   ],
+
+  // ── Day 5 ─────────────────────────────────────────────────────────────────
+  [ 5,  8,  0, 2, [['Masala Chai', 2], ['Garlic Bread', 1]],                                                                                   'cash'   ],
+  [ 5,  9, 30, 4, [['Veg Spring Rolls', 1], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                          'card'   ],
+  [ 5, 11, 45, 0, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
+  [ 5, 12, 30, 5, [['Butter Chicken', 2], ['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                         'mobile' ],
+  [ 5, 13, 15, 1, [['Fish & Chips', 2], ['Crispy Calamari', 1], ['Sparkling Water', 2]],                                                       'cash'   ],
+  [ 5, 14, 45, 3, [['Margherita Pizza', 2], ['Veg Burger', 2], ['Fresh Lime Soda', 2]],                                                        'card'   ],
+  [ 5, 16, 30, 2, [['BBQ Chicken Pizza', 2], ['Pasta Arrabbiata', 1], ['Cold Coffee', 2]],                                                     'cash'   ],
+  [ 5, 18, 15, 0, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Fresh Orange Juice', 2]],                                           'card'   ],
+  [ 5, 19,  0, 4, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                               'cash'   ],
+  [ 5, 20, 15, 5, [['Chicken Biryani', 2], ['Paneer Butter Masala', 2], ['Mango Lassi', 2]],                                                   'mobile' ],
+  [ 5, 21,  0, 1, [['BBQ Chicken Pizza', 1], ['Chicken Burger', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 2]],                                 'cash'   ],
+
+  // ── Day 6 ─────────────────────────────────────────────────────────────────
+  [ 6,  9, 30, 3, [['Garlic Bread', 2], ['Masala Chai', 2], ['Bruschetta', 1]],                                                                'cash'   ],
+  [ 6, 11,  0, 1, [['Veg Spring Rolls', 2], ['Paneer Tikka', 2], ['Fresh Lime Soda', 2]],                                                      'card'   ],
+  [ 6, 12, 15, 5, [['Butter Chicken', 2], ['Dal Makhani', 2], ['Mango Lassi', 2]],                                                             'cash'   ],
+  [ 6, 12, 50, 0, [['Chicken Biryani', 3], ['Onion Rings', 1], ['Fresh Lime Soda', 3]],                                                        'mobile' ],
+  [ 6, 13, 35, 2, [['Crispy Calamari', 1], ['Fish & Chips', 2], ['Sparkling Water', 2]],                                                       'cash'   ],
+  [ 6, 14, 20, 4, [['Margherita Pizza', 2], ['Chicken Wings', 2], ['Soft Drink (Can)', 4]],                                                    'card'   ],
+  [ 6, 15, 30, 3, [['Grilled Chicken Steak', 2], ['Pasta Arrabbiata', 2], ['Cold Coffee', 2]],                                                 'cash'   ],
+  [ 6, 17, 15, 1, [['Soup of the Day', 2], ['Dal Makhani', 2], ['Masala Chai', 3]],                                                            'cash'   ],
+  [ 6, 18, 30, 5, [['Paneer Tikka', 2], ['Paneer Butter Masala', 2], ['Fresh Orange Juice', 2]],                                               'card'   ],
+  [ 6, 19, 45, 0, [['Chicken Wings', 2], ['Butter Chicken', 3], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 3]],                           'mobile' ],
+  [ 6, 20, 30, 2, [['BBQ Chicken Pizza', 2], ['Veg Burger', 2], ['Chocolate Lava Cake', 2], ['Cold Coffee', 2]],                               'cash'   ],
+  [ 6, 21, 15, 4, [['Margherita Pizza', 2], ['Chicken Burger', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 3]],                                  'card'   ],
 ];
 
 // ── Ingredients catalogue (costs in INR per unit) ─────────────────────────
@@ -334,9 +425,6 @@ async function main() {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
 
-  // Today in UTC (YYYY-MM-DD)
-  const today = new Date().toISOString().slice(0, 10);
-
   // ── 1. Clear existing seed data scoped to this restaurant ──────────────────
   console.log('Clearing existing data…');
   // Recipe / inventory tables first (FK order)
@@ -488,15 +576,16 @@ async function main() {
   console.log('Seeding orders and payments…');
   const ordersCreated = []; // saved for SALE transaction generation in step 11.5
   const nowMs = Date.now();
-  for (const [hour, minute, tableIdx, lines] of ORDER_SCHEDULE) {
-    const scheduledMs = new Date(`${today}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00Z`).getTime();
+  for (const [daysAgo, hour, minute, tableIdx, lines, payMethod = 'cash'] of ORDER_SCHEDULE) {
+    const dateStr     = new Date(nowMs - daysAgo * 86400_000).toISOString().slice(0, 10);
+    const scheduledMs = new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00Z`).getTime();
     // Never use a future timestamp — cap to 2 minutes ago so real orders always sort above seed orders
     const effectiveMs = Math.min(scheduledMs, nowMs - 2 * 60 * 1000);
     const ts = new Date(effectiveMs).toISOString();
 
     const { rows: [order] } = await client.query(`
-      INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel)
-      VALUES ($1, $2, $3, 'paid', $4, 'dining') RETURNING id
+      INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id)
+      VALUES ($1, $2, $3, 'paid', $4, 'dining', gen_random_uuid()) RETURNING id
     `, [tableIds[tableIdx], RESTAURANT_ID, ADMIN_ID, ts]);
 
     let subtotal = 0;
@@ -510,8 +599,8 @@ async function main() {
 
     await client.query(`
       INSERT INTO payments (order_id, amount, method, status, subtotal, total_charged)
-      VALUES ($1, $2, 'cash', 'completed', $2, $2)
-    `, [order.id, subtotal.toFixed(2)]);
+      VALUES ($1, $2, $3, 'completed', $2, $2)
+    `, [order.id, subtotal.toFixed(2), payMethod]);
 
     ordersCreated.push({ orderId: order.id, ts, lines });
   }
@@ -807,7 +896,7 @@ async function main() {
   }
   console.log(`  Tables     : ${tableIds.length}`);
   console.log(`  Menu items : ${MENU.length}`);
-  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across today`);
+  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across 7 days (cash/card/UPI)`);
   console.log(`  Ingredients: ${INGREDIENTS.length} (stock reconciled from ledger)`);
   console.log(`  Recipes    : ${RECIPES.length} (${linkedCount} linked to menu items)`);
   console.log(`  Combos     : ${COMBOS.length}`);
