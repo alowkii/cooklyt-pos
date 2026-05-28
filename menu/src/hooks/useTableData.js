@@ -6,7 +6,12 @@ export function useTableData(tableId, showToast) {
   const [tableInfo,    setTableInfo]    = useState(null);
   const [items,        setItems]        = useState([]);
   const [activeOrders, setActiveOrders] = useState([]);
+  const [hadOrders,    setHadOrders]    = useState(false);
   const [cancelling,   setCancelling]   = useState(null);
+
+  useEffect(() => {
+    if (activeOrders.length > 0) setHadOrders(true);
+  }, [activeOrders]);
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
@@ -84,7 +89,7 @@ export function useTableData(tableId, showToast) {
 
   return {
     loading, loadError,
-    tableInfo, items, activeOrders,
+    tableInfo, items, activeOrders, hadOrders,
     fetchOrders, fetchTableInfo,
     cancelling, cancelOrder,
     fmt,

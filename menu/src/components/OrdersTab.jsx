@@ -1,4 +1,4 @@
-import { ClipboardList, Receipt } from 'lucide-react';
+import { ClipboardList, Receipt, CheckCircle } from 'lucide-react';
 import { ReviewPrompt } from './ReviewPrompt';
 
 const STATUS_CONFIG = {
@@ -8,8 +8,9 @@ const STATUS_CONFIG = {
   served:    { label: 'Served',         color: 'var(--mute-2)', canCancel: false },
 };
 
-export function OrdersTab({ activeOrders, tableId, fmt, cancelling, cancelOrder, billDone, billRequesting, requestBill, showToast }) {
+export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, cancelOrder, billDone, billRequesting, requestBill, showToast }) {
   const hasServedOrders = activeOrders.some((o) => o.status === 'served');
+  const paidAndGone     = hadOrders && activeOrders.length === 0;
 
   // Oldest first (API returns DESC)
   const ordered    = [...activeOrders].reverse();
@@ -20,13 +21,21 @@ export function OrdersTab({ activeOrders, tableId, fmt, cancelling, cancelOrder,
   return (
     <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px', paddingBottom: 24 }}>
       {activeOrders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <ClipboardList size={36} style={{ color: 'var(--mute-2)', marginBottom: 12 }} />
-          <p style={{ fontSize: 13, color: 'var(--mute)' }}>No active orders yet.</p>
-          <p style={{ fontSize: 12, color: 'var(--mute-2)', marginTop: 4 }}>
-            Your orders will appear here after you place them.
-          </p>
-        </div>
+        paidAndGone ? (
+          <div className="flex flex-col items-center py-12 text-center">
+            <CheckCircle size={36} style={{ color: 'var(--ok)', marginBottom: 10 }} />
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>Payment complete</p>
+            <p style={{ fontSize: 12, color: 'var(--mute)' }}>Thank you for dining with us!</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <ClipboardList size={36} style={{ color: 'var(--mute-2)', marginBottom: 12 }} />
+            <p style={{ fontSize: 13, color: 'var(--mute)' }}>No active orders yet.</p>
+            <p style={{ fontSize: 12, color: 'var(--mute-2)', marginTop: 4 }}>
+              Your orders will appear here after you place them.
+            </p>
+          </div>
+        )
       ) : (
         <div style={{ border: '1px solid var(--line-2)', borderRadius: 10, background: 'var(--paper)', overflow: 'hidden' }}>
           {ordered.map((order, i) => {
@@ -153,7 +162,7 @@ export function OrdersTab({ activeOrders, tableId, fmt, cancelling, cancelOrder,
         </div>
       )}
 
-      <ReviewPrompt tableId={tableId} showToast={showToast} hasServedOrders={hasServedOrders} />
+      <ReviewPrompt tableId={tableId} showToast={showToast} hasServedOrders={hasServedOrders || paidAndGone} />
     </div>
   );
 }
