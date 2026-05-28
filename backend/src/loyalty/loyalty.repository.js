@@ -26,9 +26,14 @@ const findOrCreate = async (restaurantId, phone, name) => {
 const list = (restaurantId, { search = '', limit = 50, offset = 0 } = {}) => {
   const like = `%${search}%`;
   return db.query(
-    `SELECT * FROM loyalty_customers
-     WHERE restaurant_id = $1 AND ($2 = '' OR phone ILIKE $3 OR name ILIKE $3)
-     ORDER BY created_at DESC LIMIT $4 OFFSET $5`,
+    `SELECT lc.*,
+       (SELECT lt.name FROM loyalty_tiers lt
+          WHERE lt.restaurant_id = lc.restaurant_id
+            AND lc.points_balance >= lt.min_points
+          ORDER BY lt.min_points DESC LIMIT 1) AS tier
+     FROM loyalty_customers lc
+     WHERE lc.restaurant_id = $1 AND ($2 = '' OR lc.phone ILIKE $3 OR lc.name ILIKE $3)
+     ORDER BY lc.created_at DESC LIMIT $4 OFFSET $5`,
     [restaurantId, search, like, limit, offset],
   ).then((r) => r.rows);
 };

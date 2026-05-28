@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Clock, ChefHat, ChevronDown, ChevronUp,
-  Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer, User,
+  Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer, User, UserPlus, Search,
 } from 'lucide-react';
 import { printKOT } from '../utils/printReceipt';
-import { useActiveOrders, useUpdateOrderStatus, useUpdateItemStatus, useCancelPendingItems } from '../hooks/useOrders';
+import { useActiveOrders, useUpdateOrderStatus, useUpdateItemStatus, useCancelPendingItems, useLinkCustomerToOrder } from '../hooks/useOrders';
 import { useTables } from '../hooks/useTables';
 import { useAuth } from '../hooks/useAuth';
+import api from '../api/client';
 import NewOrderModal from '../components/NewOrderModal';
 import AddItemsModal from '../components/AddItemsModal';
 import PaymentModal from '../components/PaymentModal';
@@ -362,6 +363,124 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
   );
 }
 
+/* ── CustomerLinker ──────────────────────────────────────── */
+
+const TIER_COLOR = { Bronze: '#b45309', Silver: '#6b7280', Gold: '#d97706', Platinum: '#7c3aed' };
+
+function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier }) {
+  const [open,    setOpen]    = useState(false);
+  const [query,   setQuery]   = useState('');
+  const [results, setResults] = useState([]);
+  const inputRef = useRef(null);
+  const { mutate: link } = useLinkCustomerToOrder();
+
+  useEffect(() => {
+    if (!open) { setQuery(''); setResults([]); return; }
+    inputRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get(`/loyalty/customers?search=${encodeURIComponent(query)}&limit=6`);
+        setResults(data);
+      } catch { setResults([]); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  function pick(customer) {
+    link({ orderId, loyaltyCustomerId: customer.id });
+    setOpen(false);
+  }
+
+  function clear(e) {
+    e.stopPropagation();
+    link({ orderId, loyaltyCustomerId: null });
+  }
+
+  if (linkedId && !open) {
+    return (
+      <div className="flex items-center gap-1.5" style={{ fontSize: 11.5 }}>
+        <User size={11} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+        <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{linkedName || linkedPhone || 'Linked'}</span>
+        {linkedTier && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: TIER_COLOR[linkedTier] ?? 'var(--mute)', background: `${TIER_COLOR[linkedTier] ?? '#888'}18`, padding: '1px 6px', borderRadius: 99 }}>
+            {linkedTier}
+          </span>
+        )}
+        <button onClick={clear} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--mute)', lineHeight: 1, marginLeft: 2 }}>
+          <X size={11} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {open ? (
+        <div className="flex items-center gap-1.5">
+          <Search size={11} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name or phone…"
+            onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+            style={{
+              fontSize: 12, border: 'none', outline: 'none', background: 'transparent',
+              color: 'var(--ink)', width: 160, fontFamily: 'inherit',
+            }}
+          />
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--mute)', lineHeight: 1 }}>
+            <X size={11} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: 'var(--mute)', fontSize: 11.5, fontFamily: 'inherit' }}
+        >
+          <UserPlus size={11} /> Link customer
+        </button>
+      )}
+
+      {open && results.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 50, marginTop: 4,
+          background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 220,
+        }}>
+          {results.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => pick(c)}
+              className="w-full text-left"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <User size={12} style={{ color: 'var(--mute)', flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', display: 'block' }}>{c.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--mute)' }}>{c.phone}</span>
+              </span>
+              {c.tier && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: TIER_COLOR[c.tier] ?? 'var(--mute)', flexShrink: 0 }}>
+                  {c.tier}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── TableSessionRow ─────────────────────────────────────── */
 // Groups all active orders for one dining table into a single row.
 // When expanded, each round gets its own collapsible sub-row.
@@ -438,6 +557,19 @@ function TableSessionRow({ session, table, isOpen, onToggle, canOrder, canPrepar
           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
+
+      {/* Customer link strip */}
+      {isOpen && (
+        <div style={{ padding: '6px 8px 6px 52px', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+          <CustomerLinker
+            orderId={orders[0].id}
+            linkedId={orders[0].loyalty_customer_id}
+            linkedName={orders[0].loyalty_customer_name}
+            linkedPhone={orders[0].loyalty_customer_phone}
+            linkedTier={orders[0].loyalty_customer_tier}
+          />
+        </div>
+      )}
 
       {/* Expanded: one section per round */}
       {isOpen && orders.map((order, i) => {

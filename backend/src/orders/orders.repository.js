@@ -160,10 +160,17 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        o.discount_type,
        o.discount_value,
        o.table_session_id,
+       o.loyalty_customer_id,
        t.number        AS table_number,
        u.email         AS created_by_email,
        su.email        AS assigned_staff_email,
        su.name         AS assigned_staff_name,
+       lc.name         AS customer_name,
+       lc.phone        AS customer_phone,
+       (SELECT lt.name FROM loyalty_tiers lt
+          WHERE lt.restaurant_id = lc.restaurant_id
+            AND lc.points_balance >= lt.min_points
+          ORDER BY lt.min_points DESC LIMIT 1) AS customer_tier,
        p.method        AS payment_method,
        p.total_charged,
        p.subtotal      AS bill_subtotal,
@@ -185,8 +192,9 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
          '[]'::json
        ) AS items
      FROM orders o
-     LEFT JOIN users       u  ON u.id  = o.created_by
-     LEFT JOIN users       su ON su.id = o.assigned_staff_id
+     LEFT JOIN users             u  ON u.id  = o.created_by
+     LEFT JOIN users             su ON su.id = o.assigned_staff_id
+     LEFT JOIN loyalty_customers lc ON lc.id = o.loyalty_customer_id
      LEFT JOIN tables      t  ON t.id  = o.table_id
      LEFT JOIN (
        SELECT
@@ -210,7 +218,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        AND (o.created_at AT TIME ZONE $2)::date <= $4::date
        AND ($5::text IS NULL OR o.status  = $5)
        AND ($6::text IS NULL OR o.channel = $6)
-     GROUP BY o.id, o.table_session_id, t.number, u.email, su.email, su.name,
+     GROUP BY o.id, o.table_session_id, t.number, u.email, su.email, su.name, lc.id, lc.name, lc.phone,
               p.method, p.total_charged, p.subtotal,
               p.tax_rate, p.tax_amount,
               p.service_charge_rate, p.service_charge_amount,

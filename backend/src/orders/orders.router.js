@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const service = require('./orders.service');
+const db      = require('../shared/db');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const audit = require('../shared/audit');
 
@@ -142,6 +143,32 @@ router.delete('/:id/loyalty', authenticate, authorize('admin', 'staff', 'cashier
   try {
     const updated = await service.removeLoyalty(req.params.id, req.user.restaurantId);
     res.json(updated);
+  } catch (e) { next(e); }
+});
+
+// Link/unlink a loyalty customer on all orders sharing the same table session.
+router.patch('/:id/customer', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
+  try {
+    const { loyaltyCustomerId } = req.body;
+    // Resolve the session so we can update all rounds together.
+    const { rows: [order] } = await db.query(
+      'SELECT table_session_id FROM orders WHERE id = $1 AND restaurant_id = $2',
+      [req.params.id, req.user.restaurantId],
+    );
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (order.table_session_id) {
+      await db.query(
+        'UPDATE orders SET loyalty_customer_id = $1 WHERE table_session_id = $2 AND restaurant_id = $3',
+        [loyaltyCustomerId || null, order.table_session_id, req.user.restaurantId],
+      );
+    } else {
+      await db.query(
+        'UPDATE orders SET loyalty_customer_id = $1 WHERE id = $2 AND restaurant_id = $3',
+        [loyaltyCustomerId || null, req.params.id, req.user.restaurantId],
+      );
+    }
+    res.json({ success: true });
   } catch (e) { next(e); }
 });
 

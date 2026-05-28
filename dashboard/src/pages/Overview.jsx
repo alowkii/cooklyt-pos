@@ -102,13 +102,13 @@ export default function Overview() {
 
   const monthFrom = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
 
+  const { isAdmin }             = useAuth();
+  const { format }              = useCurrency();
   const { data: report }        = useDailyReport(today);
   const { data: tables = [] }   = useTables();
   const { data: orders = [] }   = useActiveOrders();
   const { data: queue  = [] }   = useKitchenQueue();
-  const { data: reviews = [] }  = useReviews({ from: monthFrom, to: today });
-  const { format }              = useCurrency();
-  const { isAdmin }             = useAuth();
+  const { data: reviews = [] }  = useReviews({ from: monthFrom, to: today, enabled: isAdmin });
 
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length).toFixed(1)

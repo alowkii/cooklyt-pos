@@ -222,8 +222,11 @@ function SessionRow({ session, format, formatTime, currency }) {
         <span className="w-5 shrink-0 flex" style={{ color: CHANNEL_COLORS.dining }}>
           <UtensilsCrossed size={14} />
         </span>
-        <span className="flex-1 truncate" style={{ fontSize: 13, color: 'var(--ink)' }}>
-          Table {tableNumber}
+        <span className="flex-1 min-w-0">
+          <span className="block truncate" style={{ fontSize: 13, color: 'var(--ink)' }}>Table {tableNumber}</span>
+          {firstOrder.customer_name && (
+            <span className="block truncate" style={{ fontSize: 11, color: 'var(--mute)' }}>{firstOrder.customer_name}</span>
+          )}
         </span>
         <span className="w-28 truncate hidden sm:block" style={{ fontSize: 12, color: 'var(--mute)' }}>
           {firstOrder.created_by_email?.split('@')[0] ?? '—'}
@@ -329,10 +332,15 @@ function OrderRow({ order, format, formatTime, currency }) {
           <ChannelIcon size={14} />
         </span>
 
-        <span className="flex-1 truncate" style={{ fontSize: 13, color: 'var(--ink)' }}>
-          {order.channel === 'dining'
-            ? order.table_number ? `Table ${order.table_number}` : '—'
-            : order.customer_ref || '—'}
+        <span className="flex-1 min-w-0">
+          <span className="block truncate" style={{ fontSize: 13, color: 'var(--ink)' }}>
+            {order.channel === 'dining'
+              ? order.table_number ? `Table ${order.table_number}` : '—'
+              : order.customer_ref || '—'}
+          </span>
+          {order.customer_name && (
+            <span className="block truncate" style={{ fontSize: 11, color: 'var(--mute)' }}>{order.customer_name}</span>
+          )}
         </span>
 
         <span className="w-28 truncate hidden sm:block" style={{ fontSize: 12, color: 'var(--mute)' }}>

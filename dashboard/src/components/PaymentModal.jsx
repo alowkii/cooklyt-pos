@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   CreditCard, Banknote, Smartphone, CheckCircle, Tag, X,
   Printer, Split, Plus, Minus, ArrowLeft, Phone,
@@ -286,7 +286,7 @@ function CouponSection({ orderId, bill, format }) {
   );
 }
 
-function CustomerLookupSection({ orderId, bill, format }) {
+function CustomerLookupSection({ orderId, bill, format, linkedPhone }) {
   const lookupMutation = useLookupLoyaltyCustomer();
   const applyLoyalty   = useApplyLoyalty(orderId);
   const removeLoyalty  = useRemoveLoyalty(orderId);
@@ -299,6 +299,14 @@ function CustomerLookupSection({ orderId, bill, format }) {
   const [loyaltyErr, setLoyaltyErr] = useState('');
 
   const hasLoyalty = (bill?.loyaltyDiscountAmount ?? 0) > 0;
+
+  useEffect(() => {
+    if (!linkedPhone || hasLoyalty || customer) return;
+    setOpen(true);
+    setPhone(linkedPhone);
+    lookupMutation.mutateAsync(linkedPhone).then(setCustomer).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedPhone]);
 
   function reset() {
     setOpen(false); setPhone(''); setCustomer(null); setPoints('');
@@ -414,7 +422,7 @@ function CustomerLookupSection({ orderId, bill, format }) {
   );
 }
 
-function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, waiveServiceCharge = false, onWaiveChange }) {
+function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true, waiveServiceCharge = false, onWaiveChange, linkedPhone }) {
   return (
     <div className="rounded-[6px] p-4 space-y-1.5" style={{ border: '1px solid var(--line)', background: 'var(--paper-2)' }}>
       {billLoading ? (
@@ -431,7 +439,7 @@ function BillBreakdown({ bill, billLoading, orderId, format, showDiscount = true
             <BillRow label="Subtotal" value={bill.subtotal} format={format} />
             {showDiscount && <DiscountSection orderId={orderId} bill={bill} format={format} />}
             {showDiscount && <CouponSection orderId={orderId} bill={bill} format={format} />}
-            {showDiscount && <CustomerLookupSection orderId={orderId} bill={bill} format={format} />}
+            {showDiscount && <CustomerLookupSection orderId={orderId} bill={bill} format={format} linkedPhone={linkedPhone} />}
             {bill.taxRate > 0 && (
               <BillRow label={`Tax (${+(bill.taxRate * 100).toFixed(4)}%)`} value={bill.taxAmount} format={format} />
             )}
@@ -687,6 +695,14 @@ function SessionPaymentModal({ orders, tableNumber, onClose }) {
                     </div>
                   )
                 )}
+                {bills.length > 0 && (
+                  <CustomerLookupSection
+                    orderId={orders[0].id}
+                    bill={{ loyaltyDiscountAmount: 0 }}
+                    format={format}
+                    linkedPhone={orders[0]?.loyalty_customer_phone || null}
+                  />
+                )}
               </div>
               <div className="pt-2 mt-1" style={{ borderTop: '1px solid var(--line-2)' }}>
                 <div className="flex justify-between" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
@@ -906,7 +922,8 @@ export default function PaymentModal({ order, orders, tableNumber, onClose }) {
         {mode === 'full' && (
           <form onSubmit={handleFullSubmit} className="space-y-5">
             <BillBreakdown bill={bill} billLoading={billLoading} orderId={order.id} format={format}
-              waiveServiceCharge={waiveServiceCharge} onWaiveChange={setWaiveServiceCharge} />
+              waiveServiceCharge={waiveServiceCharge} onWaiveChange={setWaiveServiceCharge}
+              linkedPhone={order.loyalty_customer_phone || null} />
 
             <div>
               <div className="flex items-center justify-between mb-2">

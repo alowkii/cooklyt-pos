@@ -42,7 +42,7 @@ router.get('/customers/lookup', authenticate, authorize('admin', 'staff', 'cashi
 });
 
 // List all customers — admin only
-router.get('/customers', authenticate, authorize('admin'), async (req, res, next) => {
+router.get('/customers', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res, next) => {
   try {
     const { search, limit, offset } = req.query;
     res.json(await service.listCustomers(req.user.restaurantId, {

@@ -48,17 +48,22 @@ export function useActiveOrders() {
     items.reduce((acc, item) => {
       if (!acc[item.order_id]) {
         acc[item.order_id] = {
-          id:                    item.order_id,
-          table_id:              item.table_id,
-          table_number:          item.table_number,
-          channel:               item.channel               || 'dining',
-          customer_ref:          item.customer_ref          || null,
-          status:                item.order_status,
-          created_at:            item.order_created_at,
-          assigned_staff_email:  item.assigned_staff_email  || null,
-          assigned_staff_name:   item.assigned_staff_name   || null,
-          total:                 0,
-          items:                 [],
+          id:                      item.order_id,
+          table_id:                item.table_id,
+          table_session_id:        item.table_session_id     || null,
+          table_number:            item.table_number,
+          channel:                 item.channel               || 'dining',
+          customer_ref:            item.customer_ref          || null,
+          loyalty_customer_id:     item.loyalty_customer_id   || null,
+          loyalty_customer_name:   item.loyalty_customer_name || null,
+          loyalty_customer_phone:  item.loyalty_customer_phone|| null,
+          loyalty_customer_tier:   item.loyalty_customer_tier || null,
+          status:                  item.order_status,
+          created_at:              item.order_created_at,
+          assigned_staff_email:    item.assigned_staff_email  || null,
+          assigned_staff_name:     item.assigned_staff_name   || null,
+          total:                   0,
+          items:                   [],
         };
       }
       acc[item.order_id].items.push(item);
@@ -221,6 +226,18 @@ export function useAssignStaff() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen'] });
       queryClient.invalidateQueries({ queryKey: ['orders', 'table'] });
+    },
+  });
+}
+
+export function useLinkCustomerToOrder() {
+  return useMutation({
+    mutationFn: async ({ orderId, loyaltyCustomerId }) => {
+      const { data } = await api.patch(`/orders/${orderId}/customer`, { loyaltyCustomerId: loyaltyCustomerId || null });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
     },
   });
 }
