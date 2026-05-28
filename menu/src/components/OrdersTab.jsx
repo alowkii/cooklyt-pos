@@ -39,36 +39,41 @@ export function OrdersTab({ activeOrders, tableId, fmt, cancelling, cancelOrder,
                 borderTop: i > 0 ? '1px solid var(--line)' : 'none',
                 opacity: served ? 0.6 : 1,
               }}>
-                <div className="flex items-center justify-between" style={{ padding: '10px 14px' }}>
-                  <div className="flex items-center gap-2">
-                    {multiRound && (
-                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mute)', letterSpacing: '.03em', textTransform: 'uppercase' }}>
-                        Round {i + 1}
+                <div style={{ padding: '10px 14px 6px' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {multiRound && (
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mute)', letterSpacing: '.03em', textTransform: 'uppercase' }}>
+                          Round {i + 1}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 500, color: s.color }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        {s.label}
                       </span>
+                    </div>
+                    {s.canCancel && (
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        disabled={cancelling === order.id}
+                        style={{
+                          borderRadius: 6, border: '1px solid rgba(179,55,43,.22)',
+                          padding: '3px 10px', fontSize: 11.5, fontWeight: 500,
+                          color: 'var(--bad)', background: 'transparent',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          opacity: cancelling === order.id ? 0.4 : 1,
+                        }}
+                      >
+                        {cancelling === order.id ? 'Cancelling…' : 'Cancel'}
+                      </button>
                     )}
-                    <span className="inline-flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 500, color: s.color }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                      {s.label}
-                    </span>
                   </div>
-                  {s.canCancel && (
-                    <button
-                      onClick={() => cancelOrder(order.id)}
-                      disabled={cancelling === order.id}
-                      style={{
-                        borderRadius: 6, border: '1px solid rgba(179,55,43,.22)',
-                        padding: '3px 10px', fontSize: 11.5, fontWeight: 500,
-                        color: 'var(--bad)', background: 'transparent',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        opacity: cancelling === order.id ? 0.4 : 1,
-                      }}
-                    >
-                      {cancelling === order.id ? 'Cancelling…' : 'Cancel'}
-                    </button>
-                  )}
+                  <span className="mono num" style={{ fontSize: 10, color: 'var(--mute-2)', letterSpacing: '.05em', marginTop: 2, display: 'block' }}>
+                    Order #{order.id.slice(0, 8).toUpperCase()}
+                  </span>
                 </div>
 
-                <div style={{ padding: '0 14px 11px' }} className="space-y-1.5">
+                <div style={{ padding: '0 14px 12px' }} className="space-y-1.5">
                   {(order.items || []).map((item, idx) => (
                     <div key={idx} style={{ fontSize: 13 }}>
                       <div className="flex items-center justify-between">
