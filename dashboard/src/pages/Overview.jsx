@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom';
 import { TrendingUp, ShoppingBag, Users, ChefHat } from 'lucide-react';
 import { useDailyReport } from '../hooks/useReports';
 import { useTables } from '../hooks/useTables';
 import { useActiveOrders, useKitchenQueue } from '../hooks/useOrders';
+import { useReviews } from '../hooks/useReviews';
 import { useCurrency } from '../context/CurrencyContext';
 import { useAuth } from '../hooks/useAuth';
 import { useTimezone } from '../context/TimezoneContext';
@@ -22,13 +24,14 @@ function valueFontSize(str) {
   return 14;
 }
 
-function Stat({ label, value, hint }) {
-  return (
+function Stat({ label, value, hint, to }) {
+  const inner = (
     <div style={{
       padding: '18px 20px',
       border: '1px solid var(--line)',
       borderRadius: 6,
       background: 'var(--paper)',
+      cursor: to ? 'pointer' : undefined,
     }}>
       <div style={{
         fontSize: 10, textTransform: 'uppercase',
@@ -50,6 +53,8 @@ function Stat({ label, value, hint }) {
       )}
     </div>
   );
+  if (to) return <Link to={to} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>;
+  return inner;
 }
 
 function MicroBar({ data }) {
@@ -95,12 +100,19 @@ export default function Overview() {
   const { iana, todayLocal }    = useTimezone();
   const today = todayLocal();
 
+  const monthFrom = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+
   const { data: report }        = useDailyReport(today);
   const { data: tables = [] }   = useTables();
   const { data: orders = [] }   = useActiveOrders();
   const { data: queue  = [] }   = useKitchenQueue();
+  const { data: reviews = [] }  = useReviews({ from: monthFrom, to: today });
   const { format }              = useCurrency();
   const { isAdmin }             = useAuth();
+
+  const avgRating = reviews.length
+    ? (reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length).toFixed(1)
+    : null;
 
   const revenue      = report?.summary?.total_revenue ?? null;
   const orderCount   = report?.summary?.total_orders  ?? null;
@@ -124,7 +136,7 @@ export default function Overview() {
       </div>
 
       {/* KPI row */}
-      <div className={`grid grid-cols-2 gap-3 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+      <div className={`grid grid-cols-2 gap-3 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}>
         {isAdmin && (
           <Stat
             label="Revenue Today"
@@ -147,6 +159,14 @@ export default function Overview() {
           value={queue.length}
           hint="items pending"
         />
+        {isAdmin && (
+          <Stat
+            label="Rating · 30 days"
+            value={avgRating ? `★ ${avgRating}` : '—'}
+            hint={reviews.length ? `${reviews.length} review${reviews.length !== 1 ? 's' : ''}` : 'no reviews yet'}
+            to="/reviews"
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -887,6 +887,57 @@ async function main() {
   }
   console.log(`  ${loyaltyCustomerCount} customers, ${loyaltyTxnCount} transactions inserted`);
 
+  // ── 17. Reviews ────────────────────────────────────────────────────────────
+  console.log('Seeding reviews…');
+  // [tableIdx, overall, food, service, comment, daysAgo, hoursAgo, customerPhone?]
+  // Phones matching loyalty customers: Priya 9876543210, Rahul 9845678901, Ananya 9812345670,
+  // Amit 9123456789, Neha 9543210987, Karan 9654321098, Deepa 9876501234
+  const SEED_REVIEWS = [
+    [0, 5, 5, 5, 'Amazing food and excellent service! The butter chicken was outstanding.',          0, 2,  '9876543210'],
+    [1, 4, 4, 5, 'Great atmosphere and friendly staff. Will definitely come back.',                  0, 4,  '9845678901'],
+    [2, 5, 5, 4, 'The Margherita pizza was perfect. Crispy crust and fresh ingredients.',           0, 6,  null],
+    [3, 3, 4, 3, 'Food was decent but the wait was a bit long.',                                    1, 1,  null],
+    [4, 5, 5, 5, 'Best biryani in town! Absolutely delicious. Highly recommended.',                 1, 3,  '9812345670'],
+    [0, 4, 5, 4, null,                                                                              1, 7,  '9999000001'],
+    [5, 2, 2, 3, 'The chicken was undercooked and we had to send it back. Very disappointed.',      2, 2,  null],
+    [1, 5, 4, 5, 'Wonderful dining experience. The paneer tikka was divine!',                       2, 4,  '9123456789'],
+    [2, 4, 4, 4, 'Good food, reasonable prices. The cold coffee was excellent.',                    2, 7,  null],
+    [3, 5, 5, 5, 'Perfect evening. Every dish was flavorful and the staff was attentive.',          3, 1,  '9543210987'],
+    [4, 3, 3, 4, 'Average experience. The pizza was a bit too oily for my taste.',                  3, 3,  null],
+    [0, 5, 5, 5, 'The chocolate lava cake is a must-try! Absolutely incredible.',                   3, 5,  '9654321098'],
+    [1, 4, 5, 3, 'Food was fantastic but service was a little slow during peak hours.',             4, 2,  null],
+    [5, 5, 5, 5, null,                                                                              4, 4,  '9876501234'],
+    [2, 4, 4, 5, 'Very clean, attentive staff. The dal makhani was rich and creamy.',               4, 6,  null],
+    [3, 1, 2, 1, 'Terrible experience. Wrong order served twice and staff was rude.',               5, 1,  '9999000002'],
+    [4, 5, 4, 5, 'Loved the ambience. The grilled chicken steak was perfectly cooked.',             5, 3,  '9845678901'],
+    [0, 4, 4, 4, 'Solid restaurant with consistent quality. Good value for money.',                 5, 6,  null],
+    [1, 5, 5, 5, 'Outstanding! Every dish we ordered was exceptional. Will be back soon.',          6, 2,  '9876543210'],
+    [2, 3, 3, 4, 'Decent food but nothing extraordinary. Portions were a bit small.',               6, 4,  null],
+    [5, 5, 5, 4, 'The fish and chips were crispy and fresh. Great service as well!',                6, 6,  '9812345670'],
+    [3, 4, 5, 4, 'Beautiful presentation and delicious flavors. Loved the tiramisu.',               6, 8,  null],
+  ];
+  let reviewCount = 0;
+  for (const [tableIdx, overall, food, service, comment, daysAgo, hoursAgo, phone] of SEED_REVIEWS) {
+    const createdAt = new Date(Date.now() - daysAgo * 86400_000 - hoursAgo * 3600_000).toISOString();
+    // Match phone to loyalty customer if one exists
+    let loyaltyCustomerId = null;
+    if (phone) {
+      const { rows: lc } = await client.query(
+        'SELECT id FROM loyalty_customers WHERE restaurant_id = $1 AND phone = $2',
+        [RESTAURANT_ID, phone],
+      );
+      loyaltyCustomerId = lc[0]?.id ?? null;
+    }
+    await client.query(
+      `INSERT INTO reviews
+         (restaurant_id, table_id, overall_rating, food_rating, service_rating, comment, created_at, customer_phone, loyalty_customer_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [RESTAURANT_ID, tableIds[tableIdx], overall, food, service, comment, createdAt, phone, loyaltyCustomerId],
+    );
+    reviewCount++;
+  }
+  console.log(`  ${reviewCount} reviews inserted`);
+
   await client.end();
 
   console.log('\nSeed complete!');
@@ -909,6 +960,7 @@ async function main() {
   console.log(`  Loyalty rewards: ${DEFAULT_REWARDS.length}`);
   console.log(`  Loyalty members: ${loyaltyCustomerCount} (3 Bronze, 3 Silver, 2 Gold, 2 Platinum)`);
   console.log(`  Loyalty txns   : ${loyaltyTxnCount}`);
+  console.log(`  Reviews        : ${reviewCount} across 7 days`);
 }
 
 main().catch((e) => {

@@ -7,6 +7,7 @@ export function useReview(tableId, showToast) {
   const [reviewFoodRating, setReviewFoodRating] = useState(0);
   const [reviewServiceRating, setReviewServiceRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewPhone,   setReviewPhone]   = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
@@ -23,6 +24,7 @@ export function useReview(tableId, showToast) {
           foodRating:      reviewFoodRating    || null,
           serviceRating:   reviewServiceRating || null,
           comment:         reviewComment.trim() || null,
+          customerPhone:   reviewPhone.trim()   || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -47,6 +49,7 @@ export function useReview(tableId, showToast) {
     reviewFoodRating, setReviewFoodRating,
     reviewServiceRating, setReviewServiceRating,
     reviewComment, setReviewComment,
+    reviewPhone, setReviewPhone,
     reviewSubmitting,
     submitReview, dismissReview,
   };

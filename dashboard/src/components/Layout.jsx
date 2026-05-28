@@ -27,6 +27,7 @@ import {
   Tag,
   Gift,
   Megaphone,
+  MessageSquare,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -44,7 +45,7 @@ import { useSettings } from '../hooks/useSettings';
 const GROUP_PATHS = {
   analytics:  ['/reports', '/history', '/waste', '/costing'],
   rms:        ['/ingredients', '/inventory', '/recipes', '/combos'],
-  marketing:  ['/coupons', '/loyalty'],
+  marketing:  ['/coupons', '/loyalty', '/reviews'],
 };
 
 const ALL_NAV = [
@@ -74,8 +75,9 @@ const ALL_NAV = [
   {
     type: 'group', key: 'marketing', label: 'Marketing', Icon: Megaphone, adminOnly: true,
     children: [
-      { to: '/coupons', label: 'Coupons', Icon: Tag  },
-      { to: '/loyalty', label: 'Loyalty', Icon: Gift },
+      { to: '/coupons',  label: 'Coupons',  Icon: Tag            },
+      { to: '/loyalty',  label: 'Loyalty',  Icon: Gift           },
+      { to: '/reviews',  label: 'Reviews',  Icon: MessageSquare  },
     ],
   },
   { to: '/users',    label: 'Users',    Icon: Users,    adminOnly: true },

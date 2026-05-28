@@ -9,6 +9,7 @@ export function ReviewPrompt({ tableId, showToast, hasServedOrders }) {
     reviewFoodRating, setReviewFoodRating,
     reviewServiceRating, setReviewServiceRating,
     reviewComment, setReviewComment,
+    reviewPhone, setReviewPhone,
     reviewSubmitting, submitReview, dismissReview,
   } = useReview(tableId, showToast);
 
@@ -49,6 +50,22 @@ export function ReviewPrompt({ tableId, showToast, hasServedOrders }) {
                 fontFamily: 'inherit', resize: 'none', outline: 'none',
               }}
             />
+            <input
+              type="tel"
+              value={reviewPhone}
+              onChange={(e) => setReviewPhone(e.target.value)}
+              placeholder="Phone number (optional)"
+              style={{
+                width: '100%', boxSizing: 'border-box', marginTop: 8,
+                borderRadius: 8, border: '1px solid var(--line-2)',
+                background: 'var(--paper-2)', color: 'var(--ink)',
+                fontSize: 13, padding: '9px 12px',
+                fontFamily: 'inherit', outline: 'none',
+              }}
+            />
+            <p style={{ fontSize: 11, color: 'var(--mute)', margin: '4px 0 0', textAlign: 'center' }}>
+              Share your number to link this to your loyalty account
+            </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
               <button

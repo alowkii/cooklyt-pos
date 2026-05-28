@@ -71,6 +71,7 @@ app.use('/api/notifications',  require('./notifications/notifications.router'));
 app.use('/api/reservations',  require('./reservations/reservations.router'));
 app.use('/api/loyalty',       require('./loyalty/loyalty.router'));
 app.use('/api/coupons',       require('./coupons/coupons.router'));
+app.use('/api/reviews',       require('./reviews/reviews.router'));
 
 // 404
 app.use((req, res) => {

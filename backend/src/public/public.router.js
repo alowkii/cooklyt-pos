@@ -236,7 +236,7 @@ router.post('/request-bill', async (req, res, next) => {
 // Submits a customer review; tableId acts as implicit auth (same as order placement)
 router.post('/reviews', async (req, res, next) => {
   try {
-    const { tableId, overallRating, foodRating, serviceRating, comment } = req.body;
+    const { tableId, overallRating, foodRating, serviceRating, comment, customerPhone } = req.body;
     if (!tableId || !UUID_RE.test(tableId)) {
       return res.status(400).json({ error: 'tableId is required' });
     }
@@ -250,9 +250,22 @@ router.post('/reviews', async (req, res, next) => {
 
     const toRating = (v) => { const n = parseInt(v, 10); return n >= 1 && n <= 5 ? n : null; };
 
+    const phone = customerPhone ? String(customerPhone).trim() : null;
+
+    // Try to match phone to an existing loyalty customer
+    let loyaltyCustomerId = null;
+    if (phone) {
+      const { rows: lc } = await db.query(
+        'SELECT id FROM loyalty_customers WHERE restaurant_id = $1 AND phone = $2',
+        [rows[0].restaurant_id, phone],
+      );
+      loyaltyCustomerId = lc[0]?.id ?? null;
+    }
+
     await db.query(
-      `INSERT INTO reviews (restaurant_id, table_id, overall_rating, food_rating, service_rating, comment)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO reviews
+         (restaurant_id, table_id, overall_rating, food_rating, service_rating, comment, customer_phone, loyalty_customer_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         rows[0].restaurant_id,
         tableId,
@@ -260,6 +273,8 @@ router.post('/reviews', async (req, res, next) => {
         toRating(foodRating),
         toRating(serviceRating),
         comment ? String(comment).slice(0, 500) : null,
+        phone,
+        loyaltyCustomerId,
       ],
     );
 
