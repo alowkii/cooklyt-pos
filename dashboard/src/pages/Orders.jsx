@@ -368,27 +368,36 @@ function OrderRow({ order, table, isOpen, onToggle, canOrder, canPrepare, canAdd
 const TIER_COLOR = { Bronze: '#b45309', Silver: '#6b7280', Gold: '#d97706', Platinum: '#7c3aed' };
 
 function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier }) {
-  const [open,    setOpen]    = useState(false);
-  const [query,   setQuery]   = useState('');
-  const [results, setResults] = useState([]);
-  const inputRef = useRef(null);
+  const [open,     setOpen]     = useState(false);
+  const [query,    setQuery]    = useState('');
+  const [results,  setResults]  = useState([]);
+  const [searched, setSearched] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName,  setNewName]  = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [saving,   setSaving]   = useState(false);
+  const inputRef   = useRef(null);
+  const nameRef    = useRef(null);
   const { mutate: link } = useLinkCustomerToOrder();
 
   useEffect(() => {
-    if (!open) { setQuery(''); setResults([]); return; }
+    if (!open) { setQuery(''); setResults([]); setSearched(false); setCreating(false); return; }
     inputRef.current?.focus();
   }, [open]);
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
+    if (!open || creating) return;
+    if (!query.trim()) { setResults([]); setSearched(false); return; }
+    setSearched(false);
     const t = setTimeout(async () => {
       try {
         const { data } = await api.get(`/loyalty/customers?search=${encodeURIComponent(query)}&limit=6`);
         setResults(data);
       } catch { setResults([]); }
+      setSearched(true);
     }, 250);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, open, creating]);
 
   function pick(customer) {
     link({ orderId, loyaltyCustomerId: customer.id });
@@ -398,6 +407,30 @@ function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier
   function clear(e) {
     e.stopPropagation();
     link({ orderId, loyaltyCustomerId: null });
+  }
+
+  function startCreate() {
+    const looksLikePhone = /^[\d\s+\-()+]+$/.test(query.trim());
+    setNewPhone(looksLikePhone ? query.trim() : '');
+    setNewName(!looksLikePhone ? query.trim() : '');
+    setCreating(true);
+    setTimeout(() => nameRef.current?.focus(), 0);
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!newPhone.trim()) return;
+    setSaving(true);
+    try {
+      const { data: customer } = await api.post('/loyalty/customers', {
+        phone: newPhone.trim(),
+        name: newName.trim() || null,
+      });
+      link({ orderId, loyaltyCustomerId: customer.id });
+      setOpen(false);
+    } catch { /* ignore */ } finally {
+      setSaving(false);
+    }
   }
 
   if (linkedId && !open) {
@@ -425,7 +458,7 @@ function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setCreating(false); }}
             placeholder="Search name or phone…"
             onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
             style={{
@@ -446,11 +479,11 @@ function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier
         </button>
       )}
 
-      {open && results.length > 0 && (
+      {open && query.trim() && (results.length > 0 || searched) && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 50, marginTop: 4,
           background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 220,
+          boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 240,
         }}>
           {results.map((c) => (
             <button
@@ -465,7 +498,7 @@ function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier
             >
               <User size={12} style={{ color: 'var(--mute)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', display: 'block' }}>{c.name}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', display: 'block' }}>{c.name || c.phone}</span>
                 <span style={{ fontSize: 11, color: 'var(--mute)' }}>{c.phone}</span>
               </span>
               {c.tier && (
@@ -475,6 +508,59 @@ function CustomerLinker({ orderId, linkedId, linkedName, linkedPhone, linkedTier
               )}
             </button>
           ))}
+
+          {!creating ? (
+            <button
+              onClick={startCreate}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', width: '100%',
+                background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                color: 'var(--ok)', fontSize: 12,
+              }}
+            >
+              <Plus size={12} /> Add "{query.trim()}" as new customer
+            </button>
+          ) : (
+            <form onSubmit={handleCreate} style={{ padding: '10px 12px', borderTop: results.length ? '1px solid var(--line)' : 'none' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', margin: '0 0 8px' }}>
+                New customer
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input
+                  ref={nameRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Full name (optional)"
+                  className="input"
+                  style={{ fontSize: 12, padding: '5px 8px' }}
+                />
+                <input
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="Phone number *"
+                  required
+                  className="input"
+                  style={{ fontSize: 12, padding: '5px 8px' }}
+                />
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreating(false)}
+                    style={{ flex: 1, fontSize: 12, padding: '5px 0', background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 5, cursor: 'pointer', color: 'var(--mute)', fontFamily: 'inherit' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !newPhone.trim()}
+                    style={{ flex: 1, fontSize: 12, padding: '5px 0', background: 'var(--ok)', border: 'none', borderRadius: 5, cursor: 'pointer', color: '#fff', fontFamily: 'inherit', fontWeight: 600 }}
+                  >
+                    {saving ? '…' : 'Add & Link'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </div>
