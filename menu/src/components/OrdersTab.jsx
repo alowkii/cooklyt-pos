@@ -162,7 +162,13 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
         </div>
       )}
 
-      <ReviewPrompt tableId={tableId} showToast={showToast} hasServedOrders={hasServedOrders || paidAndGone} />
+      <ReviewPrompt
+        key={paidAndGone ? 'paid' : 'active'}
+        tableId={tableId}
+        showToast={showToast}
+        hasServedOrders={hasServedOrders || paidAndGone}
+        paid={paidAndGone}
+      />
     </div>
   );
 }

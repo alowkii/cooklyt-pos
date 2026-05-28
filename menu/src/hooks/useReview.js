@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-export function useReview(tableId, showToast) {
-  const reviewKey = `review_done_${tableId}`;
+export function useReview(tableId, showToast, { paid = false } = {}) {
+  const reviewKey = paid ? `review_paid_done_${tableId}` : `review_done_${tableId}`;
   const [reviewDone, setReviewDone] = useState(() => !!localStorage.getItem(reviewKey));
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewFoodRating, setReviewFoodRating] = useState(0);

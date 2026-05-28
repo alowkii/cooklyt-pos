@@ -2,7 +2,7 @@ import { CheckCircle } from 'lucide-react';
 import { useReview } from '../hooks/useReview';
 import { StarRow } from './StarRow';
 
-export function ReviewPrompt({ tableId, showToast, hasServedOrders }) {
+export function ReviewPrompt({ tableId, showToast, hasServedOrders, paid = false }) {
   const {
     reviewDone, reviewSubmitted,
     reviewRating, setReviewRating,
@@ -11,7 +11,7 @@ export function ReviewPrompt({ tableId, showToast, hasServedOrders }) {
     reviewComment, setReviewComment,
     reviewPhone, setReviewPhone,
     reviewSubmitting, submitReview, dismissReview,
-  } = useReview(tableId, showToast);
+  } = useReview(tableId, showToast, { paid });
 
   if (!hasServedOrders || reviewDone) return null;
 
