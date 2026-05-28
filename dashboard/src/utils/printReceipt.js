@@ -151,10 +151,7 @@ export function printReceipt(receipt, currency, win = null) {
   win.document.close();
 }
 
-export function printKOT(order) {
-  const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
-  const restaurantName = restaurant.name || 'Kitchen';
-
+function buildKOTBlock(order, restaurantName) {
   const token    = (order.id || '').slice(-6).toUpperCase();
   const placed   = new Date(order.created_at);
   const timeStr  = placed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -201,20 +198,7 @@ export function printKOT(order) {
       </div>`;
   }).join('');
 
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>KOT #${esc(token)}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
-    .c{text-align:center}
-    hr{border:none;border-top:2px dashed #444;margin:8px 0}
-    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
-  </style>
-</head>
-<body>
+  return `
   <div class="c">
     <div style="font-size:13px">${esc(restaurantName)}</div>
     <strong style="font-size:20px;letter-spacing:.12em">KITCHEN ORDER</strong>
@@ -235,12 +219,73 @@ export function printKOT(order) {
     </tr>
   </table>
   <hr>
-  ${categoryBlocks}
+  ${categoryBlocks}`;
+}
+
+export function printKOT(order) {
+  const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
+  const restaurantName = restaurant.name || 'Kitchen';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KOT #${esc((order.id || '').slice(-6).toUpperCase())}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
+    .c{text-align:center}
+    hr{border:none;border-top:2px dashed #444;margin:8px 0}
+    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
+  </style>
+</head>
+<body>
+  ${buildKOTBlock(order, restaurantName)}
   <script>window.onload = function(){ window.focus(); window.print(); };</script>
 </body>
 </html>`;
 
   const win = window.open('', '_blank', 'width=360,height=620,toolbar=no,menubar=no,scrollbars=yes');
+  if (!win) {
+    alert('Please allow pop-ups for this site to print KOTs.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
+export function printAllKOTs(orders) {
+  if (!orders.length) return;
+  const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
+  const restaurantName = restaurant.name || 'Kitchen';
+
+  const blocks = orders.map((order) => `
+    <div class="kot-page">
+      ${buildKOTBlock(order, restaurantName)}
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>All KOTs (${orders.length})</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Courier New',Courier,monospace;font-size:13px;color:#111}
+    .c{text-align:center}
+    hr{border:none;border-top:2px dashed #444;margin:8px 0}
+    .kot-page{width:300px;margin:0 auto;padding:16px 10px;page-break-after:always}
+    .kot-page:last-child{page-break-after:avoid}
+    @media print{@page{margin:0;size:80mm auto}.kot-page{padding:6px 4px}}
+  </style>
+</head>
+<body>
+  ${blocks}
+  <script>window.onload = function(){ window.focus(); window.print(); };</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=360,height=700,toolbar=no,menubar=no,scrollbars=yes');
   if (!win) {
     alert('Please allow pop-ups for this site to print KOTs.');
     return;

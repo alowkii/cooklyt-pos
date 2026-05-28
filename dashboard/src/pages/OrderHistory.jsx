@@ -4,7 +4,7 @@ import { useOrderHistory } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import api from '../api/client';
-import { printReceipt } from '../utils/printReceipt';
+import { printReceipt, printKOT, printAllKOTs } from '../utils/printReceipt';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -182,6 +182,65 @@ function SessionPrintButton({ orders, currency }) {
   );
 }
 
+// Adapt history item shape → printKOT shape
+function toKOTOrder(order) {
+  return {
+    ...order,
+    items: (order.items || []).map((i) => ({
+      item_name: i.name,
+      item_status: 'received',
+      quantity: i.quantity,
+      notes: i.notes,
+      customizations: {},
+      category: i.category,
+    })),
+  };
+}
+
+function PrintKOTButton({ order }) {
+  return (
+    <button
+      type="button"
+      onClick={() => printKOT(toKOTOrder(order))}
+      className="flex items-center gap-1.5 transition-colors"
+      style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+    >
+      <Printer size={13} /> Print KOT
+    </button>
+  );
+}
+
+function SessionPrintKOTButton({ orders }) {
+  function handlePrint() {
+    const merged = {
+      ...orders[0],
+      items: orders.flatMap((o) => (o.items || []).map((i) => ({
+        item_name: i.name,
+        item_status: 'received',
+        quantity: i.quantity,
+        notes: i.notes,
+        customizations: {},
+        category: i.category,
+      }))),
+    };
+    printKOT(merged);
+  }
+  return (
+    <button
+      type="button"
+      onClick={handlePrint}
+      className="flex items-center gap-1.5 transition-colors"
+      style={{ fontSize: 12, color: 'var(--mute)', background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+    >
+      <Printer size={13} /> Print KOT
+    </button>
+  );
+}
+
 // ── Session row (multi-round dining table) ────────────────────────────────────
 
 function SessionRow({ session, format, formatTime, currency }) {
@@ -283,7 +342,10 @@ function SessionRow({ session, format, formatTime, currency }) {
                 <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
                   Paid via <span className="capitalize">{paidOrder?.payment_method}</span>
                 </span>
-                <SessionPrintButton orders={orders} currency={currency} />
+                <span className="flex items-center gap-4">
+                  <SessionPrintKOTButton orders={orders} />
+                  <SessionPrintButton orders={orders} currency={currency} />
+                </span>
               </div>
             </div>
           )}
@@ -425,7 +487,10 @@ function OrderRow({ order, format, formatTime, currency }) {
                 <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
                   Paid via <span className="capitalize">{order.payment_method}</span>
                 </span>
-                <PrintReceiptButton orderId={order.id} currency={currency} />
+                <span className="flex items-center gap-4">
+                  <PrintKOTButton order={order} />
+                  <PrintReceiptButton orderId={order.id} currency={currency} />
+                </span>
               </div>
             </div>
           )}
@@ -520,6 +585,16 @@ export default function OrderHistory() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          {/* Print all KOTs */}
+          <button
+            onClick={() => printAllKOTs(orders.map(toKOTOrder))}
+            disabled={orders.length === 0}
+            className="btn-secondary disabled:opacity-40"
+            style={{ height: 32, fontSize: 12, gap: 5 }}
+          >
+            <Printer size={13} /> Print All KOTs
+          </button>
+
           {/* Export */}
           <button
             onClick={() => downloadOrdersCsv(`orders_${from}_${to}.csv`, orders)}
