@@ -226,6 +226,205 @@ const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) =>
     )
     .then((r) => r.rows);
 
+// ── New report queries ────────────────────────────────────────────────────────
+
+const getSalesSummary = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      COUNT(DISTINCT o.id)::int          AS total_orders,
+      COALESCE(SUM(p.total_charged), 0)  AS total_revenue,
+      COALESCE(SUM(p.subtotal), 0)       AS subtotal,
+      COALESCE(SUM(p.tax_amount), 0)     AS tax_amount,
+      COALESCE(SUM(p.service_charge_amount), 0) AS service_charge,
+      COALESCE(SUM(p.discount_amount), 0)        AS discount_amount,
+      COALESCE(SUM(p.coupon_discount_amount), 0) AS coupon_discount_amount,
+      COALESCE(SUM(p.loyalty_discount_amount), 0) AS loyalty_discount_amount,
+      COALESCE(SUM(p.packaging_fee), 0)  AS packaging_fee,
+      (
+        SELECT COALESCE(SUM(oi2.quantity), 0)::int
+        FROM order_items oi2
+        JOIN orders o2 ON o2.id = oi2.order_id
+        JOIN payments p2 ON p2.order_id = o2.id
+        WHERE (o2.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+          AND p2.status = 'completed'
+          AND o2.restaurant_id = $4
+      ) AS total_items_sold
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows[0]);
+
+const getRevenueByChannel = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      o.channel,
+      COUNT(DISTINCT o.id)::int        AS orders,
+      COALESCE(SUM(p.total_charged), 0) AS revenue,
+      COALESCE(AVG(p.total_charged), 0) AS avg_order_value
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY o.channel
+    ORDER BY revenue DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getCollectionByMethod = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      p.method,
+      COUNT(DISTINCT o.id)::int        AS orders,
+      COALESCE(SUM(p.total_charged), 0) AS amount
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY p.method
+    ORDER BY amount DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getCollectionByCounter = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      COALESCE(u.name, u.email)          AS counter_name,
+      u.email,
+      u.role,
+      COUNT(DISTINCT o.id)::int          AS orders,
+      COALESCE(SUM(p.total_charged), 0)  AS amount
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id
+    JOIN users u ON u.id = o.created_by
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY u.id, u.name, u.email, u.role
+    ORDER BY amount DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getRevenueByItemGroup = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      COALESCE(mi.category, 'Uncategorized') AS item_group,
+      COUNT(DISTINCT o.id)::int               AS orders,
+      COALESCE(SUM(oi.quantity), 0)::int      AS items_sold,
+      COALESCE(SUM(mi.price * oi.quantity), 0) AS revenue
+    FROM order_items oi
+    JOIN menu_items mi ON mi.id = oi.menu_item_id
+    JOIN orders o      ON o.id  = oi.order_id
+    JOIN payments p    ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY mi.category
+    ORDER BY revenue DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getTopSellingItems = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      mi.id,
+      mi.name,
+      mi.category,
+      COALESCE(SUM(oi.quantity), 0)::int        AS total_sold,
+      COALESCE(SUM(mi.price * oi.quantity), 0)  AS revenue
+    FROM order_items oi
+    JOIN menu_items mi ON mi.id = oi.menu_item_id
+    JOIN orders o      ON o.id  = oi.order_id
+    JOIN payments p    ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.restaurant_id = $4
+    GROUP BY mi.id, mi.name, mi.category
+    ORDER BY total_sold DESC
+    LIMIT $5
+  `,
+      [from, to, tz, restaurantId, limit],
+    )
+    .then((r) => r.rows);
+
+const getTableWiseSales = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      t.number::text                     AS table_number,
+      COUNT(DISTINCT o.id)::int          AS orders,
+      COALESCE(SUM(p.total_charged), 0)  AS revenue,
+      COALESCE(AVG(p.total_charged), 0)  AS avg_order_value
+    FROM orders o
+    JOIN tables t   ON t.id = o.table_id
+    JOIN payments p ON p.order_id = o.id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND p.status = 'completed'
+      AND o.channel = 'dining'
+      AND o.restaurant_id = $4
+    GROUP BY t.id, t.number
+    ORDER BY revenue DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getNCSales = (from, to, tz = 'UTC', restaurantId) =>
+  db
+    .query(
+      `
+    SELECT
+      o.id,
+      o.channel,
+      o.created_at,
+      o.status,
+      COALESCE(u.name, u.email) AS created_by,
+      t.number::text            AS table_number,
+      COALESCE((
+        SELECT SUM(mi2.price * oi2.quantity)
+        FROM order_items oi2
+        JOIN menu_items mi2 ON mi2.id = oi2.menu_item_id
+        WHERE oi2.order_id = o.id
+      ), 0) AS order_value
+    FROM orders o
+    LEFT JOIN users u  ON u.id  = o.created_by
+    LEFT JOIN tables t ON t.id  = o.table_id
+    WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND o.status = 'cancelled'
+      AND o.restaurant_id = $4
+    ORDER BY o.created_at DESC
+  `,
+      [from, to, tz, restaurantId],
+    )
+    .then((r) => r.rows);
+
 module.exports = {
   getDailySummary,
   getRevenueByCategory,
@@ -236,4 +435,12 @@ module.exports = {
   getStaffPerformance,
   getItemsByPeriod,
   getStaffByPeriod,
+  getSalesSummary,
+  getRevenueByChannel,
+  getCollectionByMethod,
+  getCollectionByCounter,
+  getRevenueByItemGroup,
+  getTopSellingItems,
+  getTableWiseSales,
+  getNCSales,
 };

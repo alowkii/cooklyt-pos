@@ -153,4 +153,113 @@ async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day',
   };
 }
 
-module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance, getItemsByPeriod, getStaffByPeriod };
+async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
+  const from = parseDate(fromStr, 'from');
+  const to   = parseDate(toStr,   'to');
+  const tz   = validateTz(tzStr);
+  validateRange(from, to);
+
+  const [summary, byChannel] = await Promise.all([
+    repo.getSalesSummary(from, to, tz, restaurantId),
+    repo.getRevenueByChannel(from, to, tz, restaurantId),
+  ]);
+  const f = (v) => parseFloat(v ?? 0);
+  return {
+    from, to,
+    summary: {
+      total_orders:            parseInt(summary.total_orders, 10) || 0,
+      total_revenue:           f(summary.total_revenue),
+      subtotal:                f(summary.subtotal),
+      tax_amount:              f(summary.tax_amount),
+      service_charge:          f(summary.service_charge),
+      discount_amount:         f(summary.discount_amount),
+      coupon_discount_amount:  f(summary.coupon_discount_amount),
+      loyalty_discount_amount: f(summary.loyalty_discount_amount),
+      packaging_fee:           f(summary.packaging_fee),
+      total_items_sold:        parseInt(summary.total_items_sold, 10) || 0,
+    },
+    byChannel: byChannel.map((r) => ({
+      channel:         r.channel,
+      orders:          r.orders,
+      revenue:         f(r.revenue),
+      avg_order_value: f(r.avg_order_value),
+    })),
+  };
+}
+
+async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
+  const from = parseDate(fromStr, 'from');
+  const to   = parseDate(toStr,   'to');
+  const tz   = validateTz(tzStr);
+  validateRange(from, to);
+
+  const [byMethod, byCounter] = await Promise.all([
+    repo.getCollectionByMethod(from, to, tz, restaurantId),
+    repo.getCollectionByCounter(from, to, tz, restaurantId),
+  ]);
+  return {
+    from, to,
+    byMethod:  byMethod.map((r)  => ({ method: r.method, orders: r.orders, amount: parseFloat(r.amount) })),
+    byCounter: byCounter.map((r) => ({ counter_name: r.counter_name, email: r.email, role: r.role, orders: r.orders, amount: parseFloat(r.amount) })),
+  };
+}
+
+async function getItemGroupsReport(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId) {
+  const from  = parseDate(fromStr, 'from');
+  const to    = parseDate(toStr,   'to');
+  const tz    = validateTz(tzStr);
+  const limit = Math.min(parseInt(limitRaw, 10) || 100, 200);
+  validateRange(from, to);
+
+  const [byGroup, topItems] = await Promise.all([
+    repo.getRevenueByItemGroup(from, to, tz, restaurantId),
+    repo.getTopSellingItems(from, to, tz, limit, restaurantId),
+  ]);
+  return {
+    from, to,
+    byGroup:  byGroup.map((r)  => ({ item_group: r.item_group, orders: r.orders, items_sold: r.items_sold, revenue: parseFloat(r.revenue) })),
+    topItems: topItems.map((r) => ({ id: r.id, name: r.name, category: r.category, total_sold: r.total_sold, revenue: parseFloat(r.revenue) })),
+  };
+}
+
+async function getTableWiseSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
+  const from = parseDate(fromStr, 'from');
+  const to   = parseDate(toStr,   'to');
+  const tz   = validateTz(tzStr);
+  validateRange(from, to);
+
+  const rows = await repo.getTableWiseSales(from, to, tz, restaurantId);
+  return {
+    from, to,
+    tables: rows.map((r) => ({
+      table_number:    r.table_number,
+      orders:          r.orders,
+      revenue:         parseFloat(r.revenue),
+      avg_order_value: parseFloat(r.avg_order_value),
+    })),
+  };
+}
+
+async function getNCSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
+  const from = parseDate(fromStr, 'from');
+  const to   = parseDate(toStr,   'to');
+  const tz   = validateTz(tzStr);
+  validateRange(from, to);
+
+  const rows = await repo.getNCSales(from, to, tz, restaurantId);
+  const totalValue = rows.reduce((s, r) => s + parseFloat(r.order_value || 0), 0);
+  return {
+    from, to,
+    summary: { total_cancelled: rows.length, total_value_cancelled: totalValue },
+    orders: rows.map((r) => ({
+      id:           r.id,
+      channel:      r.channel,
+      created_at:   r.created_at,
+      created_by:   r.created_by,
+      table_number: r.table_number,
+      order_value:  parseFloat(r.order_value || 0),
+    })),
+  };
+}
+
+module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance, getItemsByPeriod, getStaffByPeriod, getSalesSummaryReport, getCollectionReport, getItemGroupsReport, getTableWiseSalesReport, getNCSalesReport };

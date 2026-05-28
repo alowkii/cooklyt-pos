@@ -6,7 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Trash2, TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react';
-import { useDailyReport, useTrends, useItemProfitability, useStaffPerformance, useItemsTrend, useStaffTrend } from '../hooks/useReports';
+import { useDailyReport, useTrends, useItemProfitability, useStaffPerformance, useItemsTrend, useStaffTrend, useSalesSummary, useCollection, useItemGroups, useTableWiseSales, useNCSales } from '../hooks/useReports';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 
@@ -279,9 +279,16 @@ function OverviewTab({ from, to, daily }) {
   );
 }
 
-function TrendsTab({ from, to }) {
+function TrendsTab({ from, to, setFrom, setTo, today }) {
   const [group, setGroup] = useState('day');
   const { data, isLoading, isError } = useTrends(from, to, group);
+
+  function handleGroupChange(g) {
+    setGroup(g);
+    if (g === 'month') { setFrom(shiftDate(today, -179)); setTo(today); }
+    else if (g === 'week') { setFrom(shiftDate(today, -55)); setTo(today); }
+    else { setFrom(shiftDate(today, -29)); setTo(today); }
+  }
   const { format, currency } = useCurrency();
 
   const fmtTick = useCallback((v) => {
@@ -308,7 +315,7 @@ function TrendsTab({ from, to }) {
 
   return (
     <div className="space-y-5">
-      <GroupToggle group={group} setGroup={setGroup} />
+      <GroupToggle group={group} setGroup={handleGroupChange} />
 
       {isLoading && <Spinner />}
       {isError   && <ErrorMsg />}
@@ -360,9 +367,16 @@ function TrendsTab({ from, to }) {
   );
 }
 
-function ItemsTab({ from, to }) {
+function ItemsTab({ from, to, setFrom, setTo, today }) {
   const [view,  setView]  = useState('table');
   const [group, setGroup] = useState('day');
+
+  function handleGroupChange(g) {
+    setGroup(g);
+    if (g === 'month') { setFrom(shiftDate(today, -179)); setTo(today); }
+    else if (g === 'week') { setFrom(shiftDate(today, -55)); setTo(today); }
+    else { setFrom(shiftDate(today, -29)); setTo(today); }
+  }
   const { format, currency } = useCurrency();
   const [sort, setSort] = useState('revenue');
 
@@ -439,7 +453,7 @@ function ItemsTab({ from, to }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <ViewToggle />
-        {view === 'chart' && <GroupToggle group={group} setGroup={setGroup} />}
+        {view === 'chart' && <GroupToggle group={group} setGroup={handleGroupChange} />}
       </div>
 
       {view === 'table' && (
@@ -528,10 +542,17 @@ function ItemsTab({ from, to }) {
   );
 }
 
-function StaffTab({ from, to }) {
+function StaffTab({ from, to, setFrom, setTo, today }) {
   const [group, setGroup] = useState('day');
   const { data, isLoading, isError }                = useStaffPerformance(from, to);
   const { data: trendData, isLoading: trendLoading } = useStaffTrend(from, to, group);
+
+  function handleGroupChange(g) {
+    setGroup(g);
+    if (g === 'month') { setFrom(shiftDate(today, -179)); setTo(today); }
+    else if (g === 'week') { setFrom(shiftDate(today, -55)); setTo(today); }
+    else { setFrom(shiftDate(today, -29)); setTo(today); }
+  }
   const { format, currency } = useCurrency();
 
   const fmtTick = useCallback((v) => {
@@ -603,7 +624,7 @@ function StaffTab({ from, to }) {
       <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Revenue over time</p>
-          <GroupToggle group={group} setGroup={setGroup} />
+          <GroupToggle group={group} setGroup={handleGroupChange} />
         </div>
         {trendLoading && <Spinner />}
         {!trendLoading && chartData.length === 0 && <EmptyChart height={240} />}
@@ -635,9 +656,408 @@ function StaffTab({ from, to }) {
   );
 }
 
+function SalesTab({ from, to }) {
+  const { data, isLoading, isError } = useSalesSummary(from, to);
+  const { format } = useCurrency();
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMsg />;
+  if (!data)     return null;
+
+  const s = data.summary;
+  const totalDiscount = (s.discount_amount || 0) + (s.coupon_discount_amount || 0) + (s.loyalty_discount_amount || 0);
+  const avgOrderValue = s.total_orders > 0 ? s.total_revenue / s.total_orders : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Total Revenue"    value={format(s.total_revenue)} />
+        <KpiCard label="Total Orders"     value={s.total_orders} />
+        <KpiCard label="Avg Order Value"  value={s.total_orders > 0 ? format(avgOrderValue) : '—'} />
+        <KpiCard label="Items Sold"       value={s.total_items_sold} />
+      </div>
+
+      {/* Financial breakdown */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Sales Summary</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ fontSize: 13 }}>
+            <tbody>
+              {[
+                { label: 'Subtotal',        value: format(s.subtotal) },
+                { label: 'Tax',             value: format(s.tax_amount) },
+                { label: 'Service Charge',  value: format(s.service_charge) },
+                { label: 'Packaging Fee',   value: format(s.packaging_fee) },
+                { label: 'Discounts Given', value: `−${format(totalDiscount)}`, color: 'var(--ok)' },
+                { label: 'Total Charged',   value: format(s.total_revenue), bold: true },
+              ].map(({ label, value, color, bold }) => (
+                <tr key={label} style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td className="px-5 py-2.5" style={{ color: 'var(--mute)', fontWeight: bold ? 600 : 400 }}>{label}</td>
+                  <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: bold ? 700 : 400, color: color || 'var(--ink)', fontSize: bold ? 14 : 13 }}>{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sales by order type / channel */}
+      {data.byChannel?.length > 0 && (
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Sales by Order Type</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: 'Channel' },
+                { label: 'Orders',         align: 'right' },
+                { label: 'Revenue',        align: 'right' },
+                { label: 'Avg Order',      align: 'right' },
+                { label: '% of Revenue',   align: 'right' },
+              ]} />
+              <tbody>
+                {data.byChannel.map((r) => (
+                  <tr key={r.channel} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td className="px-5 py-2.5 capitalize" style={{ fontWeight: 500, color: 'var(--ink)' }}>{r.channel}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.orders}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(r.revenue)}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>{format(r.avg_order_value)}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                      {s.total_revenue > 0 ? ((r.revenue / s.total_revenue) * 100).toFixed(1) + '%' : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CollectionTab({ from, to }) {
+  const { data, isLoading, isError } = useCollection(from, to);
+  const { format } = useCurrency();
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMsg />;
+  if (!data)     return null;
+
+  const totalAmount = data.byMethod.reduce((s, r) => s + r.amount, 0);
+
+  return (
+    <div className="space-y-5">
+      {/* By payment method */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Collection by Payment Method</p>
+        </div>
+        {data.byMethod.length === 0 ? (
+          <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>No completed payments in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: 'Method' },
+                { label: 'Orders',     align: 'right' },
+                { label: 'Amount',     align: 'right' },
+                { label: '% of Total', align: 'right' },
+              ]} />
+              <tbody>
+                {data.byMethod.map((r) => (
+                  <tr key={r.method} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td className="px-5 py-2.5 capitalize" style={{ fontWeight: 500, color: 'var(--ink)' }}>{r.method}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.orders}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(r.amount)}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                      {totalAmount > 0 ? ((r.amount / totalAmount) * 100).toFixed(1) + '%' : '—'}
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{ background: 'var(--paper-2)' }}>
+                  <td className="px-5 py-2.5" style={{ fontWeight: 700, color: 'var(--ink)' }}>Total</td>
+                  <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                    {data.byMethod.reduce((s, r) => s + r.orders, 0)}
+                  </td>
+                  <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{format(totalAmount)}</td>
+                  <td className="px-5 py-2.5 text-right" style={{ color: 'var(--mute)', fontSize: 11 }}>100%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Counter wise collection */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Counter Wise Collection</p>
+        </div>
+        {data.byCounter.length === 0 ? (
+          <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>No data for this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: 'Staff' },
+                { label: 'Role' },
+                { label: 'Orders', align: 'right' },
+                { label: 'Amount', align: 'right' },
+                { label: 'Avg',    align: 'right' },
+              ]} />
+              <tbody>
+                {data.byCounter.map((r) => (
+                  <tr key={r.email} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)' }}>
+                      <div>{r.counter_name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--mute)' }}>{r.email}</div>
+                    </td>
+                    <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)', fontSize: 12 }}>{r.role}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.orders}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(r.amount)}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                      {r.orders > 0 ? format(r.amount / r.orders) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ItemGroupsTab({ from, to }) {
+  const { data, isLoading, isError } = useItemGroups(from, to);
+  const { format } = useCurrency();
+  const [sortTop, setSortTop] = useState('qty');
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMsg />;
+  if (!data)     return null;
+
+  const totalRevenue = data.byGroup.reduce((s, r) => s + r.revenue, 0);
+  const sortedTop = [...(data.topItems || [])].sort((a, b) =>
+    sortTop === 'qty' ? b.total_sold - a.total_sold : b.revenue - a.revenue,
+  );
+
+  return (
+    <div className="space-y-5">
+      {/* Item group wise */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Item Group Wise Report</p>
+        </div>
+        {data.byGroup.length === 0 ? (
+          <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>No sales in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: 'Item Group' },
+                { label: 'Orders',     align: 'right' },
+                { label: 'Items Sold', align: 'right' },
+                { label: 'Revenue',    align: 'right' },
+                { label: '% of Total', align: 'right' },
+              ]} />
+              <tbody>
+                {data.byGroup.map((r) => (
+                  <tr key={r.item_group} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td className="px-5 py-2.5 capitalize" style={{ fontWeight: 500, color: 'var(--ink)' }}>{r.item_group}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.orders}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.items_sold}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(r.revenue)}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                      {totalRevenue > 0 ? ((r.revenue / totalRevenue) * 100).toFixed(1) + '%' : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Top selling items */}
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Top Selling Items</p>
+          <div className="flex items-center gap-1">
+            {[['qty', 'By Qty'], ['revenue', 'By Revenue']].map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setSortTop(k)}
+                className="rounded-[6px] px-3"
+                style={{
+                  height: 28, fontSize: 11, fontWeight: 500,
+                  background: sortTop === k ? 'var(--ink)' : 'var(--paper)',
+                  color:      sortTop === k ? 'var(--paper)' : 'var(--mute)',
+                  border: '1px solid var(--line-2)',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {sortedTop.length === 0 ? (
+          <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>No sales in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: '#',        align: 'right' },
+                { label: 'Item' },
+                { label: 'Category' },
+                { label: 'Qty Sold', align: 'right' },
+                { label: 'Revenue',  align: 'right' },
+              ]} />
+              <tbody>
+                {sortedTop.map((item, i) => (
+                  <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute-2)', fontWeight: 600 }}>{i + 1}</td>
+                    <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{item.name}</td>
+                    <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--mute)' }}>{item.category}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{item.total_sold}</td>
+                    <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(item.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TablesTab({ from, to }) {
+  const { data, isLoading, isError } = useTableWiseSales(from, to);
+  const { format } = useCurrency();
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMsg />;
+  if (!data)     return null;
+
+  const totalRevenue = data.tables.reduce((s, r) => s + r.revenue, 0);
+
+  return (
+    <div className="space-y-5">
+      {data.tables.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--mute)', padding: '32px 0' }}>No dining orders in this period</p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiCard label="Tables Active"  value={data.tables.length} />
+            <KpiCard label="Total Revenue"  value={format(totalRevenue)} />
+            <KpiCard label="Total Orders"   value={data.tables.reduce((s, r) => s + r.orders, 0)} />
+          </div>
+          <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Table Wise Sale Summary</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full" style={{ fontSize: 13 }}>
+                <TableHead cols={[
+                  { label: 'Table' },
+                  { label: 'Orders',     align: 'right' },
+                  { label: 'Revenue',    align: 'right' },
+                  { label: 'Avg Order',  align: 'right' },
+                  { label: '% of Total', align: 'right' },
+                ]} />
+                <tbody>
+                  {data.tables.map((r) => (
+                    <tr key={r.table_number} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td className="px-5 py-2.5" style={{ fontWeight: 500, color: 'var(--ink)' }}>Table {r.table_number}</td>
+                      <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--ink)' }}>{r.orders}</td>
+                      <td className="px-5 py-2.5 text-right mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{format(r.revenue)}</td>
+                      <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>{format(r.avg_order_value)}</td>
+                      <td className="px-5 py-2.5 text-right mono num" style={{ color: 'var(--mute)' }}>
+                        {totalRevenue > 0 ? ((r.revenue / totalRevenue) * 100).toFixed(1) + '%' : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NCSalesTab({ from, to }) {
+  const { data, isLoading, isError } = useNCSales(from, to);
+  const { format } = useCurrency();
+  const { iana } = useTimezone();
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMsg />;
+  if (!data)     return null;
+
+  const { summary, orders } = data;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <KpiCard label="Cancelled Orders" value={summary.total_cancelled} />
+        <KpiCard label="Value Cancelled"  value={format(summary.total_value_cancelled)} sub="Revenue lost to cancellations" />
+      </div>
+
+      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>NC Sale Summary (Cancelled Orders)</p>
+        </div>
+        {orders.length === 0 ? (
+          <p className="px-5 py-4" style={{ fontSize: 13, color: 'var(--mute)' }}>No cancelled orders in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 13 }}>
+              <TableHead cols={[
+                { label: 'Order ID' },
+                { label: 'Date/Time' },
+                { label: 'Channel' },
+                { label: 'Table' },
+                { label: 'Created By' },
+                { label: 'Order Value', align: 'right' },
+              ]} />
+              <tbody>
+                {orders.map((o) => {
+                  const dt = new Date(o.created_at).toLocaleString('en-US', {
+                    timeZone: iana,
+                    month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  });
+                  return (
+                    <tr key={o.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td className="px-5 py-2.5 mono num" style={{ fontSize: 11, color: 'var(--mute)' }}>#{o.id.slice(-6).toUpperCase()}</td>
+                      <td className="px-5 py-2.5" style={{ fontSize: 12, color: 'var(--mute)', whiteSpace: 'nowrap' }}>{dt}</td>
+                      <td className="px-5 py-2.5 capitalize" style={{ color: 'var(--ink)' }}>{o.channel}</td>
+                      <td className="px-5 py-2.5" style={{ color: 'var(--mute)' }}>{o.table_number ? `Table ${o.table_number}` : '—'}</td>
+                      <td className="px-5 py-2.5" style={{ color: 'var(--ink)' }}>{o.created_by || '—'}</td>
+                      <td className="px-5 py-2.5 text-right mono num" style={{ color: o.order_value > 0 ? 'var(--bad)' : 'var(--mute)' }}>{format(o.order_value)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-const TABS = ['Overview', 'Trends', 'Items', 'Staff'];
+const TABS = ['Overview', 'Trends', 'Items', 'Staff', 'Sales', 'Collection', 'Item Groups', 'Tables', 'NC Sales'];
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -651,6 +1071,7 @@ export default function Reports() {
 
   const presets = PRESETS(today);
   const isSingleDay = from === to;
+  const activePreset = presets.find((p) => p.from === from && p.to === to);
 
   function applyPreset(p) {
     setFrom(p.from);
@@ -710,9 +1131,9 @@ export default function Reports() {
             <button
               onClick={() => setShowPresets((v) => !v)}
               className="flex items-center gap-1.5 rounded-[6px] px-3"
-              style={{ height: 32, fontSize: 12, fontWeight: 500, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{ height: 32, fontSize: 12, fontWeight: 500, border: '1px solid var(--line-2)', background: 'var(--paper)', color: activePreset ? 'var(--ink)' : 'var(--mute)', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
-              Quick range <ChevronDown size={12} />
+              {activePreset ? activePreset.label : 'Custom range'} <ChevronDown size={12} />
             </button>
             {showPresets && (
               <>
@@ -721,18 +1142,21 @@ export default function Reports() {
                   className="absolute left-0 z-20 mt-1 py-1"
                   style={{ top: '100%', minWidth: 160, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)' }}
                 >
-                  {presets.map((p) => (
-                    <button
-                      key={p.label}
-                      onClick={() => applyPreset(p)}
-                      className="w-full px-4 py-2 text-left"
-                      style={{ fontSize: 13, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                  {presets.map((p) => {
+                    const isActive = activePreset?.label === p.label;
+                    return (
+                      <button
+                        key={p.label}
+                        onClick={() => applyPreset(p)}
+                        className="w-full px-4 py-2 text-left"
+                        style={{ fontSize: 13, color: 'var(--ink)', background: isActive ? 'var(--hover)' : 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--hover)' : 'none'; }}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -763,15 +1187,17 @@ export default function Reports() {
       </div>
 
       {/* Tabs — scrollable so they never clip on narrow viewports */}
-      <div className="scrollbar-none flex gap-1 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
+      <div className="scrollbar-none flex overflow-x-auto" style={{ gap: 2, borderBottom: '1px solid var(--line-2)' }}>
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             style={{
-              fontSize: 13, fontWeight: 500, padding: '8px 14px', marginBottom: -1,
+              display: 'inline-flex', alignItems: 'center',
+              fontSize: 13, fontWeight: 600, padding: '8px 14px',
               flexShrink: 0, whiteSpace: 'nowrap',
-              background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--ink)' : '2px solid transparent',
+              background: 'none', border: 'none',
+              boxShadow: tab === t ? 'inset 0 -2px 0 var(--accent)' : 'none',
               color: tab === t ? 'var(--ink)' : 'var(--mute)',
               cursor: 'pointer', transition: 'color 0.1s',
             }}
@@ -788,9 +1214,14 @@ export default function Reports() {
         overviewData    ? <OverviewTab from={from} to={to} daily={overviewData} /> :
         null
       )}
-      {tab === 'Trends' && <TrendsTab from={from} to={to} />}
-      {tab === 'Items'  && <ItemsTab  from={from} to={to} />}
-      {tab === 'Staff'  && <StaffTab  from={from} to={to} />}
+      {tab === 'Trends'       && <TrendsTab      from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
+      {tab === 'Items'        && <ItemsTab        from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
+      {tab === 'Staff'        && <StaffTab        from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
+      {tab === 'Sales'        && <SalesTab        from={from} to={to} />}
+      {tab === 'Collection'   && <CollectionTab   from={from} to={to} />}
+      {tab === 'Item Groups'  && <ItemGroupsTab   from={from} to={to} />}
+      {tab === 'Tables'       && <TablesTab       from={from} to={to} />}
+      {tab === 'NC Sales'     && <NCSalesTab      from={from} to={to} />}
     </div>
   );
 }

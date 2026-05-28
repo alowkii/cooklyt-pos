@@ -112,3 +112,83 @@ export function useStaffTrend(from, to, group = 'day') {
     },
   });
 }
+
+export function useSalesSummary(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'sales-summary', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/sales-summary?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useCollection(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'collection', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/collection?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useItemGroups(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'item-groups', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/item-groups?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useTableWiseSales(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'table-wise', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/table-wise?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}
+
+export function useNCSales(from, to) {
+  const { iana } = useTimezone();
+  const enabled = Boolean(from && to);
+  return useQuery({
+    queryKey: ['reports', 'nc-sales', from, to, iana],
+    staleTime: 60_000,
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get(
+        `/reports/nc-sales?from=${from}&to=${to}&tz=${encodeURIComponent(iana)}`,
+      );
+      return data;
+    },
+  });
+}

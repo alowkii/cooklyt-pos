@@ -59,4 +59,49 @@ router.get('/staff-trend', ...adminOnly, async (req, res, next) => {
   }
 });
 
+router.get('/sales-summary', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC' } = req.query;
+    res.json(await service.getSalesSummaryReport(from, to, tz, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/collection', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC' } = req.query;
+    res.json(await service.getCollectionReport(from, to, tz, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/item-groups', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC', limit } = req.query;
+    res.json(await service.getItemGroupsReport(from, to, tz, limit, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/table-wise', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC' } = req.query;
+    res.json(await service.getTableWiseSalesReport(from, to, tz, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/nc-sales', ...adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, tz = 'UTC' } = req.query;
+    res.json(await service.getNCSalesReport(from, to, tz, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
