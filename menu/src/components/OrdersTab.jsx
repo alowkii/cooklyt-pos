@@ -69,7 +69,7 @@ export function OrdersTab({ activeOrders, tableId, fmt, cancelling, cancelOrder,
                     )}
                   </div>
                   <span className="mono num" style={{ fontSize: 10, color: 'var(--mute-2)', letterSpacing: '.05em', marginTop: 2, display: 'block' }}>
-                    Order #{order.id.slice(0, 8).toUpperCase()}
+                    Order #{order.id.slice(-6).toUpperCase()}
                   </span>
                 </div>
 
