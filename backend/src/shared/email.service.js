@@ -48,10 +48,14 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
               <img src="${LOGO_URL}" width="44" height="44" alt=""
                    style="display:block;margin:0 auto" />
 
-              <!-- Wordmark as HTML text — no image, no font risk -->
+              <!-- Wordmark: COOKLY + brown dot + T, matching og-image.svg -->
               <div style="margin-top:10px;font-family:Georgia,'Times New Roman',serif;
-                          font-size:18px;letter-spacing:8px;color:#0d0c0b;font-weight:400">
-                COOKLY<span style="color:#b06a3b;letter-spacing:2px">T</span>
+                          font-size:18px;letter-spacing:8px;color:#0d0c0b;font-weight:400;
+                          line-height:1">
+                COOKLY<span style="display:inline-block;width:5px;height:5px;
+                                   border-radius:50%;background:#B06A3B;
+                                   vertical-align:middle;margin:0 1px 2px;
+                                   letter-spacing:0"></span>T
               </div>
 
               <div style="font-size:11px;color:#888882;margin-top:4px;letter-spacing:0.05em">by Krilok</div>
