@@ -7,6 +7,34 @@ import QRCode from 'qrcode';
 
 const ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
 
+function VerifiedIcon({ verified }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', cursor: 'default' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={() => setShow((v) => !v)}
+    >
+      {verified
+        ? <BadgeCheck size={13} style={{ color: 'var(--ok)' }} />
+        : <MailWarning size={13} style={{ color: 'var(--warn)' }} />}
+      {show && (
+        <span style={{
+          position: 'absolute', bottom: 'calc(100% + 5px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'var(--ink)', color: '#fff',
+          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+          padding: '3px 8px', borderRadius: 4, pointerEvents: 'none',
+          zIndex: 10,
+        }}>
+          {verified ? 'Email verified' : 'Email not verified'}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const ROLE_DOT = {
   admin:   'var(--info)',
   staff:   'var(--mute)',
@@ -331,7 +359,6 @@ export default function Users() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Email</th>
-                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Verified</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
                   Name
                   <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to edit)</span>
@@ -357,56 +384,42 @@ export default function Users() {
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <td className="px-5 py-3.5" style={{ fontWeight: 500, color: 'var(--ink)' }}>
-                      {user.email}
-                      {isSelf && (
-                        <span
-                          className="ml-2 rounded-full px-2 py-0.5"
-                          style={{ fontSize: 10, fontWeight: 500, background: 'var(--hover)', color: 'var(--mute)' }}
-                        >
-                          you
-                        </span>
-                      )}
-                    </td>
                     <td className="px-5 py-3.5">
-                      {user.email_verified ? (
-                        <span
-                          className="inline-flex items-center gap-1"
-                          title="Email verified"
-                          style={{ fontSize: 12, color: 'var(--ok)' }}
-                        >
-                          <BadgeCheck size={14} />
-                          <span>Verified</span>
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{user.email}</span>
+                        {isSelf && (
                           <span
-                            className="inline-flex items-center gap-1"
-                            title="Email not verified"
-                            style={{ fontSize: 12, color: 'var(--warn)' }}
+                            className="rounded-full px-2 py-0.5"
+                            style={{ fontSize: 10, fontWeight: 500, background: 'var(--hover)', color: 'var(--mute)' }}
                           >
-                            <MailWarning size={14} />
-                            <span>Unverified</span>
+                            you
                           </span>
-                          {!isSelf && (
-                            <button
-                              onClick={() => handleResendVerification(user)}
-                              disabled={resendingId === user.id}
-                              title="Resend verification email"
-                              className="inline-flex items-center gap-1"
-                              style={{
-                                fontSize: 11, background: 'none', border: 0, padding: '2px 6px',
-                                borderRadius: 4, cursor: 'pointer',
-                                color: resentId === user.id ? 'var(--ok)' : 'var(--mute)',
-                                background: 'var(--hover)',
-                              }}
-                            >
-                              <Send size={11} />
-                              <span>{resentId === user.id ? 'Sent!' : 'Resend'}</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                        )}
+                        {user.email_verified ? (
+                          <VerifiedIcon verified />
+                        ) : (
+                          <>
+                            <VerifiedIcon verified={false} />
+                            {!isSelf && (
+                              <button
+                                onClick={() => handleResendVerification(user)}
+                                disabled={resendingId === user.id}
+                                title="Resend invite email"
+                                className="inline-flex items-center gap-1"
+                                style={{
+                                  fontSize: 11, border: 0, padding: '2px 6px',
+                                  borderRadius: 4, cursor: 'pointer',
+                                  color: resentId === user.id ? 'var(--ok)' : 'var(--mute)',
+                                  background: 'var(--hover)',
+                                }}
+                              >
+                                <Send size={11} />
+                                <span>{resentId === user.id ? 'Sent!' : 'Resend'}</span>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <NameCell
