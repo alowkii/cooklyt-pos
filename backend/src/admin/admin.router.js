@@ -271,33 +271,27 @@ router.patch('/restaurants/:id/settings', authenticateSuperAdmin, async (req, re
   } catch (e) { next(e); }
 });
 
-// ── All users (cross-tenant) ──────────────────────────────────────────────────
+// ── Super admins ──────────────────────────────────────────────────────────────
 
-router.get('/users', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/super-admins', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    res.json(await service.getAllUsers());
+    res.json(await service.getAllSuperAdmins());
   } catch (e) { next(e); }
 });
 
-router.delete('/users/:id', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/super-admins', authenticateSuperAdmin, async (req, res, next) => {
   try {
-    const user = await service.deleteUserById(req.params.id);
-    audit.log({ ...sa(req), action: 'delete', resourceType: 'user', resourceId: req.params.id, description: `Deleted user "${user.email}"` });
+    const admin = await service.createSuperAdmin(req.body.email, req.body.password);
+    audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}"` });
+    res.status(201).json(admin);
+  } catch (e) { next(e); }
+});
+
+router.delete('/super-admins/:id', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const admin = await service.deleteSuperAdminById(req.params.id, req.superAdmin.superAdminId);
+    audit.log({ ...sa(req), action: 'delete', resourceType: 'super_admin', resourceId: req.params.id, description: `Deleted operator "${admin.email}"` });
     res.status(204).send();
-  } catch (e) { next(e); }
-});
-
-router.patch('/users/:id/active', authenticateSuperAdmin, async (req, res, next) => {
-  try {
-    const result = await service.setUserActive(req.params.id, req.body.isActive);
-    audit.log({ ...sa(req), action: 'update', resourceType: 'user', resourceId: req.params.id, description: `${req.body.isActive ? 'Enabled' : 'Disabled'} user account` });
-    res.json(result);
-  } catch (e) { next(e); }
-});
-
-router.post('/users/:id/resend-verification', authenticateSuperAdmin, async (req, res, next) => {
-  try {
-    res.json(await service.resendVerificationForUser(req.params.id));
   } catch (e) { next(e); }
 });
 

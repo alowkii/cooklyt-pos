@@ -77,39 +77,34 @@ export function useDeleteUser(restaurantId) {
   });
 }
 
-// ── All users (cross-tenant) ──────────────────────────────────────────────────
+// ── Super admins ──────────────────────────────────────────────────────────────
 
-export function useAllUsers() {
+export function useSuperAdmins() {
   return useQuery({
-    queryKey: ['all-users'],
-    queryFn: () => api.get('/users').then((r) => r.data),
+    queryKey: ['super-admins'],
+    queryFn: () => api.get('/super-admins').then((r) => r.data),
   });
 }
 
-export function useDeleteAnyUser() {
+export function useCreateSuperAdmin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => api.delete(`/users/${id}`),
+    mutationFn: (body) => api.post('/super-admins', body).then((r) => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['all-users'] });
-      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['super-admins'] });
       qc.invalidateQueries({ queryKey: ['audit-logs'] });
     },
   });
 }
 
-export function useSetAnyUserActive() {
+export function useDeleteSuperAdmin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isActive }) =>
-      api.patch(`/users/${id}/active`, { isActive }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['all-users'] }),
-  });
-}
-
-export function useResendAnyVerification() {
-  return useMutation({
-    mutationFn: (id) => api.post(`/users/${id}/resend-verification`).then((r) => r.data),
+    mutationFn: (id) => api.delete(`/super-admins/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['super-admins'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
   });
 }
 

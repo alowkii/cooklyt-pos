@@ -10,6 +10,23 @@ const findSuperAdminById = (id) =>
   db.query('SELECT * FROM super_admins WHERE id = $1', [id])
     .then((r) => r.rows[0]);
 
+const getAllSuperAdmins = () =>
+  db.query(
+    'SELECT id, email, created_at FROM super_admins ORDER BY created_at ASC',
+  ).then((r) => r.rows);
+
+const createSuperAdmin = (email, hashedPassword) =>
+  db.query(
+    'INSERT INTO super_admins (email, password) VALUES ($1, $2) RETURNING id, email, created_at',
+    [email, hashedPassword],
+  ).then((r) => r.rows[0]);
+
+const deleteSuperAdminById = (id) =>
+  db.query(
+    'DELETE FROM super_admins WHERE id = $1 RETURNING id, email',
+    [id],
+  ).then((r) => r.rows[0]);
+
 const updateSuperAdminDefaults = (id, defaults) =>
   db.query(
     'UPDATE super_admins SET defaults = $1 WHERE id = $2 RETURNING id, email, created_at, defaults',
@@ -159,6 +176,9 @@ const updateSuperAdminPassword = (id, hashedPassword) =>
 module.exports = {
   findSuperAdminByEmail,
   findSuperAdminById,
+  getAllSuperAdmins,
+  createSuperAdmin,
+  deleteSuperAdminById,
   countSuperAdmins,
   createFirstSuperAdmin,
   updateSuperAdminPassword,

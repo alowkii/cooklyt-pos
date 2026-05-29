@@ -119,40 +119,24 @@ async function deleteUser(userId, restaurantId) {
   return user;
 }
 
-async function getAllUsers() {
-  return repo.getAllUsers();
+async function getAllSuperAdmins() {
+  return repo.getAllSuperAdmins();
 }
 
-async function deleteUserById(userId) {
-  const user = await repo.deleteUserById(userId);
-  if (!user) throw new NotFoundError('User');
-  return user;
+async function createSuperAdmin(email, password) {
+  if (!email || !password) throw new ValidationError('email and password are required');
+  assertStrongPassword(password);
+  const existing = await repo.findSuperAdminByEmail(email);
+  if (existing) throw new ValidationError('An operator with this email already exists');
+  const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+  return repo.createSuperAdmin(email, hashed);
 }
 
-async function setUserActive(userId, isActive) {
-  const user = await repo.setUserActive(userId, isActive);
-  if (!user) throw new NotFoundError('User');
-  return user;
-}
-
-async function resendVerificationForUser(userId) {
-  const user = await repo.findUserById(userId);
-  if (!user || user.email_verified) return { ok: true };
-
-  const isAdminCreated = user.force_password_change;
-  const expiresAt = new Date(Date.now() + (isAdminCreated ? 72 : 24) * 60 * 60 * 1000);
-  const token = generateToken();
-  await repo.setVerificationTokenForUser(userId, token, expiresAt);
-
-  const send = isAdminCreated
-    ? emailSvc.sendAccountSetupEmail
-    : emailSvc.sendVerificationEmail;
-
-  send(user.email, token).catch((err) => {
-    console.error(`[admin email] Failed to resend to ${user.email}:`, err.message);
-  });
-
-  return { ok: true };
+async function deleteSuperAdminById(id, requesterId) {
+  if (id === requesterId) throw new ValidationError('You cannot delete your own account');
+  const admin = await repo.deleteSuperAdminById(id);
+  if (!admin) throw new NotFoundError('Operator');
+  return admin;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -233,10 +217,9 @@ module.exports = {
   deleteRestaurant,
   createUser,
   deleteUser,
-  getAllUsers,
-  deleteUserById,
-  setUserActive,
-  resendVerificationForUser,
+  getAllSuperAdmins,
+  createSuperAdmin,
+  deleteSuperAdminById,
   getSettings,
   updateSetting,
   getAuditLogs,
