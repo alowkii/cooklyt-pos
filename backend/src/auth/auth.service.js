@@ -290,8 +290,12 @@ async function resetPassword(token, newPassword) {
   return { ok: true };
 }
 
+// Exposed for the Google OAuth router which needs to issue a JWT directly
+const createTokenPublic = createToken;
+
 module.exports = {
   login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName,
   changePassword, signup, setStaffPin, setUserActive, setUserPresent,
   activate, verifyEmail, resendVerification, forgotPassword, resetPassword,
+  createTokenPublic,
 };

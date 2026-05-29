@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import api from '../api/client';
 
+const GOOGLE_ENABLED = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const API_URL        = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams]  = useSearchParams();
+  const oauthError      = searchParams.get('oauthError');
   const [form, setForm]           = useState({ email: '', password: '' });
   const [showPass, setShowPass]   = useState(false);
   const [error, setError]         = useState('');
@@ -216,9 +221,44 @@ export default function Login() {
                   : 'Sign in'}
               </button>
 
+              {GOOGLE_ENABLED && (
+                <>
+                  <div className="flex items-center gap-3" style={{ margin: '4px 0' }}>
+                    <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                    <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>or</span>
+                    <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                  </div>
+                  <a
+                    href={`${API_URL}/api/auth/google`}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                      width: '100%', height: 38, borderRadius: 6, fontSize: 13, fontWeight: 500,
+                      border: '1px solid var(--line-2)', color: 'var(--ink)', textDecoration: 'none',
+                      background: 'var(--paper)', transition: 'background .08s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--paper)')}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 48 48">
+                      <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 29.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+                      <path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z"/>
+                      <path fill="#FBBC05" d="M24 46c5.5 0 10.5-1.9 14.4-5l-6.7-5.5C29.6 37 26.9 38 24 38c-5.1 0-9.4-3.4-10.9-8l-7 5.4C9.6 41.7 16.3 46 24 46z"/>
+                      <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.6 2.8-2.3 5.1-4.7 6.6l6.7 5.5C42.1 36.8 45 31 45 24c0-1.3-.2-2.7-.5-4z"/>
+                    </svg>
+                    Sign in with Google
+                  </a>
+                </>
+              )}
+
             </form>
           )}
         </div>
+
+        {oauthError && (
+          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--bad)' }}>
+            {decodeURIComponent(oauthError)}
+          </p>
+        )}
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11.5, color: 'var(--mute-2)' }}>
           Can't log in? Contact your administrator.

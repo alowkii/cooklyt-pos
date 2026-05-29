@@ -210,6 +210,10 @@ async function clearResetToken(id) {
   );
 }
 
+async function clearForcePasswordChange(id) {
+  await db.query('UPDATE users SET force_password_change = false WHERE id = $1', [id]);
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -230,4 +234,5 @@ module.exports = {
   findUserByResetToken,
   setResetToken,
   clearResetToken,
+  clearForcePasswordChange,
 };

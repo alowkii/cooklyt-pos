@@ -1,8 +1,15 @@
-const router = require('express').Router();
+const router  = require('express').Router();
+const crypto  = require('crypto');
 const service = require('./auth.service');
+const repo    = require('./auth.repository');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
+
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CALLBACK_URL  = process.env.GOOGLE_CALLBACK_URL;
+const APP_URL              = process.env.APP_URL || 'http://localhost:5173';
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -256,6 +263,107 @@ router.post('/reset-password', writeLimiter, async (req, res, next) => {
     res.json(result);
   } catch (e) {
     next(e);
+  }
+});
+
+// --- Google OAuth ---
+
+router.get('/google', (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google sign-in is not configured' });
+
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    sameSite: 'lax',   // must be lax — strict blocks Google's cross-origin redirect
+    secure:   process.env.NODE_ENV === 'production',
+    maxAge:   5 * 60 * 1000, // 5 min — only needed for the OAuth round-trip
+    path:     '/',
+  });
+
+  const params = new URLSearchParams({
+    client_id:     GOOGLE_CLIENT_ID,
+    redirect_uri:  GOOGLE_CALLBACK_URL,
+    response_type: 'code',
+    scope:         'openid email profile',
+    access_type:   'online',
+    state,
+  });
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  if (error || !code) {
+    return res.redirect(`${APP_URL}/login?error=oauth_cancelled`);
+  }
+
+  // CSRF check — state must match what we stored before the redirect
+  if (!state || state !== req.cookies.oauth_state) {
+    return res.redirect(`${APP_URL}/login?error=oauth_failed`);
+  }
+  res.clearCookie('oauth_state', { path: '/' });
+
+  try {
+    // Exchange code for access token
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        code,
+        client_id:     GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri:  GOOGLE_CALLBACK_URL,
+        grant_type:    'authorization_code',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error('No access token returned');
+
+    // Get user info from Google
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const { email, name } = await userInfoRes.json();
+    if (!email) throw new Error('No email returned from Google');
+
+    // Look up the user — only pre-registered accounts can sign in
+    const user = await repo.findUserByEmail(email);
+    if (!user)             return res.redirect(`${APP_URL}/login?error=no_account`);
+    if (!user.is_active)   return res.redirect(`${APP_URL}/login?error=disabled`);
+
+    // Google has verified this email — mark account active and clear any setup flags
+    if (!user.email_verified || user.force_password_change) {
+      await repo.markEmailVerified(user.id);
+      await repo.clearForcePasswordChange(user.id);
+    }
+
+    const jwt = service.createTokenPublic(user.id, user.role, user.restaurant_id);
+
+    audit.log({
+      actorType: 'user', actorId: user.id, restaurantId: user.restaurant_id,
+      action: 'login', resourceType: 'user', resourceId: user.id,
+      description: `User signed in via Google (${email})`,
+    });
+
+    res.cookie('pos_token', jwt, COOKIE_OPTS);
+
+    // Pass user+restaurant to the frontend via a short-lived URL param.
+    // This is the same data stored in localStorage — not secret.
+    const payload = Buffer.from(JSON.stringify({
+      user: {
+        id: user.id, email: user.email, name: user.name || null,
+        role: user.role, restaurantId: user.restaurant_id,
+        forcePasswordChange: false, emailVerified: true,
+      },
+      restaurant: { id: user.restaurant_id, name: user.restaurant_name },
+    })).toString('base64url');
+
+    res.redirect(`${APP_URL}/oauth/callback?d=${payload}`);
+  } catch (e) {
+    console.error('[google oauth]', e.message);
+    res.redirect(`${APP_URL}/login?error=oauth_failed`);
   }
 });
 

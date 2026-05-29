@@ -11,6 +11,7 @@ import VerifyEmail    from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword  from './pages/ResetPassword';
 import SetPassword    from './pages/SetPassword';
+import OAuthCallback  from './pages/OAuthCallback';
 import Landing  from './pages/Landing';
 import Overview from './pages/Overview';
 import Menu           from './pages/Menu';
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/forgot-password" element={<RequireGuest><ForgotPassword /></RequireGuest>} />
         <Route path="/reset-password"  element={<RequireGuest><ResetPassword /></RequireGuest>} />
         <Route path="/set-password"    element={<SetPassword />} />
+        <Route path="/oauth/callback"  element={<OAuthCallback />} />
 
         {/* Pathless layout route — wraps all authenticated pages */}
         <Route
