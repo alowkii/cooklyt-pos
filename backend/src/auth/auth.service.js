@@ -234,16 +234,22 @@ async function resendVerification(email_) {
   if (!email_) throw new ValidationError('Email is required');
 
   const user = await repo.findUserByEmail(email_);
-  // Always return ok to avoid revealing whether an email exists
   if (!user || user.email_verified) return { ok: true };
 
+  const isAdminCreated = user.force_password_change;
+  const expiresAt = new Date(Date.now() + (isAdminCreated ? 72 : 24) * 60 * 60 * 1000);
   const token     = generateToken();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await repo.setVerificationToken(user.id, token, expiresAt);
 
-  emailSvc.sendVerificationEmail(email_, token).catch((err) => {
-    console.error(`[email] Failed to resend verification to ${email_}:`, err.message);
-  });
+  if (isAdminCreated) {
+    emailSvc.sendAccountSetupEmail(email_, token).catch((err) => {
+      console.error(`[email] Failed to resend setup email to ${email_}:`, err.message);
+    });
+  } else {
+    emailSvc.sendVerificationEmail(email_, token).catch((err) => {
+      console.error(`[email] Failed to resend verification to ${email_}:`, err.message);
+    });
+  }
 
   return { ok: true };
 }
