@@ -547,15 +547,24 @@ async function main() {
 
   // ── 5. Tables ──────────────────────────────────────────────────────────────
   console.log('Seeding tables…');
-  const TABLE_SEATS = [2, 2, 4, 4, 6, 8]; // intentional mix
+  // Fixed UUIDs so QR codes survive re-seeding
+  const TABLE_DEFS = [
+    { id: '00000000-0000-0000-0000-000000000011', seats: 2 },
+    { id: '00000000-0000-0000-0000-000000000012', seats: 2 },
+    { id: '00000000-0000-0000-0000-000000000013', seats: 4 },
+    { id: '00000000-0000-0000-0000-000000000014', seats: 4 },
+    { id: '00000000-0000-0000-0000-000000000015', seats: 6 },
+    { id: '00000000-0000-0000-0000-000000000016', seats: 8 },
+  ];
   const tableIds = [];
-  for (let i = 0; i < TABLE_SEATS.length; i++) {
-    const seats = TABLE_SEATS[i];
-    const { rows: [t] } = await client.query(`
-      INSERT INTO tables (number, status, seats, restaurant_id)
-      VALUES ($1, 'available', $2, $3) RETURNING id
-    `, [i + 1, seats, RESTAURANT_ID]);
-    tableIds.push(t.id);
+  for (let i = 0; i < TABLE_DEFS.length; i++) {
+    const { id, seats } = TABLE_DEFS[i];
+    await client.query(`
+      INSERT INTO tables (id, number, status, seats, restaurant_id)
+      VALUES ($1, $2, 'available', $3, $4)
+      ON CONFLICT (id) DO UPDATE SET number = $2, seats = $3, status = 'available'
+    `, [id, i + 1, seats, RESTAURANT_ID]);
+    tableIds.push(id);
     console.log(`  Table ${i + 1} — ${seats} seats`);
   }
 
