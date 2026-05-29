@@ -6,8 +6,8 @@ const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 // Logo served from the frontend's public directory.
 // Gmail and Outlook block data URIs in <img>, so a proper URL is the only reliable option.
 // dashboard/public/logo-email.svg is the source of truth for this image.
-const LOGO_URL       = `${APP_URL}/logo-email.svg`;
-const LOGO_MARK_URL  = `${APP_URL}/favicon.svg`;
+const LOGO_URL       = `${APP_URL}/logo-email.png`;  // PNG — Gmail blocks SVG in <img>
+const LOGO_MARK_URL  = `${APP_URL}/logo-email.png`;
 
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -116,12 +116,8 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td>
-                    <span style="display:inline-flex;align-items:center;gap:6px">
-                      <img src="${LOGO_MARK_URL}" width="14" height="14" alt=""
-                           style="display:inline-block;vertical-align:middle" />
-                      <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.04em">CookLyt</span>
-                      <span style="font-size:12px;color:#aaa9a4">&middot; by Krilok</span>
-                    </span>
+                    <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.04em">CookLyt</span>
+                    <span style="font-size:12px;color:#aaa9a4">&nbsp;&middot; by Krilok</span>
                   </td>
                   <td align="right">
                     <span style="font-size:11.5px;color:#c5c2bc">&copy; ${year} Krilok</span>
