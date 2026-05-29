@@ -54,7 +54,7 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
                           line-height:1">
                 COOKLY<span style="display:inline-block;width:5px;height:5px;
                                    border-radius:50%;background:#B06A3B;
-                                   vertical-align:middle;margin:0 1px 2px;
+                                   vertical-align:middle;margin:0 5px 2px 7px;
                                    letter-spacing:0"></span>T
               </div>
 
