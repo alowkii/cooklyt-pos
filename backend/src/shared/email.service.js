@@ -3,18 +3,30 @@ const nodemailer = require('nodemailer');
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 
-// Base64 data URI — avoids inline SVG being stripped by Gmail/Outlook
-const LOGO_MARK_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
-  '<svg width="38" height="38" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>' +
-  '<circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>' +
+// Horizontal logo lockup (arc mark + COOKLYT wordmark) encoded as a data URI
+// so it renders reliably in Gmail, Outlook, and Apple Mail.
+// Structure mirrors og-image.svg: mark on left, wordmark on right.
+const LOGO_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="222" height="38">' +
+    // Arc mark — 38×38 viewport from og-image.svg
+    '<svg x="0" y="0" width="38" height="38" viewBox="0 0 200 200">' +
+      '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>' +
+      '<circle cx="100" cy="100" r="12" fill="#B06A3B"/>' +
+    '</svg>' +
+    // Wordmark — same viewBox and letter-spacing as og-image.svg
+    '<svg x="52" y="0" width="170" height="38" viewBox="0 0 360 64" preserveAspectRatio="xMinYMid meet">' +
+      '<text x="0" y="49" font-family="Georgia,\'Times New Roman\',serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">COOKLY</text>' +
+      '<circle cx="294.2" cy="29.43" r="5.03" fill="#B06A3B"/>' +
+      '<text x="309.33" y="49" font-family="Georgia,\'Times New Roman\',serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">T</text>' +
+    '</svg>' +
   '</svg>'
 ).toString('base64');
 
+// Small mark-only for the footer
 const LOGO_MARK_SMALL_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
-  '<svg width="14" height="14" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>' +
-  '<circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>' +
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 200 200">' +
+  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>' +
+  '<circle cx="100" cy="100" r="12" fill="#B06A3B"/>' +
   '</svg>'
 ).toString('base64');
 
@@ -54,17 +66,11 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
           <tr>
             <td align="center">
 
-              <!-- Arc mark as <img> so it survives Gmail/Outlook -->
-              <img src="${LOGO_MARK_SRC}" width="38" height="38" alt="CookLyt"
+              <!-- Full logo lockup (mark + wordmark) as a single <img> -->
+              <img src="${LOGO_SRC}" width="222" height="38" alt="CookLyt"
                    style="display:block;margin:0 auto" />
 
-              <!-- Wordmark in plain HTML — font-based, no SVG text -->
-              <div style="margin-top:10px;font-family:Georgia,'Times New Roman',serif;
-                          font-size:17px;letter-spacing:7px;color:#0d0c0b;font-weight:400">
-                COOKLY<span style="color:#b06a3b;letter-spacing:0">&#x25CF;</span>T
-              </div>
-
-              <div style="font-size:11px;color:#888882;margin-top:5px;letter-spacing:0.05em">by Krilok</div>
+              <div style="font-size:11px;color:#888882;margin-top:8px;letter-spacing:0.05em">by Krilok</div>
 
             </td>
           </tr>
