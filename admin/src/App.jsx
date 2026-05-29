@@ -3,6 +3,7 @@ import Layout           from './components/Layout';
 import Login            from './pages/Login';
 import Setup            from './pages/Setup';
 import OAuthCallback    from './pages/OAuthCallback';
+import VerifyEmail      from './pages/VerifyEmail';
 import Restaurants      from './pages/Restaurants';
 import RestaurantDetail from './pages/RestaurantDetail';
 import UsersPage        from './pages/Users';
@@ -19,6 +20,7 @@ export default function App() {
       <Routes>
         <Route path="/login"          element={<Login />} />
         <Route path="/setup"          element={<Setup />} />
+        <Route path="/verify-email"   element={<VerifyEmail />} />
         <Route path="/oauth/callback" element={<OAuthCallback />} />
 
         <Route

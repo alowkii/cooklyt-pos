@@ -108,6 +108,12 @@ export function useDeleteSuperAdmin() {
   });
 }
 
+export function useResendSuperAdminVerification() {
+  return useMutation({
+    mutationFn: (id) => api.post(`/super-admins/${id}/resend-verification`).then((r) => r.data),
+  });
+}
+
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
 export function useAuditLogs({ restaurantId, from, to, resourceType, limit = 500 }) {

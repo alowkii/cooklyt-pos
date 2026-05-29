@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { UnauthorizedError, ForbiddenError } = require('../shared/errors');
 
+
 function authenticateSuperAdmin(req, res, next) {
   const cookieToken = req.cookies?.admin_token;
   const authHeader  = req.headers['authorization'];
@@ -20,4 +21,11 @@ function authenticateSuperAdmin(req, res, next) {
   }
 }
 
-module.exports = { authenticateSuperAdmin };
+function requireEmailVerified(req, res, next) {
+  if (!req.superAdmin?.emailVerified) {
+    return next(new ForbiddenError('Please verify your email address to perform this action'));
+  }
+  next();
+}
+
+module.exports = { authenticateSuperAdmin, requireEmailVerified };

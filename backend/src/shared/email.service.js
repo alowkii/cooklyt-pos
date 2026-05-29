@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 
-const APP_URL = process.env.APP_URL || 'http://localhost:5173';
+const APP_URL   = process.env.APP_URL   || 'http://localhost:5173';
+const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:5174';
 const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 
 // Logo served from the frontend's public directory.
@@ -209,4 +210,25 @@ async function sendAccountSetupEmail(to, token) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendAccountSetupEmail };
+async function sendAdminVerificationEmail(to, token) {
+  const link = `${ADMIN_URL}/verify-email?token=${token}`;
+  if (!isConfigured()) {
+    console.log(`[email] SMTP not configured — skipping admin verification email to ${to}`);
+    return;
+  }
+  await createTransporter().sendMail({
+    from:    FROM,
+    to,
+    subject: 'Verify your Cooklyt Operator account',
+    html: baseTemplate({
+      heading:    'Verify your email address',
+      body:       `You've been added as an operator on Cooklyt Admin. Please verify your email address to gain full access.`,
+      ctaText:    'Verify Email',
+      ctaUrl:     link,
+      expiry:     '72 hours',
+      footerNote: "If you weren't expecting this, you can safely ignore this email.",
+    }),
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendAccountSetupEmail, sendAdminVerificationEmail };

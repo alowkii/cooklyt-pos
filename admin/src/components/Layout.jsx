@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
-import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound, Users } from 'lucide-react';
+import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound, Users, MailWarning } from 'lucide-react';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -185,6 +185,18 @@ export default function Layout() {
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Cooklyt Admin</span>
         </header>
 
+        {admin && !admin.emailVerified && (
+          <div
+            className="flex shrink-0 items-center gap-2.5 px-4 py-2.5"
+            style={{ background: 'rgba(179,130,0,.08)', borderBottom: '1px solid rgba(179,130,0,.2)' }}
+          >
+            <MailWarning size={14} style={{ color: 'var(--warn)', flexShrink: 0 }} />
+            <p style={{ fontSize: 12, color: 'var(--ink)', margin: 0 }}>
+              <strong>Verify your email</strong> to unlock write access. Check your inbox for a verification link, or{' '}
+              <a href="/verify-email" style={{ color: 'var(--warn)', fontWeight: 600 }}>request a new one</a>.
+            </p>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <Outlet />
         </main>

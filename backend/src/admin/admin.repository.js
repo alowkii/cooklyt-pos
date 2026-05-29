@@ -12,12 +12,13 @@ const findSuperAdminById = (id) =>
 
 const getAllSuperAdmins = () =>
   db.query(
-    'SELECT id, email, created_at FROM super_admins ORDER BY created_at ASC',
+    'SELECT id, email, email_verified, created_at FROM super_admins ORDER BY created_at ASC',
   ).then((r) => r.rows);
 
 const createSuperAdmin = (email, hashedPassword) =>
   db.query(
-    'INSERT INTO super_admins (email, password) VALUES ($1, $2) RETURNING id, email, created_at',
+    `INSERT INTO super_admins (email, password, email_verified)
+     VALUES ($1, $2, FALSE) RETURNING id, email, email_verified, created_at`,
     [email, hashedPassword],
   ).then((r) => r.rows[0]);
 
@@ -26,6 +27,26 @@ const deleteSuperAdminById = (id) =>
     'DELETE FROM super_admins WHERE id = $1 RETURNING id, email',
     [id],
   ).then((r) => r.rows[0]);
+
+const findSuperAdminByVerificationToken = (token) =>
+  db.query('SELECT * FROM super_admins WHERE verification_token = $1', [token])
+    .then((r) => r.rows[0]);
+
+const markSuperAdminEmailVerified = (id) =>
+  db.query(
+    `UPDATE super_admins
+     SET email_verified = TRUE, verification_token = NULL, verification_token_expires_at = NULL
+     WHERE id = $1`,
+    [id],
+  );
+
+const setSuperAdminVerificationToken = (id, token, expiresAt) =>
+  db.query(
+    `UPDATE super_admins
+     SET verification_token = $1, verification_token_expires_at = $2
+     WHERE id = $3`,
+    [token, expiresAt, id],
+  );
 
 const updateSuperAdminDefaults = (id, defaults) =>
   db.query(
@@ -41,10 +62,10 @@ const countSuperAdmins = () =>
 // the TOCTOU window between countSuperAdmins() and the insert.
 const createFirstSuperAdmin = (email, password) =>
   db.query(
-    `INSERT INTO super_admins (email, password)
-     SELECT $1, $2
+    `INSERT INTO super_admins (email, password, email_verified)
+     SELECT $1, $2, TRUE
      WHERE NOT EXISTS (SELECT 1 FROM super_admins)
-     RETURNING id, email, created_at`,
+     RETURNING id, email, email_verified, created_at`,
     [email, password],
   ).then((r) => r.rows[0] || null);
 
@@ -179,6 +200,9 @@ module.exports = {
   getAllSuperAdmins,
   createSuperAdmin,
   deleteSuperAdminById,
+  findSuperAdminByVerificationToken,
+  markSuperAdminEmailVerified,
+  setSuperAdminVerificationToken,
   countSuperAdmins,
   createFirstSuperAdmin,
   updateSuperAdminPassword,

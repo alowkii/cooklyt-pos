@@ -1,7 +1,33 @@
 import { useState } from 'react';
-import { UserPlus, Trash2, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin } from '../hooks/useAdmin';
+import { UserPlus, Trash2, ShieldCheck, Eye, EyeOff, Loader2, BadgeCheck, MailWarning, Send } from 'lucide-react';
+import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin, useResendSuperAdminVerification } from '../hooks/useAdmin';
 import { useAuth } from '../hooks/useAuth';
+
+function VerifiedIcon({ verified }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', cursor: 'default' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {verified
+        ? <BadgeCheck size={13} style={{ color: 'var(--ok)' }} />
+        : <MailWarning size={13} style={{ color: 'var(--warn)' }} />}
+      {show && (
+        <span style={{
+          position: 'absolute', bottom: 'calc(100% + 5px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'var(--ink)', color: '#fff',
+          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+          padding: '3px 8px', borderRadius: 4, pointerEvents: 'none', zIndex: 10,
+        }}>
+          {verified ? 'Email verified' : 'Email not verified'}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -139,15 +165,28 @@ function AddAdminModal({ onClose }) {
 
 export default function UsersPage() {
   const { data: admins = [], isLoading } = useSuperAdmins();
-  const deleteAdmin = useDeleteSuperAdmin();
+  const deleteAdmin  = useDeleteSuperAdmin();
+  const resendVerif  = useResendSuperAdminVerification();
   const { admin: me } = useAuth();
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showAdd,       setShowAdd]       = useState(false);
+  const [resendingId,   setResendingId]   = useState(null);
+  const [resentId,      setResentId]      = useState(null);
 
   async function handleDelete(admin) {
     await deleteAdmin.mutateAsync(admin.id);
     setConfirmDelete(null);
+  }
+
+  async function handleResend(admin) {
+    setResendingId(admin.id);
+    try {
+      await resendVerif.mutateAsync(admin.id);
+      setResentId(admin.id);
+      setTimeout(() => setResentId(null), 3000);
+    } catch {}
+    finally { setResendingId(null); }
   }
 
   return (
@@ -180,6 +219,7 @@ export default function UsersPage() {
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Email</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Role</th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Status</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Added</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -195,13 +235,10 @@ export default function UsersPage() {
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
                     <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{admin.email}</span>
                         {isSelf && (
-                          <span
-                            className="rounded-full px-2 py-0.5"
-                            style={{ fontSize: 10, fontWeight: 500, background: 'var(--hover)', color: 'var(--mute)' }}
-                          >
+                          <span className="rounded-full px-2 py-0.5" style={{ fontSize: 10, fontWeight: 500, background: 'var(--hover)', color: 'var(--mute)' }}>
                             you
                           </span>
                         )}
@@ -212,6 +249,27 @@ export default function UsersPage() {
                         <ShieldCheck size={13} style={{ color: 'var(--info)' }} />
                         Super Admin
                       </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <VerifiedIcon verified={admin.email_verified} />
+                        {!admin.email_verified && !isSelf && (
+                          <button
+                            onClick={() => handleResend(admin)}
+                            disabled={resendingId === admin.id}
+                            className="inline-flex items-center gap-1"
+                            style={{
+                              fontSize: 11, border: 0, padding: '2px 6px', borderRadius: 4, cursor: 'pointer',
+                              color: resentId === admin.id ? 'var(--ok)' : 'var(--mute)',
+                              background: 'var(--hover)',
+                            }}
+                            title="Resend verification email"
+                          >
+                            <Send size={11} />
+                            {resentId === admin.id ? 'Sent!' : resendingId === admin.id ? '…' : 'Resend'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5" style={{ color: 'var(--mute)' }}>
                       {formatDate(admin.created_at)}

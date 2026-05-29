@@ -3,7 +3,11 @@ const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
 const service = require('./admin.service');
 const repo    = require('./admin.repository');
-const { authenticateSuperAdmin } = require('./admin.middleware');
+const { authenticateSuperAdmin, requireEmailVerified } = require('./admin.middleware');
+
+// Shorthand: auth only (read routes) vs auth + verified (write routes)
+const auth  = authenticateSuperAdmin;
+const authV = [authenticateSuperAdmin, requireEmailVerified];
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
 
@@ -67,13 +71,29 @@ router.post('/auth/logout', (req, res) => {
   res.status(204).send();
 });
 
-router.get('/auth/me', authenticateSuperAdmin, async (req, res, next) => {
+// ── Public verification endpoints ─────────────────────────────────────────────
+
+router.get('/verify-email', async (req, res, next) => {
+  try {
+    res.json(await service.verifySuperAdminEmail(req.query.token));
+  } catch (e) { next(e); }
+});
+
+router.post('/resend-verification', async (req, res, next) => {
+  try {
+    res.json(await service.resendSuperAdminVerification(req.body.email));
+  } catch (e) { next(e); }
+});
+
+// ── Protected auth ────────────────────────────────────────────────────────────
+
+router.get('/auth/me', auth, async (req, res, next) => {
   try {
     res.json(await service.me(req.superAdmin.superAdminId));
   } catch (e) { next(e); }
 });
 
-router.post('/auth/change-password', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/auth/change-password', auth, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const result = await service.changePassword(req.superAdmin.superAdminId, currentPassword, newPassword);
@@ -87,7 +107,7 @@ router.post('/auth/change-password', authenticateSuperAdmin, async (req, res, ne
   } catch (e) { next(e); }
 });
 
-router.patch('/auth/me/defaults', authenticateSuperAdmin, async (req, res, next) => {
+router.patch('/auth/me/defaults', authV, async (req, res, next) => {
   try {
     const { timezone, currency, tax_rate, service_charge } = req.body;
     const result = await service.updateDefaults(req.superAdmin.superAdminId, { timezone, currency, tax_rate, service_charge });
@@ -96,7 +116,7 @@ router.patch('/auth/me/defaults', authenticateSuperAdmin, async (req, res, next)
   } catch (e) { next(e); }
 });
 
-router.post('/auth/verify-password', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/auth/verify-password', authV, async (req, res, next) => {
   try {
     const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);
     // Log the export action here so it's tied to a verified identity
@@ -173,7 +193,7 @@ router.get('/auth/google/callback', async (req, res) => {
     if (!admin) return res.redirect(`${ADMIN_URL}/login?error=no_account`);
 
     const token = jwt.sign(
-      { superAdminId: admin.id, role: 'super_admin' },
+      { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
       process.env.JWT_SECRET,
       { expiresIn: '8h' },
     );
@@ -187,7 +207,7 @@ router.get('/auth/google/callback', async (req, res) => {
     res.cookie('admin_token', token, COOKIE_OPTS);
 
     const payload = Buffer.from(JSON.stringify({
-      admin: { id: admin.id, email: admin.email },
+      admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified },
     })).toString('base64url');
 
     res.redirect(`${ADMIN_URL}/oauth/callback?d=${payload}`);
@@ -199,13 +219,13 @@ router.get('/auth/google/callback', async (req, res) => {
 
 // ── Restaurants ───────────────────────────────────────────────────────────────
 
-router.get('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/restaurants', auth, async (req, res, next) => {
   try {
     res.json(await service.getAllRestaurants());
   } catch (e) { next(e); }
 });
 
-router.post('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/restaurants', authV, async (req, res, next) => {
   try {
     const restaurant = await service.createRestaurant(req.body.name);
     audit.log({ ...sa(req), action: 'create', resourceType: 'restaurant', resourceId: restaurant.id, description: `Created restaurant "${restaurant.name}"` });
@@ -213,13 +233,13 @@ router.post('/restaurants', authenticateSuperAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.get('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/restaurants/:id', auth, async (req, res, next) => {
   try {
     res.json(await service.getRestaurant(req.params.id));
   } catch (e) { next(e); }
 });
 
-router.patch('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
+router.patch('/restaurants/:id', authV, async (req, res, next) => {
   try {
     const restaurant = await service.updateRestaurant(req.params.id, req.body.name);
     audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'restaurant', resourceId: req.params.id, description: `Renamed restaurant to "${restaurant.name}"` });
@@ -227,7 +247,7 @@ router.patch('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) 
   } catch (e) { next(e); }
 });
 
-router.delete('/restaurants/:id', authenticateSuperAdmin, async (req, res, next) => {
+router.delete('/restaurants/:id', authV, async (req, res, next) => {
   try {
     const deleted = await service.deleteRestaurant(req.params.id);
     audit.log({ ...sa(req), restaurantName: deleted.name, action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant "${deleted.name}"` });
@@ -237,7 +257,7 @@ router.delete('/restaurants/:id', authenticateSuperAdmin, async (req, res, next)
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
-router.post('/restaurants/:id/users', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/restaurants/:id/users', authV, async (req, res, next) => {
   try {
     const { email, password, role } = req.body;
     const user = await service.createUser({ email, password, role, restaurantId: req.params.id });
@@ -246,7 +266,7 @@ router.post('/restaurants/:id/users', authenticateSuperAdmin, async (req, res, n
   } catch (e) { next(e); }
 });
 
-router.delete('/restaurants/:id/users/:userId', authenticateSuperAdmin, async (req, res, next) => {
+router.delete('/restaurants/:id/users/:userId', authV, async (req, res, next) => {
   try {
     const user = await service.deleteUser(req.params.userId, req.params.id);
     audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'user', resourceId: req.params.userId, description: `Deleted user "${user?.email || req.params.userId}"` });
@@ -256,13 +276,13 @@ router.delete('/restaurants/:id/users/:userId', authenticateSuperAdmin, async (r
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-router.get('/restaurants/:id/settings', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/restaurants/:id/settings', auth, async (req, res, next) => {
   try {
     res.json(await service.getSettings(req.params.id));
   } catch (e) { next(e); }
 });
 
-router.patch('/restaurants/:id/settings', authenticateSuperAdmin, async (req, res, next) => {
+router.patch('/restaurants/:id/settings', authV, async (req, res, next) => {
   try {
     const { key, value } = req.body;
     const settings = await service.updateSetting(req.params.id, key, value);
@@ -273,13 +293,13 @@ router.patch('/restaurants/:id/settings', authenticateSuperAdmin, async (req, re
 
 // ── Super admins ──────────────────────────────────────────────────────────────
 
-router.get('/super-admins', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/super-admins', auth, async (req, res, next) => {
   try {
     res.json(await service.getAllSuperAdmins());
   } catch (e) { next(e); }
 });
 
-router.post('/super-admins', authenticateSuperAdmin, async (req, res, next) => {
+router.post('/super-admins', authV, async (req, res, next) => {
   try {
     const admin = await service.createSuperAdmin(req.body.email, req.body.password);
     audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}"` });
@@ -287,7 +307,7 @@ router.post('/super-admins', authenticateSuperAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.delete('/super-admins/:id', authenticateSuperAdmin, async (req, res, next) => {
+router.delete('/super-admins/:id', authV, async (req, res, next) => {
   try {
     const admin = await service.deleteSuperAdminById(req.params.id, req.superAdmin.superAdminId);
     audit.log({ ...sa(req), action: 'delete', resourceType: 'super_admin', resourceId: req.params.id, description: `Deleted operator "${admin.email}"` });
@@ -295,9 +315,15 @@ router.delete('/super-admins/:id', authenticateSuperAdmin, async (req, res, next
   } catch (e) { next(e); }
 });
 
+router.post('/super-admins/:id/resend-verification', authV, async (req, res, next) => {
+  try {
+    res.json(await service.resendSuperAdminVerificationById(req.params.id));
+  } catch (e) { next(e); }
+});
+
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
-router.get('/audit-logs', authenticateSuperAdmin, async (req, res, next) => {
+router.get('/audit-logs', auth, async (req, res, next) => {
   try {
     const { restaurantId, from, to, resourceType, limit } = req.query;
     res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? parseInt(limit, 10) : 500 }));

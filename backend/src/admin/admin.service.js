@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
-const repo = require('./admin.repository');
+const jwt    = require('jsonwebtoken');
+const repo     = require('./admin.repository');
 const emailSvc = require('../shared/email.service');
 const { ValidationError, NotFoundError, UnauthorizedError } = require('../shared/errors');
 const settingsOptions = require('../../../shared/settings-options.json');
@@ -34,12 +34,12 @@ async function login(email, password) {
   if (!valid) throw new UnauthorizedError('Invalid credentials');
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin' },
+    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
 
-  return { token, admin: { id: admin.id, email: admin.email } };
+  return { token, admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified } };
 }
 
 // Only works when no super admin exists yet — first-run setup.
@@ -55,12 +55,12 @@ async function setup(email, password) {
     throw new ValidationError('Setup already complete — use /admin/auth/login');
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin' },
+    { superAdminId: admin.id, role: 'super_admin', emailVerified: true },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
 
-  return { token, admin: { id: admin.id, email: admin.email } };
+  return { token, admin: { id: admin.id, email: admin.email, emailVerified: true } };
 }
 
 // ── Restaurants ───────────────────────────────────────────────────────────────
@@ -129,7 +129,16 @@ async function createSuperAdmin(email, password) {
   const existing = await repo.findSuperAdminByEmail(email);
   if (existing) throw new ValidationError('An operator with this email already exists');
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  return repo.createSuperAdmin(email, hashed);
+  const admin   = await repo.createSuperAdmin(email, hashed);
+
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 h
+  await repo.setSuperAdminVerificationToken(admin.id, token, expiresAt);
+  emailSvc.sendAdminVerificationEmail(email, token).catch((err) => {
+    console.error(`[email] Failed to send admin verification to ${email}:`, err.message);
+  });
+
+  return admin;
 }
 
 async function deleteSuperAdminById(id, requesterId) {
@@ -137,6 +146,42 @@ async function deleteSuperAdminById(id, requesterId) {
   const admin = await repo.deleteSuperAdminById(id);
   if (!admin) throw new NotFoundError('Operator');
   return admin;
+}
+
+async function verifySuperAdminEmail(token) {
+  if (!token) throw new ValidationError('Token is required');
+  const admin = await repo.findSuperAdminByVerificationToken(token);
+  if (!admin) throw new ValidationError('Invalid or already-used verification link');
+  if (new Date(admin.verification_token_expires_at) < new Date())
+    throw new ValidationError('Verification link has expired. Please request a new one.');
+  if (admin.email_verified) return { ok: true };
+  await repo.markSuperAdminEmailVerified(admin.id);
+  return { ok: true };
+}
+
+async function resendSuperAdminVerification(email) {
+  if (!email) throw new ValidationError('Email is required');
+  const admin = await repo.findSuperAdminByEmail(email);
+  if (!admin || admin.email_verified) return { ok: true };
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+  await repo.setSuperAdminVerificationToken(admin.id, token, expiresAt);
+  emailSvc.sendAdminVerificationEmail(email, token).catch((err) => {
+    console.error(`[email] Failed to resend admin verification to ${email}:`, err.message);
+  });
+  return { ok: true };
+}
+
+async function resendSuperAdminVerificationById(id) {
+  const admin = await repo.findSuperAdminById(id);
+  if (!admin || admin.email_verified) return { ok: true };
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+  await repo.setSuperAdminVerificationToken(admin.id, token, expiresAt);
+  emailSvc.sendAdminVerificationEmail(admin.email, token).catch((err) => {
+    console.error(`[email] Failed to resend admin verification to ${admin.email}:`, err.message);
+  });
+  return { ok: true };
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -200,7 +245,7 @@ async function changePassword(superAdminId, currentPassword, newPassword) {
   await repo.updateSuperAdminPassword(superAdminId, hashed);
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin' },
+    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
@@ -220,6 +265,9 @@ module.exports = {
   getAllSuperAdmins,
   createSuperAdmin,
   deleteSuperAdminById,
+  verifySuperAdminEmail,
+  resendSuperAdminVerification,
+  resendSuperAdminVerificationById,
   getSettings,
   updateSetting,
   getAuditLogs,
