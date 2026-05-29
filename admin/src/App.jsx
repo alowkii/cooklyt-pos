@@ -5,6 +5,7 @@ import Setup            from './pages/Setup';
 import OAuthCallback    from './pages/OAuthCallback';
 import Restaurants      from './pages/Restaurants';
 import RestaurantDetail from './pages/RestaurantDetail';
+import UsersPage        from './pages/Users';
 import AuditLogs        from './pages/AuditLogs';
 import Settings         from './pages/Settings';
 
@@ -30,6 +31,7 @@ export default function App() {
         >
           <Route index element={<Restaurants />} />
           <Route path="restaurants/:id" element={<RestaurantDetail />} />
+          <Route path="users"      element={<UsersPage />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="settings"   element={<Settings />} />
         </Route>

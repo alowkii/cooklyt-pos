@@ -271,6 +271,36 @@ router.patch('/restaurants/:id/settings', authenticateSuperAdmin, async (req, re
   } catch (e) { next(e); }
 });
 
+// ── All users (cross-tenant) ──────────────────────────────────────────────────
+
+router.get('/users', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    res.json(await service.getAllUsers());
+  } catch (e) { next(e); }
+});
+
+router.delete('/users/:id', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const user = await service.deleteUserById(req.params.id);
+    audit.log({ ...sa(req), action: 'delete', resourceType: 'user', resourceId: req.params.id, description: `Deleted user "${user.email}"` });
+    res.status(204).send();
+  } catch (e) { next(e); }
+});
+
+router.patch('/users/:id/active', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    const result = await service.setUserActive(req.params.id, req.body.isActive);
+    audit.log({ ...sa(req), action: 'update', resourceType: 'user', resourceId: req.params.id, description: `${req.body.isActive ? 'Enabled' : 'Disabled'} user account` });
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
+router.post('/users/:id/resend-verification', authenticateSuperAdmin, async (req, res, next) => {
+  try {
+    res.json(await service.resendVerificationForUser(req.params.id));
+  } catch (e) { next(e); }
+});
+
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
 router.get('/audit-logs', authenticateSuperAdmin, async (req, res, next) => {

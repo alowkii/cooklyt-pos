@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
-import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound } from 'lucide-react';
+import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound, Users } from 'lucide-react';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import ChangePasswordModal from './ChangePasswordModal';
 
 const NAV = [
   { to: '/',           label: 'Restaurants', Icon: Building2,  end: true  },
+  { to: '/users',      label: 'Users',       Icon: Users,      end: false },
   { to: '/audit-logs', label: 'Audit Logs',  Icon: ScrollText, end: false },
   { to: '/settings',   label: 'Settings',    Icon: Settings,   end: false },
 ];

@@ -77,6 +77,42 @@ export function useDeleteUser(restaurantId) {
   });
 }
 
+// ── All users (cross-tenant) ──────────────────────────────────────────────────
+
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ['all-users'],
+    queryFn: () => api.get('/users').then((r) => r.data),
+  });
+}
+
+export function useDeleteAnyUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['all-users'] });
+      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
+export function useSetAnyUserActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isActive }) =>
+      api.patch(`/users/${id}/active`, { isActive }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['all-users'] }),
+  });
+}
+
+export function useResendAnyVerification() {
+  return useMutation({
+    mutationFn: (id) => api.post(`/users/${id}/resend-verification`).then((r) => r.data),
+  });
+}
+
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
 export function useAuditLogs({ restaurantId, from, to, resourceType, limit = 500 }) {

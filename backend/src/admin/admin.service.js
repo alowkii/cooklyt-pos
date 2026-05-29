@@ -1,8 +1,14 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const repo = require('./admin.repository');
+const emailSvc = require('../shared/email.service');
 const { ValidationError, NotFoundError, UnauthorizedError } = require('../shared/errors');
 const settingsOptions = require('../../../shared/settings-options.json');
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 const SALT_ROUNDS = 12;
 const VALID_ROLES = ['admin', 'staff', 'kitchen'];
@@ -113,6 +119,42 @@ async function deleteUser(userId, restaurantId) {
   return user;
 }
 
+async function getAllUsers() {
+  return repo.getAllUsers();
+}
+
+async function deleteUserById(userId) {
+  const user = await repo.deleteUserById(userId);
+  if (!user) throw new NotFoundError('User');
+  return user;
+}
+
+async function setUserActive(userId, isActive) {
+  const user = await repo.setUserActive(userId, isActive);
+  if (!user) throw new NotFoundError('User');
+  return user;
+}
+
+async function resendVerificationForUser(userId) {
+  const user = await repo.findUserById(userId);
+  if (!user || user.email_verified) return { ok: true };
+
+  const isAdminCreated = user.force_password_change;
+  const expiresAt = new Date(Date.now() + (isAdminCreated ? 72 : 24) * 60 * 60 * 1000);
+  const token = generateToken();
+  await repo.setVerificationTokenForUser(userId, token, expiresAt);
+
+  const send = isAdminCreated
+    ? emailSvc.sendAccountSetupEmail
+    : emailSvc.sendVerificationEmail;
+
+  send(user.email, token).catch((err) => {
+    console.error(`[admin email] Failed to resend to ${user.email}:`, err.message);
+  });
+
+  return { ok: true };
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 async function getSettings(restaurantId) {
@@ -191,6 +233,10 @@ module.exports = {
   deleteRestaurant,
   createUser,
   deleteUser,
+  getAllUsers,
+  deleteUserById,
+  setUserActive,
+  resendVerificationForUser,
   getSettings,
   updateSetting,
   getAuditLogs,

@@ -65,6 +65,37 @@ const deleteRestaurant = (id) =>
 
 // ── Users (cross-tenant) ─────────────────────────────────────────────────────
 
+const getAllUsers = () =>
+  db.query(
+    `SELECT u.id, u.email, u.name, u.role, u.is_active, u.email_verified,
+            u.force_password_change, u.created_at, u.restaurant_id,
+            r.name AS restaurant_name
+     FROM users u
+     JOIN restaurants r ON r.id = u.restaurant_id
+     ORDER BY u.created_at DESC`,
+  ).then((r) => r.rows);
+
+const findUserById = (id) =>
+  db.query('SELECT * FROM users WHERE id = $1', [id])
+    .then((r) => r.rows[0]);
+
+const deleteUserById = (id) =>
+  db.query('DELETE FROM users WHERE id = $1 RETURNING id, email', [id])
+    .then((r) => r.rows[0]);
+
+const setUserActive = (id, isActive) =>
+  db.query(
+    'UPDATE users SET is_active = $1 WHERE id = $2 RETURNING id, is_active',
+    [isActive, id],
+  ).then((r) => r.rows[0]);
+
+const setVerificationTokenForUser = (id, token, expiresAt) =>
+  db.query(
+    `UPDATE users SET verification_token = $1, verification_token_expires_at = $2
+     WHERE id = $3`,
+    [token, expiresAt, id],
+  );
+
 const getUsersByRestaurant = (restaurantId) =>
   db.query(
     `SELECT id, email, role, created_at FROM users
@@ -137,6 +168,11 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
+  getAllUsers,
+  findUserById,
+  deleteUserById,
+  setUserActive,
+  setVerificationTokenForUser,
   getUsersByRestaurant,
   createUserForRestaurant,
   deleteUser,
