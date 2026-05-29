@@ -4,7 +4,7 @@ import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import api from '../api/client';
 
 const GOOGLE_ENABLED = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const API_URL        = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL        = import.meta.env.VITE_API_URL || '';
 
 export default function Login() {
   const navigate = useNavigate();
