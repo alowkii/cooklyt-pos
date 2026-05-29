@@ -21,13 +21,13 @@ async function findUserById(id) {
   return rows[0];
 }
 
-async function createUser({ email, password, role, name, restaurantId, verificationToken, verificationTokenExpiresAt }) {
+async function createUser({ email, password, role, name, restaurantId, verificationToken, verificationTokenExpiresAt, forcePasswordChange = false }) {
   const { rows } = await db.query(
     `INSERT INTO users
-       (email, password, role, name, restaurant_id, verification_token, verification_token_expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (email, password, role, name, restaurant_id, verification_token, verification_token_expires_at, force_password_change)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, email, name, role, restaurant_id, created_at, email_verified`,
-    [email, password, role, name || null, restaurantId, verificationToken || null, verificationTokenExpiresAt || null],
+    [email, password, role, name || null, restaurantId, verificationToken || null, verificationTokenExpiresAt || null, forcePasswordChange],
   );
   return rows[0];
 }
@@ -159,7 +159,7 @@ async function createRestaurantWithAdmin({ restaurantName, email, password, veri
 
 async function findUserByVerificationToken(token) {
   const { rows } = await db.query(
-    `SELECT id, email, email_verified, verification_token_expires_at
+    `SELECT id, email, email_verified, verification_token_expires_at, force_password_change
      FROM users WHERE verification_token = $1`,
     [token],
   );

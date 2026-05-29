@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, Mail } from 'lucide-react';
 import api from '../api/client';
 
@@ -39,6 +39,7 @@ function BrandHeader() {
 
 export default function VerifyEmail() {
   const [searchParams]   = useSearchParams();
+  const navigate         = useNavigate();
   const token            = searchParams.get('token');
   const [status, setStatus]       = useState(token ? 'loading' : 'no-token');
   const [resendEmail, setResendEmail] = useState('');
@@ -49,7 +50,13 @@ export default function VerifyEmail() {
   useEffect(() => {
     if (!token) return;
     api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then(() => setStatus('success'))
+      .then(({ data }) => {
+        if (data.needsPasswordSetup) {
+          navigate(`/set-password?token=${encodeURIComponent(token)}`, { replace: true });
+          return;
+        }
+        setStatus('success');
+      })
       .catch((err) => {
         const msg = err.response?.data?.error || '';
         setStatus(msg.toLowerCase().includes('expired') ? 'expired' : 'invalid');

@@ -74,6 +74,7 @@ async function register(email_, password, role = 'staff', restaurantId, name) {
   const user = await repo.createUser({
     email: email_, password: hashed, role, name, restaurantId,
     verificationToken: token, verificationTokenExpiresAt: expiresAt,
+    forcePasswordChange: true,
   });
 
   emailSvc.sendAccountSetupEmail(email_, token).catch((err) => {
@@ -216,9 +217,14 @@ async function verifyEmail(token) {
 
   const user = await repo.findUserByVerificationToken(token);
   if (!user) throw new ValidationError('Invalid or expired verification link');
-  if (user.email_verified) return { ok: true }; // already verified
+  if (user.email_verified) return { ok: true };
   if (new Date(user.verification_token_expires_at) < new Date())
     throw new ValidationError('Verification link has expired. Please request a new one.');
+
+  // Admin-created account — password not set yet. Tell frontend to redirect to set-password.
+  if (user.force_password_change) {
+    return { needsPasswordSetup: true, token };
+  }
 
   await repo.markEmailVerified(user.id);
   return { ok: true };
