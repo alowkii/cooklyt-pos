@@ -9,7 +9,7 @@ const audit = require('../shared/audit');
 
 const GOOGLE_CLIENT_ID          = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET      = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_ADMIN_CALLBACK_URL = process.env.GOOGLE_ADMIN_CALLBACK_URL;
+const GOOGLE_ADMIN_CALLBACK_URL = process.env.GOOGLE_ADMIN_CALLBACK_URL || 'http://localhost:3000/admin/auth/google/callback';
 const ADMIN_URL                 = process.env.ADMIN_URL || 'http://localhost:5174';
 
 const COOKIE_OPTS = {
