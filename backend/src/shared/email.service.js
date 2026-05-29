@@ -6,8 +6,7 @@ const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 // Logo served from the frontend's public directory.
 // Gmail and Outlook block data URIs in <img>, so a proper URL is the only reliable option.
 // dashboard/public/logo-email.svg is the source of truth for this image.
-const LOGO_URL       = `${APP_URL}/logo-email.png`;  // PNG — Gmail blocks SVG in <img>
-const LOGO_MARK_URL  = `${APP_URL}/logo-email.png`;
+const LOGO_URL = `${APP_URL}/logo-email.png`;  // PNG of the arc mark — Gmail blocks SVG
 
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -45,11 +44,17 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
           <tr>
             <td align="center">
 
-              <!-- Logo served from APP_URL/logo-email.svg -->
-              <img src="${LOGO_URL}" width="220" height="38" alt="CookLyt"
+              <!-- Arc mark PNG (no font dependency) -->
+              <img src="${LOGO_URL}" width="44" height="44" alt=""
                    style="display:block;margin:0 auto" />
 
-              <div style="font-size:11px;color:#888882;margin-top:8px;letter-spacing:0.05em">by Krilok</div>
+              <!-- Wordmark as HTML text — no image, no font risk -->
+              <div style="margin-top:10px;font-family:Georgia,'Times New Roman',serif;
+                          font-size:18px;letter-spacing:8px;color:#0d0c0b;font-weight:400">
+                COOKLY<span style="color:#b06a3b;letter-spacing:2px">T</span>
+              </div>
+
+              <div style="font-size:11px;color:#888882;margin-top:4px;letter-spacing:0.05em">by Krilok</div>
 
             </td>
           </tr>
@@ -116,7 +121,8 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td>
-                    <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.04em">CookLyt</span>
+                    <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;
+                                 letter-spacing:3px">COOKLYT</span>
                     <span style="font-size:12px;color:#aaa9a4">&nbsp;&middot; by Krilok</span>
                   </td>
                   <td align="right">

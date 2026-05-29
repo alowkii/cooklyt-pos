@@ -1,18 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="220" height="38">
-  <!-- Arc mark — same path as og-image.svg -->
-  <svg x="0" y="0" width="38" height="38" viewBox="0 0 200 200">
-    <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
-          fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>
-    <circle cx="100" cy="100" r="12" fill="#B06A3B"/>
-  </svg>
-  <!-- Wordmark — same viewBox, font-size and letter-spacing as og-image.svg -->
-  <svg x="50" y="0" width="170" height="38" viewBox="0 0 360 64" preserveAspectRatio="xMinYMid meet">
-    <text x="0" y="49"
-          font-family="Georgia,'Times New Roman',serif"
-          font-size="56" fill="#0D0C0B" letter-spacing="10.08">COOKLY</text>
-    <circle cx="294.2" cy="29.43" r="5.03" fill="#B06A3B"/>
-    <text x="309.33" y="49"
-          font-family="Georgia,'Times New Roman',serif"
-          font-size="56" fill="#0D0C0B" letter-spacing="10.08">T</text>
-  </svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="44" height="44">
+  <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+        fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="100" cy="100" r="12" fill="#B06A3B"/>
 </svg>

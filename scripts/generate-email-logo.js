@@ -17,7 +17,7 @@ async function run() {
 
   const svg = fs.readFileSync(svgPath);
   await sharp(svg)
-    .resize(440)   // 2x for retina, displayed at 220px in email
+    .resize(88)    // 2x retina, displayed at 44px in email
     .png()
     .toFile(pngPath);
 
