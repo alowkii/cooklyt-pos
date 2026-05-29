@@ -97,3 +97,12 @@ export function useSetStaffPin() {
     },
   });
 }
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: async (id) => {
+      const { data } = await api.post(`/auth/users/${id}/resend-verification`);
+      return data;
+    },
+  });
+}

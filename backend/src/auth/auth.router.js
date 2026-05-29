@@ -24,6 +24,12 @@ const writeLimiter = rateLimit({
   message: 'Too many requests',
 });
 
+const emailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many email requests, please try again later',
+});
+
 router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const result = await service.login(req.body.email, req.body.password);
@@ -184,6 +190,61 @@ router.patch('/users/:id/present', authenticate, writeLimiter, async (req, res, 
     const user = await service.setUserPresent(req.params.id, !!req.body.is_present, req.user.restaurantId);
     res.json(user);
   } catch (e) { next(e); }
+});
+
+// --- email verification ---
+
+router.get('/verify-email', async (req, res, next) => {
+  try {
+    const result = await service.verifyEmail(req.query.token);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/resend-verification', emailLimiter, async (req, res, next) => {
+  try {
+    const result = await service.resendVerification(req.body.email);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Admin-only: resend verification for a specific user by id
+router.post('/users/:id/resend-verification', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
+  try {
+    const target = await service.me(req.params.id);
+    if (!target || target.restaurant_id !== req.user.restaurantId) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const result = await service.resendVerification(target.email);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// --- password reset ---
+
+router.post('/forgot-password', emailLimiter, async (req, res, next) => {
+  try {
+    const result = await service.forgotPassword(req.body.email);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/reset-password', writeLimiter, async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const result = await service.resetPassword(token, password);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

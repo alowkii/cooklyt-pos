@@ -7,6 +7,9 @@ import { useCurrency } from './context/CurrencyContext';
 import Layout   from './components/Layout';
 import Login          from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
+import VerifyEmail    from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword  from './pages/ResetPassword';
 import Landing  from './pages/Landing';
 import Overview from './pages/Overview';
 import Menu           from './pages/Menu';
@@ -85,8 +88,11 @@ export default function App() {
       <SyncWatcher />
       <Routes>
         <Route path="/"               element={<RequireGuest><Landing /></RequireGuest>} />
-        <Route path="/login"          element={<RequireGuest><Login /></RequireGuest>} />
+        <Route path="/login"           element={<RequireGuest><Login /></RequireGuest>} />
         <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/verify-email"    element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<RequireGuest><ForgotPassword /></RequireGuest>} />
+        <Route path="/reset-password"  element={<RequireGuest><ResetPassword /></RequireGuest>} />
 
         {/* Pathless layout route — wraps all authenticated pages */}
         <Route

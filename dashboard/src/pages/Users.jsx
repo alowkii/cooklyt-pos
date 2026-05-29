@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound, MapPin } from 'lucide-react';
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin, useSetUserActive, useSetUserPresent } from '../hooks/useUsers';
+import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCode, KeyRound, MapPin, BadgeCheck, MailWarning, Send } from 'lucide-react';
+import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin, useSetUserActive, useSetUserPresent, useResendVerification } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import QRCode from 'qrcode';
@@ -264,10 +264,13 @@ export default function Users() {
   const deleteUser    = useDeleteUser();
   const updateRole    = useUpdateUserRole();
   const updateName    = useUpdateUserName();
-  const setUserActive  = useSetUserActive();
-  const setUserPresent = useSetUserPresent();
+  const setUserActive      = useSetUserActive();
+  const setUserPresent     = useSetUserPresent();
+  const resendVerification = useResendVerification();
 
   const [addModal,       setAddModal]       = useState(false);
+  const [resendingId,    setResendingId]    = useState(null);
+  const [resentId,       setResentId]       = useState(null);
   const [confirmDelete,  setConfirmDelete]  = useState(null);
   const [pinModal,       setPinModal]       = useState(null); // user object
   const [form,           setForm]           = useState(EMPTY_FORM);
@@ -290,6 +293,16 @@ export default function Users() {
   async function handleDelete(id) {
     await deleteUser.mutateAsync(id);
     setConfirmDelete(null);
+  }
+
+  async function handleResendVerification(user) {
+    setResendingId(user.id);
+    try {
+      await resendVerification.mutateAsync(user.id);
+      setResentId(user.id);
+      setTimeout(() => setResentId(null), 3000);
+    } catch {}
+    finally { setResendingId(null); }
   }
 
   return (
@@ -318,6 +331,7 @@ export default function Users() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Email</th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Verified</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>
                   Name
                   <span style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--line-2)' }}>(click to edit)</span>
@@ -352,6 +366,46 @@ export default function Users() {
                         >
                           you
                         </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {user.email_verified ? (
+                        <span
+                          className="inline-flex items-center gap-1"
+                          title="Email verified"
+                          style={{ fontSize: 12, color: 'var(--ok)' }}
+                        >
+                          <BadgeCheck size={14} />
+                          <span>Verified</span>
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-flex items-center gap-1"
+                            title="Email not verified"
+                            style={{ fontSize: 12, color: 'var(--warn)' }}
+                          >
+                            <MailWarning size={14} />
+                            <span>Unverified</span>
+                          </span>
+                          {!isSelf && (
+                            <button
+                              onClick={() => handleResendVerification(user)}
+                              disabled={resendingId === user.id}
+                              title="Resend verification email"
+                              className="inline-flex items-center gap-1"
+                              style={{
+                                fontSize: 11, background: 'none', border: 0, padding: '2px 6px',
+                                borderRadius: 4, cursor: 'pointer',
+                                color: resentId === user.id ? 'var(--ok)' : 'var(--mute)',
+                                background: 'var(--hover)',
+                              }}
+                            >
+                              <Send size={11} />
+                              <span>{resentId === user.id ? 'Sent!' : 'Resend'}</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-5 py-3.5">

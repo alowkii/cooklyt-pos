@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import api from '../api/client';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm]         = useState({ email: '', password: '' });
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [form, setForm]           = useState({ email: '', password: '' });
+  const [showPass, setShowPass]   = useState(false);
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setUnverified(false);
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', form);
@@ -24,9 +28,26 @@ export default function Login() {
       }
       navigate('/overview');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Check your connection.');
+      if (err.response?.data?.error === 'EMAIL_NOT_VERIFIED') {
+        setUnverified(true);
+      } else {
+        setError(err.response?.data?.error || 'Login failed. Check your connection.');
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendLoading(true);
+    try {
+      await api.post('/auth/resend-verification', { email: form.email });
+      setResendSent(true);
+    } catch {
+      // silent — always shows success message for security
+      setResendSent(true);
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -65,86 +86,138 @@ export default function Login() {
             padding: '28px 28px 24px',
           }}
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div>
-              <label
-                htmlFor="email"
-                style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--mute)', marginBottom: 5 }}
+          {unverified ? (
+            <div className="space-y-4">
+              <div
+                className="flex items-start gap-3 rounded-md px-3 py-3"
+                style={{ background: 'rgba(176,106,59,.08)', border: '1px solid rgba(176,106,59,.2)' }}
               >
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className="input"
-                placeholder="you@restaurant.com"
-                autoComplete="username"
-                autoFocus
-                required
-              />
+                <Mail size={16} style={{ color: '#b06a3b', flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Email not verified</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--mute)' }}>
+                    Check your inbox for a verification link, or request a new one.
+                  </p>
+                </div>
+              </div>
+
+              {resendSent ? (
+                <p style={{ fontSize: 12, color: 'var(--ok)', margin: 0 }}>
+                  ✓ A new verification email is on its way to <strong>{form.email}</strong>.
+                </p>
+              ) : (
+                <button
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  className="btn-primary"
+                  style={{ width: '100%', height: 38, justifyContent: 'center' }}
+                >
+                  {resendLoading
+                    ? <><Loader2 size={13} className="animate-spin" /> Sending…</>
+                    : 'Resend verification email'}
+                </button>
+              )}
+
+              <button
+                onClick={() => { setUnverified(false); setResendSent(false); }}
+                className="btn-secondary"
+                style={{ width: '100%', height: 38, justifyContent: 'center' }}
+              >
+                Back to sign in
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
 
-            <div>
-              <label
-                htmlFor="password"
-                style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--mute)', marginBottom: 5 }}
-              >
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
+              <div>
+                <label
+                  htmlFor="email"
+                  style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--mute)', marginBottom: 5 }}
+                >
+                  Email address
+                </label>
                 <input
-                  id="password"
-                  type={showPass ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   className="input"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  style={{ paddingRight: 36 }}
+                  placeholder="you@restaurant.com"
+                  autoComplete="username"
+                  autoFocus
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  tabIndex={-1}
-                  aria-label={showPass ? 'Hide password' : 'Show password'}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between" style={{ marginBottom: 5 }}>
+                  <label
+                    htmlFor="password"
+                    style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mute)' }}
+                  >
+                    Password
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    style={{ fontSize: 11.5, color: 'var(--mute)', textDecoration: 'none' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mute)')}
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="password"
+                    type={showPass ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    className="input"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    style={{ paddingRight: 36 }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPass ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', padding: 2, cursor: 'pointer',
+                      color: 'var(--mute-2)', display: 'flex', borderRadius: 4,
+                    }}
+                  >
+                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <p
                   style={{
-                    position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', padding: 2, cursor: 'pointer',
-                    color: 'var(--mute-2)', display: 'flex', borderRadius: 4,
+                    margin: 0, fontSize: 12, color: 'var(--bad)',
+                    background: 'rgba(179,55,43,.06)', borderRadius: 6, padding: '8px 12px',
                   }}
                 >
-                  {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
+                  {error}
+                </p>
+              )}
 
-            {error && (
-              <p
-                style={{
-                  margin: 0, fontSize: 12, color: 'var(--bad)',
-                  background: 'rgba(179,55,43,.06)', borderRadius: 6, padding: '8px 12px',
-                }}
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary"
+                style={{ width: '100%', height: 38, justifyContent: 'center', marginTop: 2 }}
               >
-                {error}
-              </p>
-            )}
+                {loading
+                  ? <><Loader2 size={13} className="animate-spin" /> Signing in…</>
+                  : 'Sign in'}
+              </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{ width: '100%', height: 38, justifyContent: 'center', marginTop: 2 }}
-            >
-              {loading
-                ? <><Loader2 size={13} className="animate-spin" /> Signing in…</>
-                : 'Sign in'}
-            </button>
-
-          </form>
+            </form>
+          )}
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11.5, color: 'var(--mute-2)' }}>

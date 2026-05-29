@@ -1,7 +1,9 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const repo = require('./auth.repository');
-const { UnauthorizedError, ValidationError, NotFoundError } = require('../shared/errors');
+const bcrypt  = require('bcrypt');
+const jwt     = require('jsonwebtoken');
+const crypto  = require('crypto');
+const repo    = require('./auth.repository');
+const email   = require('../shared/email.service');
+const { UnauthorizedError, ValidationError, NotFoundError, ForbiddenError } = require('../shared/errors');
 
 const SALT_ROUNDS = 12;
 
@@ -19,16 +21,21 @@ function assertStrongPassword(password) {
   }
 }
 
-async function login(email, password) {
-  if (!email || !password)
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+async function login(email_, password) {
+  if (!email_ || !password)
     throw new ValidationError('Email and password are required');
 
-  const user = await repo.findUserByEmail(email);
+  const user = await repo.findUserByEmail(email_);
   if (!user) throw new UnauthorizedError('Invalid credentials');
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) throw new UnauthorizedError('Invalid credentials');
   if (user.is_active === false) throw new UnauthorizedError('Account is disabled');
+  if (!user.email_verified) throw new ForbiddenError('EMAIL_NOT_VERIFIED');
 
   const token = createToken(user.id, user.role, user.restaurant_id, {
     forcePasswordChange: user.force_password_change,
@@ -43,23 +50,37 @@ async function login(email, password) {
       role: user.role,
       restaurantId: user.restaurant_id,
       forcePasswordChange: user.force_password_change,
+      emailVerified: true,
     },
     restaurant: { id: user.restaurant_id, name: user.restaurant_name },
   };
 }
 
-async function register(email, password, role = 'staff', restaurantId, name) {
-  if (!email || !password)
+async function register(email_, password, role = 'staff', restaurantId, name) {
+  if (!email_ || !password)
     throw new ValidationError('Email and password are required');
   if (!restaurantId)
     throw new ValidationError('restaurantId is required');
   assertStrongPassword(password);
 
-  const existing = await repo.findUserByEmail(email);
+  const existing = await repo.findUserByEmail(email_);
   if (existing) throw new ValidationError('Email already in use');
 
-  const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  return repo.createUser({ email, password: hashed, role, name, restaurantId });
+  const hashed   = await bcrypt.hash(password, SALT_ROUNDS);
+  const token    = generateToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const user = await repo.createUser({
+    email: email_, password: hashed, role, name, restaurantId,
+    verificationToken: token, verificationTokenExpiresAt: expiresAt,
+  });
+
+  // Fire-and-forget — user creation succeeds even if email fails
+  email.sendVerificationEmail(email_, token).catch((err) => {
+    console.error(`[email] Failed to send verification to ${email_}:`, err.message);
+  });
+
+  return user;
 }
 
 async function me(userId) {
@@ -92,25 +113,32 @@ async function updateUserRole(targetId, role, requestingUserId, restaurantId) {
   return repo.updateUserRole(targetId, role, restaurantId);
 }
 
-async function signup(restaurantName, email, password) {
-  if (!restaurantName || !email || !password)
+async function signup(restaurantName, email_, password) {
+  if (!restaurantName || !email_ || !password)
     throw new ValidationError('restaurantName, email and password are required');
   assertStrongPassword(password);
 
-  const existing = await repo.findUserByEmail(email);
+  const existing = await repo.findUserByEmail(email_);
   if (existing) throw new ValidationError('Email already in use');
 
-  const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+  const hashed    = await bcrypt.hash(password, SALT_ROUNDS);
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
   const { restaurant, user } = await repo.createRestaurantWithAdmin({
     restaurantName,
-    email,
+    email: email_,
     password: hashed,
+    verificationToken: token,
+    verificationTokenExpiresAt: expiresAt,
   });
 
-  const token = createToken(user.id, user.role, restaurant.id);
+  email.sendVerificationEmail(email_, token).catch((err) => {
+    console.error(`[email] Failed to send verification to ${email_}:`, err.message);
+  });
 
+  // Don't issue a JWT yet — user must verify first
   return {
-    token,
     user:       { id: user.id, email: user.email, role: user.role, restaurantId: restaurant.id },
     restaurant: { id: restaurant.id, name: restaurant.name },
   };
@@ -124,7 +152,6 @@ async function changePassword(userId, currentPassword, newPassword) {
   const user = await repo.findUserById(userId);
   if (!user) throw new UnauthorizedError('User not found');
 
-  // fetch the hashed password (findUserById omits it intentionally)
   const { rows } = await require('../shared/db').query(
     'SELECT password FROM users WHERE id = $1', [userId],
   );
@@ -134,8 +161,8 @@ async function changePassword(userId, currentPassword, newPassword) {
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await repo.updatePassword(userId, hashed);
 
-  const token = createToken(user.id, user.role, user.restaurant_id, { forcePasswordChange: false });
-  return { token };
+  const newToken = createToken(user.id, user.role, user.restaurant_id, { forcePasswordChange: false });
+  return { token: newToken };
 }
 
 async function updateUserName(targetId, name, restaurantId) {
@@ -164,4 +191,77 @@ async function setUserPresent(targetId, isPresent, restaurantId) {
   return repo.setUserPresent(targetId, isPresent, restaurantId);
 }
 
-module.exports = { login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName, changePassword, signup, setStaffPin, setUserActive, setUserPresent };
+// --- email verification ---
+
+async function verifyEmail(token) {
+  if (!token) throw new ValidationError('Verification token is required');
+
+  const user = await repo.findUserByVerificationToken(token);
+  if (!user) throw new ValidationError('Invalid or expired verification link');
+  if (user.email_verified) return { ok: true }; // already verified
+  if (new Date(user.verification_token_expires_at) < new Date())
+    throw new ValidationError('Verification link has expired. Please request a new one.');
+
+  await repo.markEmailVerified(user.id);
+  return { ok: true };
+}
+
+async function resendVerification(email_) {
+  if (!email_) throw new ValidationError('Email is required');
+
+  const user = await repo.findUserByEmail(email_);
+  // Always return ok to avoid revealing whether an email exists
+  if (!user || user.email_verified) return { ok: true };
+
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await repo.setVerificationToken(user.id, token, expiresAt);
+
+  email.sendVerificationEmail(email_, token).catch((err) => {
+    console.error(`[email] Failed to resend verification to ${email_}:`, err.message);
+  });
+
+  return { ok: true };
+}
+
+// --- password reset ---
+
+async function forgotPassword(email_) {
+  if (!email_) throw new ValidationError('Email is required');
+
+  const user = await repo.findUserByEmail(email_);
+  // Silent success — don't leak whether the email exists
+  if (!user || !user.email_verified) return { ok: true };
+
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  await repo.setResetToken(user.id, token, expiresAt);
+
+  email.sendPasswordResetEmail(email_, token).catch((err) => {
+    console.error(`[email] Failed to send reset email to ${email_}:`, err.message);
+  });
+
+  return { ok: true };
+}
+
+async function resetPassword(token, newPassword) {
+  if (!token || !newPassword) throw new ValidationError('Token and password are required');
+  assertStrongPassword(newPassword);
+
+  const user = await repo.findUserByResetToken(token);
+  if (!user) throw new ValidationError('Invalid or expired reset link');
+  if (new Date(user.reset_token_expires_at) < new Date())
+    throw new ValidationError('Reset link has expired. Please request a new one.');
+
+  const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await repo.updatePassword(user.id, hashed);
+  await repo.clearResetToken(user.id);
+
+  return { ok: true };
+}
+
+module.exports = {
+  login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName,
+  changePassword, signup, setStaffPin, setUserActive, setUserPresent,
+  verifyEmail, resendVerification, forgotPassword, resetPassword,
+};
