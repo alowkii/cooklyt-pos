@@ -6,10 +6,18 @@ import api from '../api/client';
 const GOOGLE_ENABLED = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_URL        = import.meta.env.VITE_API_URL || '';
 
+const OAUTH_ERRORS = {
+  no_account:      'No CookLyt account is linked to this Google address. Ask your admin to add you as a user first.',
+  disabled:        'Your account has been disabled. Contact your admin.',
+  oauth_cancelled: 'Google sign-in was cancelled.',
+  oauth_failed:    'Google sign-in failed. Please try again.',
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams]  = useSearchParams();
-  const oauthError      = searchParams.get('oauthError');
+  const rawError   = searchParams.get('error');
+  const oauthError = searchParams.get('oauthError') || OAUTH_ERRORS[rawError] || null;
   const [form, setForm]           = useState({ email: '', password: '' });
   const [showPass, setShowPass]   = useState(false);
   const [error, setError]         = useState('');
@@ -252,13 +260,23 @@ export default function Login() {
 
             </form>
           )}
-        </div>
 
-        {oauthError && (
-          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--bad)' }}>
-            {decodeURIComponent(oauthError)}
-          </p>
-        )}
+          {oauthError && (
+            <div
+              style={{
+                margin: '16px 0 0',
+                padding: '10px 14px',
+                borderRadius: 7,
+                background: 'rgba(179,55,43,.06)',
+                border: '1px solid rgba(179,55,43,.15)',
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.5 }}>
+                {oauthError}
+              </p>
+            </div>
+          )}
+        </div>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11.5, color: 'var(--mute-2)' }}>
           Can't log in? Contact your administrator.
