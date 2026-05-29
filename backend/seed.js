@@ -525,8 +525,8 @@ async function main() {
 
   for (const u of SEED_USERS) {
     await client.query(`
-      INSERT INTO users (id, email, password, role, name, staff_pin, restaurant_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO users (id, email, password, role, name, staff_pin, restaurant_id, email_verified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true)
     `, [u.id, u.email, hashByPassword[u.password], u.role, u.name, u.pin, RESTAURANT_ID]);
   }
 
