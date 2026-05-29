@@ -6,7 +6,7 @@ const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 // Logo served from the frontend's public directory.
 // Gmail and Outlook block data URIs in <img>, so a proper URL is the only reliable option.
 // dashboard/public/logo-email.svg is the source of truth for this image.
-const LOGO_URL = `${APP_URL}/logo-email.png`;  // PNG of the arc mark — Gmail blocks SVG
+const LOGO_URL = `${APP_URL}/logo-email.png?v=2`;  // ?v= busts Gmail's image proxy cache
 
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
