@@ -3,32 +3,11 @@ const nodemailer = require('nodemailer');
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 
-// Horizontal logo lockup (arc mark + COOKLYT wordmark) encoded as a data URI
-// so it renders reliably in Gmail, Outlook, and Apple Mail.
-// Structure mirrors og-image.svg: mark on left, wordmark on right.
-const LOGO_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="222" height="38">' +
-    // Arc mark — 38×38 viewport from og-image.svg
-    '<svg x="0" y="0" width="38" height="38" viewBox="0 0 200 200">' +
-      '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>' +
-      '<circle cx="100" cy="100" r="12" fill="#B06A3B"/>' +
-    '</svg>' +
-    // Wordmark — same viewBox and letter-spacing as og-image.svg
-    '<svg x="52" y="0" width="170" height="38" viewBox="0 0 360 64" preserveAspectRatio="xMinYMid meet">' +
-      '<text x="0" y="49" font-family="Georgia,\'Times New Roman\',serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">COOKLY</text>' +
-      '<circle cx="294.2" cy="29.43" r="5.03" fill="#B06A3B"/>' +
-      '<text x="309.33" y="49" font-family="Georgia,\'Times New Roman\',serif" font-size="56" fill="#0D0C0B" letter-spacing="10.08">T</text>' +
-    '</svg>' +
-  '</svg>'
-).toString('base64');
-
-// Small mark-only for the footer
-const LOGO_MARK_SMALL_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 200 200">' +
-  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0D0C0B" stroke-width="16" stroke-linecap="round"/>' +
-  '<circle cx="100" cy="100" r="12" fill="#B06A3B"/>' +
-  '</svg>'
-).toString('base64');
+// Logo served from the frontend's public directory.
+// Gmail and Outlook block data URIs in <img>, so a proper URL is the only reliable option.
+// dashboard/public/logo-email.svg is the source of truth for this image.
+const LOGO_URL       = `${APP_URL}/logo-email.svg`;
+const LOGO_MARK_URL  = `${APP_URL}/favicon.svg`;
 
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -66,8 +45,8 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
           <tr>
             <td align="center">
 
-              <!-- Full logo lockup (mark + wordmark) as a single <img> -->
-              <img src="${LOGO_SRC}" width="222" height="38" alt="CookLyt"
+              <!-- Logo served from APP_URL/logo-email.svg -->
+              <img src="${LOGO_URL}" width="220" height="38" alt="CookLyt"
                    style="display:block;margin:0 auto" />
 
               <div style="font-size:11px;color:#888882;margin-top:8px;letter-spacing:0.05em">by Krilok</div>
@@ -138,7 +117,7 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
                 <tr>
                   <td>
                     <span style="display:inline-flex;align-items:center;gap:6px">
-                      <img src="${LOGO_MARK_SMALL_SRC}" width="14" height="14" alt=""
+                      <img src="${LOGO_MARK_URL}" width="14" height="14" alt=""
                            style="display:inline-block;vertical-align:middle" />
                       <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.04em">CookLyt</span>
                       <span style="font-size:12px;color:#aaa9a4">&middot; by Krilok</span>
