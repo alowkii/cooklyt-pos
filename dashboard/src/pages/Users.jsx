@@ -21,7 +21,7 @@ const ROLE_ICON = {
   kitchen: ChefHat,
 };
 
-const EMPTY_FORM = { email: '', password: '', role: 'staff', name: '' };
+const EMPTY_FORM = { email: '', role: 'staff', name: '' };
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -496,6 +496,9 @@ export default function Users() {
       {addModal && (
         <Modal title="Add User" onClose={() => setAddModal(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--mute)', background: 'var(--hover)', borderRadius: 6, padding: '8px 12px' }}>
+              An invitation email will be sent so the user can set their own password.
+            </p>
             <div>
               <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Name</label>
               <input
@@ -515,19 +518,6 @@ export default function Users() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 className="input"
                 placeholder="staff@restaurant.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Password</label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className="input"
-                placeholder="Minimum 8 characters"
-                minLength={8}
                 required
               />
             </div>

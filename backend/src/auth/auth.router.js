@@ -192,6 +192,18 @@ router.patch('/users/:id/present', authenticate, writeLimiter, async (req, res, 
   } catch (e) { next(e); }
 });
 
+// --- account activation (new staff: set password + verify email) ---
+
+router.post('/activate', writeLimiter, async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const result = await service.activate(token, password);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 // --- email verification ---
 
 router.get('/verify-email', async (req, res, next) => {

@@ -14,8 +14,8 @@ export function useUsers() {
 
 export function useCreateUser() {
   return useMutation({
-    mutationFn: async ({ email, password, role, name }) => {
-      const { data } = await api.post('/auth/register', { email, password, role, name: name || undefined });
+    mutationFn: async ({ email, role, name }) => {
+      const { data } = await api.post('/auth/register', { email, role, name: name || undefined });
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),

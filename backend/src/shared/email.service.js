@@ -89,4 +89,40 @@ async function sendPasswordResetEmail(to, token) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail };
+async function sendAccountSetupEmail(to, token) {
+  const link = `${APP_URL}/set-password?token=${token}`;
+
+  if (!isConfigured()) {
+    console.log(`[email] SMTP not configured — account setup link for ${to}:\n  ${link}`);
+    return;
+  }
+
+  await createTransporter().sendMail({
+    from:    FROM,
+    to,
+    subject: 'Set up your CookLyt account',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h2 style="margin:0 0 8px;color:#0d0c0b">You've been invited to CookLyt</h2>
+        <p style="color:#555;margin:0 0 24px">
+          Your administrator has created an account for you.
+          Click below to set your password and activate your account.
+          This link expires in <strong>72 hours</strong>.
+        </p>
+        <a href="${link}"
+           style="display:inline-block;padding:12px 24px;background:#b06a3b;color:#fff;
+                  text-decoration:none;border-radius:6px;font-weight:600">
+          Set my password
+        </a>
+        <p style="margin:24px 0 0;font-size:12px;color:#888">
+          Or paste this URL: ${link}
+        </p>
+        <p style="margin:16px 0 0;font-size:12px;color:#888">
+          If you weren't expecting this, you can ignore this email.
+        </p>
+      </div>
+    `,
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendAccountSetupEmail };

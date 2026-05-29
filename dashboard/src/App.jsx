@@ -10,6 +10,7 @@ import ChangePassword from './pages/ChangePassword';
 import VerifyEmail    from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword  from './pages/ResetPassword';
+import SetPassword    from './pages/SetPassword';
 import Landing  from './pages/Landing';
 import Overview from './pages/Overview';
 import Menu           from './pages/Menu';
@@ -93,6 +94,7 @@ export default function App() {
         <Route path="/verify-email"    element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<RequireGuest><ForgotPassword /></RequireGuest>} />
         <Route path="/reset-password"  element={<RequireGuest><ResetPassword /></RequireGuest>} />
+        <Route path="/set-password"    element={<SetPassword />} />
 
         {/* Pathless layout route — wraps all authenticated pages */}
         <Route

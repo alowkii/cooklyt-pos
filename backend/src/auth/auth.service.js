@@ -2,7 +2,7 @@ const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
 const crypto  = require('crypto');
 const repo    = require('./auth.repository');
-const email   = require('../shared/email.service');
+const emailSvc = require('../shared/email.service');
 const { UnauthorizedError, ValidationError, NotFoundError, ForbiddenError } = require('../shared/errors');
 
 const SALT_ROUNDS = 12;
@@ -57,27 +57,27 @@ async function login(email_, password) {
 }
 
 async function register(email_, password, role = 'staff', restaurantId, name) {
-  if (!email_ || !password)
-    throw new ValidationError('Email and password are required');
-  if (!restaurantId)
-    throw new ValidationError('restaurantId is required');
-  assertStrongPassword(password);
+  if (!email_) throw new ValidationError('Email is required');
+  if (!restaurantId) throw new ValidationError('restaurantId is required');
 
   const existing = await repo.findUserByEmail(email_);
   if (existing) throw new ValidationError('Email already in use');
 
-  const hashed   = await bcrypt.hash(password, SALT_ROUNDS);
-  const token    = generateToken();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // Password is not set by the admin — user will choose their own via the setup link.
+  // We store an unguessable placeholder so the account is unusable until activated.
+  const placeholder = crypto.randomBytes(32).toString('hex');
+  const hashed      = await bcrypt.hash(placeholder, SALT_ROUNDS);
+
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 h
 
   const user = await repo.createUser({
     email: email_, password: hashed, role, name, restaurantId,
     verificationToken: token, verificationTokenExpiresAt: expiresAt,
   });
 
-  // Fire-and-forget — user creation succeeds even if email fails
-  email.sendVerificationEmail(email_, token).catch((err) => {
-    console.error(`[email] Failed to send verification to ${email_}:`, err.message);
+  emailSvc.sendAccountSetupEmail(email_, token).catch((err) => {
+    console.error(`[email] Failed to send setup email to ${email_}:`, err.message);
   });
 
   return user;
@@ -133,7 +133,7 @@ async function signup(restaurantName, email_, password) {
     verificationTokenExpiresAt: expiresAt,
   });
 
-  email.sendVerificationEmail(email_, token).catch((err) => {
+  emailSvc.sendVerificationEmail(email_, token).catch((err) => {
     console.error(`[email] Failed to send verification to ${email_}:`, err.message);
   });
 
@@ -191,6 +191,24 @@ async function setUserPresent(targetId, isPresent, restaurantId) {
   return repo.setUserPresent(targetId, isPresent, restaurantId);
 }
 
+// --- account activation (new staff accounts set their own password here) ---
+
+async function activate(token, newPassword) {
+  if (!token || !newPassword) throw new ValidationError('Token and password are required');
+  assertStrongPassword(newPassword);
+
+  const user = await repo.findUserByVerificationToken(token);
+  if (!user) throw new ValidationError('Invalid or expired setup link');
+  if (new Date(user.verification_token_expires_at) < new Date())
+    throw new ValidationError('Setup link has expired. Ask your admin to send a new invite.');
+
+  const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await repo.updatePassword(user.id, hashed);
+  await repo.markEmailVerified(user.id);
+
+  return { ok: true };
+}
+
 // --- email verification ---
 
 async function verifyEmail(token) {
@@ -217,7 +235,7 @@ async function resendVerification(email_) {
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await repo.setVerificationToken(user.id, token, expiresAt);
 
-  email.sendVerificationEmail(email_, token).catch((err) => {
+  emailSvc.sendVerificationEmail(email_, token).catch((err) => {
     console.error(`[email] Failed to resend verification to ${email_}:`, err.message);
   });
 
@@ -237,7 +255,7 @@ async function forgotPassword(email_) {
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   await repo.setResetToken(user.id, token, expiresAt);
 
-  email.sendPasswordResetEmail(email_, token).catch((err) => {
+  emailSvc.sendPasswordResetEmail(email_, token).catch((err) => {
     console.error(`[email] Failed to send reset email to ${email_}:`, err.message);
   });
 
@@ -263,5 +281,5 @@ async function resetPassword(token, newPassword) {
 module.exports = {
   login, register, me, getAllUsers, deleteUser, updateUserRole, updateUserName,
   changePassword, signup, setStaffPin, setUserActive, setUserPresent,
-  verifyEmail, resendVerification, forgotPassword, resetPassword,
+  activate, verifyEmail, resendVerification, forgotPassword, resetPassword,
 };
