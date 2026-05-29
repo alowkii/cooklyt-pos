@@ -19,6 +19,8 @@ export default defineConfig({
       devOptions: { enabled: false },   // no SW in dev — prevents stale cache issues
       includeAssets: ['favicon.ico'],
       workbox: {
+        // Never intercept navigation requests to /api/ — OAuth redirects must reach the server
+        navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
