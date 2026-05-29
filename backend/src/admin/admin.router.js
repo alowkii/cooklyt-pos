@@ -1,8 +1,16 @@
 const router = require('express').Router();
+const crypto = require('crypto');
+const jwt    = require('jsonwebtoken');
 const service = require('./admin.service');
+const repo    = require('./admin.repository');
 const { authenticateSuperAdmin } = require('./admin.middleware');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
+
+const GOOGLE_CLIENT_ID          = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET      = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_ADMIN_CALLBACK_URL = process.env.GOOGLE_ADMIN_CALLBACK_URL;
+const ADMIN_URL                 = process.env.ADMIN_URL || 'http://localhost:5174';
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -100,6 +108,93 @@ router.post('/auth/verify-password', authenticateSuperAdmin, async (req, res, ne
     });
     res.json(result);
   } catch (e) { next(e); }
+});
+
+// ── Google OAuth ─────────────────────────────────────────────────────────────
+
+router.get('/auth/google', (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google sign-in is not configured' });
+
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure:   process.env.NODE_ENV === 'production',
+    maxAge:   5 * 60 * 1000,
+    path:     '/',
+  });
+
+  const params = new URLSearchParams({
+    client_id:     GOOGLE_CLIENT_ID,
+    redirect_uri:  GOOGLE_ADMIN_CALLBACK_URL,
+    response_type: 'code',
+    scope:         'openid email profile',
+    access_type:   'online',
+    state,
+  });
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get('/auth/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  if (error || !code) {
+    return res.redirect(`${ADMIN_URL}/login?error=oauth_cancelled`);
+  }
+
+  if (!state || state !== req.cookies.oauth_state) {
+    return res.redirect(`${ADMIN_URL}/login?error=oauth_failed`);
+  }
+  res.clearCookie('oauth_state', { path: '/' });
+
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        code,
+        client_id:     GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri:  GOOGLE_ADMIN_CALLBACK_URL,
+        grant_type:    'authorization_code',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error('No access token returned');
+
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const { email } = await userInfoRes.json();
+    if (!email) throw new Error('No email returned from Google');
+
+    const admin = await repo.findSuperAdminByEmail(email);
+    if (!admin) return res.redirect(`${ADMIN_URL}/login?error=no_account`);
+
+    const token = jwt.sign(
+      { superAdminId: admin.id, role: 'super_admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' },
+    );
+
+    audit.log({
+      actorType: 'super_admin', actorId: admin.id,
+      action: 'login', resourceType: 'super_admin',
+      description: `Operator signed in via Google (${email})`,
+    });
+
+    res.cookie('admin_token', token, COOKIE_OPTS);
+
+    const payload = Buffer.from(JSON.stringify({
+      admin: { id: admin.id, email: admin.email },
+    })).toString('base64url');
+
+    res.redirect(`${ADMIN_URL}/oauth/callback?d=${payload}`);
+  } catch (e) {
+    console.error('[admin google oauth]', e.message);
+    res.redirect(`${ADMIN_URL}/login?error=oauth_failed`);
+  }
 });
 
 // ── Restaurants ───────────────────────────────────────────────────────────────

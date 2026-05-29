@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout          from './components/Layout';
-import Login           from './pages/Login';
-import Setup           from './pages/Setup';
-import Restaurants     from './pages/Restaurants';
+import Layout           from './components/Layout';
+import Login            from './pages/Login';
+import Setup            from './pages/Setup';
+import OAuthCallback    from './pages/OAuthCallback';
+import Restaurants      from './pages/Restaurants';
 import RestaurantDetail from './pages/RestaurantDetail';
 import AuditLogs        from './pages/AuditLogs';
 import Settings         from './pages/Settings';
@@ -15,8 +16,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/setup" element={<Setup />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/setup"          element={<Setup />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
 
         <Route
           path="/"
