@@ -3,6 +3,21 @@ const nodemailer = require('nodemailer');
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const FROM    = process.env.SMTP_FROM || `CookLyt <${process.env.SMTP_USER}>`;
 
+// Base64 data URI — avoids inline SVG being stripped by Gmail/Outlook
+const LOGO_MARK_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg width="38" height="38" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>' +
+  '<circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>' +
+  '</svg>'
+).toString('base64');
+
+const LOGO_MARK_SMALL_SRC = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg width="14" height="14" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+  '<path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>' +
+  '<circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>' +
+  '</svg>'
+).toString('base64');
+
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
@@ -39,22 +54,14 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
           <tr>
             <td align="center">
 
-              <!-- Arc mark -->
-              <svg width="38" height="38" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
-                      fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>
-                <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
-              </svg>
+              <!-- Arc mark as <img> so it survives Gmail/Outlook -->
+              <img src="${LOGO_MARK_SRC}" width="38" height="38" alt="CookLyt"
+                   style="display:block;margin:0 auto" />
 
-              <!-- Wordmark: COOKLY·T -->
-              <div style="margin-top:9px">
-                <svg width="118" height="21" viewBox="0 0 360 64" xmlns="http://www.w3.org/2000/svg">
-                  <text x="0" y="49" fill="#0d0c0b"
-                        style="font-family:Georgia,'Times New Roman',serif;font-size:56px;letter-spacing:10.08px">COOKLY</text>
-                  <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b"/>
-                  <text x="309.33" y="49" fill="#0d0c0b"
-                        style="font-family:Georgia,'Times New Roman',serif;font-size:56px;letter-spacing:10.08px">T</text>
-                </svg>
+              <!-- Wordmark in plain HTML — font-based, no SVG text -->
+              <div style="margin-top:10px;font-family:Georgia,'Times New Roman',serif;
+                          font-size:17px;letter-spacing:7px;color:#0d0c0b;font-weight:400">
+                COOKLY<span style="color:#b06a3b;letter-spacing:0">&#x25CF;</span>T
               </div>
 
               <div style="font-size:11px;color:#888882;margin-top:5px;letter-spacing:0.05em">by Krilok</div>
@@ -125,11 +132,8 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
                 <tr>
                   <td>
                     <span style="display:inline-flex;align-items:center;gap:6px">
-                      <svg width="14" height="14" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle">
-                        <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
-                              fill="none" stroke="#0d0c0b" stroke-width="15.6" stroke-linecap="round"/>
-                        <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
-                      </svg>
+                      <img src="${LOGO_MARK_SMALL_SRC}" width="14" height="14" alt=""
+                           style="display:inline-block;vertical-align:middle" />
                       <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.04em">CookLyt</span>
                       <span style="font-size:12px;color:#aaa9a4">&middot; by Krilok</span>
                     </span>
