@@ -223,7 +223,7 @@ async function verifyEmail(token) {
 
   // Admin-created account — password not set yet. Tell frontend to redirect to set-password.
   if (user.force_password_change) {
-    return { needsPasswordSetup: true, token };
+    return { needsPasswordSetup: true };
   }
 
   await repo.markEmailVerified(user.id);

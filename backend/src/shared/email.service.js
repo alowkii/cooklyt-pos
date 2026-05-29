@@ -149,7 +149,7 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
 async function sendVerificationEmail(to, token) {
   const link = `${APP_URL}/verify-email?token=${token}`;
   if (!isConfigured()) {
-    console.log(`[email] SMTP not configured — verification link for ${to}:\n  ${link}`);
+    console.log(`[email] SMTP not configured — skipping verification email to ${to}`);
     return;
   }
   await createTransporter().sendMail({
@@ -170,7 +170,7 @@ async function sendVerificationEmail(to, token) {
 async function sendPasswordResetEmail(to, token) {
   const link = `${APP_URL}/reset-password?token=${token}`;
   if (!isConfigured()) {
-    console.log(`[email] SMTP not configured — password reset link for ${to}:\n  ${link}`);
+    console.log(`[email] SMTP not configured — skipping password reset email to ${to}`);
     return;
   }
   await createTransporter().sendMail({
@@ -191,7 +191,7 @@ async function sendPasswordResetEmail(to, token) {
 async function sendAccountSetupEmail(to, token) {
   const link = `${APP_URL}/set-password?token=${token}`;
   if (!isConfigured()) {
-    console.log(`[email] SMTP not configured — account setup link for ${to}:\n  ${link}`);
+    console.log(`[email] SMTP not configured — skipping account setup email to ${to}`);
     return;
   }
   await createTransporter().sendMail({

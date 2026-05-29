@@ -213,7 +213,7 @@ router.post('/activate', writeLimiter, async (req, res, next) => {
 
 // --- email verification ---
 
-router.get('/verify-email', async (req, res, next) => {
+router.get('/verify-email', emailLimiter, async (req, res, next) => {
   try {
     const result = await service.verifyEmail(req.query.token);
     res.json(result);
