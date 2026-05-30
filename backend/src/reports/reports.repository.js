@@ -2,6 +2,12 @@ const db = require('../shared/db');
 
 // Reports is READ-ONLY — never writes to any table
 
+const VALID_GROUPS = new Set(['day', 'week', 'month']);
+function assertGroup(g) {
+  if (!VALID_GROUPS.has(g)) throw new Error(`Invalid group: ${g}`);
+  return g;
+}
+
 const getDailySummary = (date, tz = 'UTC', restaurantId) =>
   db
     .query(
@@ -87,9 +93,9 @@ const getHourlySales = (date, tz = 'UTC', restaurantId) =>
 
 // ── New range-based queries ───────────────────────────────────────────────────
 
-// group must be one of 'day' | 'week' | 'month' — validated before this call
-const getTrends = (from, to, tz = 'UTC', group, restaurantId) =>
-  db
+const getTrends = (from, to, tz = 'UTC', group, restaurantId) => {
+  assertGroup(group);
+  return db
     .query(
       `
     SELECT
@@ -107,6 +113,7 @@ const getTrends = (from, to, tz = 'UTC', group, restaurantId) =>
       [from, to, tz, restaurantId],
     )
     .then((r) => r.rows);
+};
 
 const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
   db
@@ -166,8 +173,9 @@ const getStaffPerformance = (from, to, tz = 'UTC', restaurantId) =>
 
 // Revenue of the top `limit` items broken down by time period.
 // Uses a CTE to identify top items first, then fetches their time series.
-const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) =>
-  db
+const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) => {
+  assertGroup(group);
+  return db
     .query(
       `
     WITH top_items AS (
@@ -201,10 +209,12 @@ const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) 
       [from, to, tz, restaurantId, limit],
     )
     .then((r) => r.rows);
+};
 
 // Orders and revenue per staff member broken down by time period.
-const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) =>
-  db
+const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) => {
+  assertGroup(group);
+  return db
     .query(
       `
     SELECT
@@ -225,6 +235,7 @@ const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) =>
       [from, to, tz, restaurantId],
     )
     .then((r) => r.rows);
+};
 
 // ── New report queries ────────────────────────────────────────────────────────
 

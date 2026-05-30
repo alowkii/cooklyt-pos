@@ -79,6 +79,15 @@ async function addItems(orderId, items, restaurantId) {
   if (['paid', 'cancelled'].includes(order.status)) {
     throw new ValidationError('Cannot add items to a paid or cancelled order');
   }
+
+  const menuItems = await menuInterface.getAvailableItems(restaurantId);
+  const availableIds = new Set(menuItems.map((i) => i.id));
+  for (const item of items) {
+    if (!availableIds.has(item.menuItemId)) {
+      throw new ValidationError(`Menu item ${item.menuItemId} is not available`);
+    }
+  }
+
   await repo.addItems(orderId, items);
   // New items on a served order go back to kitchen — reset to received
   if (order.status === 'served') {
@@ -340,8 +349,16 @@ module.exports = {
   getHistory,
 };
 
+function validateTz(tz) {
+  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
+    throw new ValidationError('Invalid timezone identifier');
+  }
+  return tz;
+}
+
 async function getHistory(restaurantId, { from, to, status, channel, timezone: tzParam }) {
-  const timezone = tzParam || await settingsRepo.getAll(restaurantId).then((s) => s.timezone || 'UTC');
+  const rawTz = tzParam || await settingsRepo.getAll(restaurantId).then((s) => s.timezone || 'UTC');
+  const timezone = validateTz(rawTz);
   const orders = await repo.getHistory(restaurantId, { from, to, status, channel, timezone });
 
   const stats = orders.reduce(

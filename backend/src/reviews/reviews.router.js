@@ -1,10 +1,19 @@
 const router = require('express').Router();
 const db     = require('../shared/db');
 const { authenticate, authorize } = require('../shared/middleware/auth');
+const { ValidationError } = require('../shared/errors');
+
+function validateTz(tz) {
+  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
+    throw new ValidationError('Invalid timezone identifier');
+  }
+  return tz;
+}
 
 router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
   try {
-    const { from, to, rating, timezone = 'UTC' } = req.query;
+    const { from, to, rating, timezone: rawTz = 'UTC' } = req.query;
+    const timezone = validateTz(rawTz);
     const { rows } = await db.query(
       `SELECT
          r.id,

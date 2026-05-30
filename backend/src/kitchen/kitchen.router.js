@@ -10,7 +10,7 @@ router.get('/queue', authenticate, authorize('admin', 'kitchen', 'staff', 'cashi
   }
 });
 
-router.patch('/:orderId/preparing', authenticate, async (req, res, next) => {
+router.patch('/:orderId/preparing', authenticate, authorize('admin', 'kitchen'), async (req, res, next) => {
   try {
     res.json(await service.markOrderPreparing(req.params.orderId, req.user.restaurantId));
   } catch (e) {
@@ -18,7 +18,7 @@ router.patch('/:orderId/preparing', authenticate, async (req, res, next) => {
   }
 });
 
-router.patch('/:orderId/ready', authenticate, async (req, res, next) => {
+router.patch('/:orderId/ready', authenticate, authorize('admin', 'kitchen'), async (req, res, next) => {
   try {
     res.json(await service.markOrderReady(req.params.orderId, req.user.restaurantId));
   } catch (e) {
@@ -26,7 +26,7 @@ router.patch('/:orderId/ready', authenticate, async (req, res, next) => {
   }
 });
 
-router.patch('/:orderId/served', authenticate, async (req, res, next) => {
+router.patch('/:orderId/served', authenticate, authorize('admin', 'kitchen', 'staff'), async (req, res, next) => {
   try {
     res.json(await service.markOrderServed(req.params.orderId, req.user.restaurantId));
   } catch (e) {
