@@ -231,15 +231,18 @@ async function updateDefaults(superAdminId, defaults) {
 }
 
 async function changePassword(superAdminId, currentPassword, newPassword) {
-  if (!currentPassword || !newPassword)
-    throw new ValidationError('currentPassword and newPassword are required');
+  if (!newPassword) throw new ValidationError('newPassword is required');
   assertStrongPassword(newPassword);
 
   const admin = await repo.findSuperAdminById(superAdminId);
   if (!admin) throw new UnauthorizedError('Not found');
 
-  const valid = await bcrypt.compare(currentPassword, admin.password);
-  if (!valid) throw new UnauthorizedError('Current password is incorrect');
+  // Skip current-password check on forced first-time setup — identity already proven via JWT/Google
+  if (!admin.force_password_change) {
+    if (!currentPassword) throw new ValidationError('currentPassword is required');
+    const valid = await bcrypt.compare(currentPassword, admin.password);
+    if (!valid) throw new UnauthorizedError('Current password is incorrect');
+  }
 
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await repo.updateSuperAdminPassword(superAdminId, hashed);

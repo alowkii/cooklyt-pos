@@ -85,14 +85,16 @@ export default function ChangePasswordModal({ onClose, forced = false }) {
               </p>
             )}
 
-            <div>
-              <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Current Password</label>
-              <input type={pwdType} value={current} onChange={(e) => setCurrent(e.target.value)} className="input w-full" autoFocus required />
-            </div>
+            {!forced && (
+              <div>
+                <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Current Password</label>
+                <input type={pwdType} value={current} onChange={(e) => setCurrent(e.target.value)} className="input w-full" autoFocus required />
+              </div>
+            )}
 
             <div>
               <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>New Password</label>
-              <input type={pwdType} value={next} onChange={(e) => setNext(e.target.value)} className="input w-full" required />
+              <input type={pwdType} value={next} onChange={(e) => setNext(e.target.value)} className="input w-full" autoFocus={forced} required />
               <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 4 }}>Minimum 8 characters</p>
             </div>
 
