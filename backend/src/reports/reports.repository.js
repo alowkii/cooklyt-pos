@@ -99,9 +99,9 @@ const getTrends = (from, to, tz = 'UTC', group, restaurantId) => {
     .query(
       `
     SELECT
-      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
-      COUNT(DISTINCT o.id)::int                                          AS orders,
-      COALESCE(SUM(p.amount), 0)                                         AS revenue
+      date_trunc($5, o.created_at AT TIME ZONE $3)::date::text AS period,
+      COUNT(DISTINCT o.id)::int                                  AS orders,
+      COALESCE(SUM(p.amount), 0)                                 AS revenue
     FROM orders o
     JOIN payments p ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
@@ -110,7 +110,7 @@ const getTrends = (from, to, tz = 'UTC', group, restaurantId) => {
     GROUP BY 1
     ORDER BY 1
   `,
-      [from, to, tz, restaurantId],
+      [from, to, tz, restaurantId, group],
     )
     .then((r) => r.rows);
 };
@@ -192,7 +192,7 @@ const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) 
       LIMIT $5
     )
     SELECT
-      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
+      date_trunc($6, o.created_at AT TIME ZONE $3)::date::text AS period,
       mi.name,
       SUM(oi.quantity)::int                AS total_sold,
       SUM(mi.price * oi.quantity)          AS revenue
@@ -206,7 +206,7 @@ const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) 
     GROUP BY 1, mi.name
     ORDER BY 1, revenue DESC
   `,
-      [from, to, tz, restaurantId, limit],
+      [from, to, tz, restaurantId, limit, group],
     )
     .then((r) => r.rows);
 };
@@ -218,7 +218,7 @@ const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) => {
     .query(
       `
     SELECT
-      date_trunc('${group}', o.created_at AT TIME ZONE $3)::date::text AS period,
+      date_trunc($5, o.created_at AT TIME ZONE $3)::date::text AS period,
       COALESCE(u.name, u.email)              AS name,
       COUNT(DISTINCT o.id)::int              AS orders_created,
       COALESCE(SUM(p.amount), 0)             AS revenue_handled
@@ -232,7 +232,7 @@ const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) => {
     GROUP BY 1, u.id, u.name, u.email
     ORDER BY 1, revenue_handled DESC
   `,
-      [from, to, tz, restaurantId],
+      [from, to, tz, restaurantId, group],
     )
     .then((r) => r.rows);
 };

@@ -17,6 +17,14 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   process.exit(1);
 }
 
+if (process.env.NODE_ENV === "production" && !process.env.TRUST_PROXY) {
+  console.warn(
+    "WARNING: TRUST_PROXY is not set. If this server runs behind a reverse proxy " +
+    "(Nginx, ELB, Cloudflare), set TRUST_PROXY=1 so req.ip reflects the real client IP. " +
+    "Without it, IP-based rate limiting will key on the proxy address instead of the client."
+  );
+}
+
 const server = http.createServer(app);
 ws.init(server);
 reservationScheduler.start();

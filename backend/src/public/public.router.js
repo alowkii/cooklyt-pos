@@ -23,6 +23,18 @@ const tableStaffLimiter = rateLimit({
   message: 'Too many PIN attempts, please try again later',
 });
 
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many requests, please try again later',
+});
+
+const reviewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many requests, please try again later',
+});
+
 const router = express.Router();
 // Allow any origin — customers scan from mobile phones on any network
 router.use(cors({ origin: '*' }));
@@ -122,7 +134,7 @@ router.patch('/table/:tableId/staff', tableStaffLimiter, async (req, res, next) 
 // POST /api/public/orders
 // Body: { tableId, items: [{menuItemId, quantity, notes?}], staffPin? }
 // Table UUID is the implicit authorization — only someone at the table can scan the QR
-router.post('/orders', async (req, res, next) => {
+router.post('/orders', orderLimiter, async (req, res, next) => {
   try {
     const { tableId, items, staffPin } = req.body;
     if (!tableId || !Array.isArray(items) || items.length === 0) {
@@ -203,7 +215,7 @@ router.get('/orders/table/:tableId', async (req, res, next) => {
 
 // POST /api/public/orders/:orderId/cancel
 // Cancels order if status is still 'received'; tableId in body acts as auth
-router.post('/orders/:orderId/cancel', async (req, res, next) => {
+router.post('/orders/:orderId/cancel', orderLimiter, async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const { tableId } = req.body;
@@ -227,7 +239,7 @@ router.post('/orders/:orderId/cancel', async (req, res, next) => {
 
 // POST /api/public/request-bill
 // Customer requests the bill; broadcasts a WS notification to staff
-router.post('/request-bill', async (req, res, next) => {
+router.post('/request-bill', orderLimiter, async (req, res, next) => {
   try {
     const { tableId } = req.body;
     if (!tableId || !UUID_RE.test(tableId)) {
@@ -249,7 +261,7 @@ router.post('/request-bill', async (req, res, next) => {
 
 // POST /api/public/reviews
 // Submits a customer review; tableId acts as implicit auth (same as order placement)
-router.post('/reviews', async (req, res, next) => {
+router.post('/reviews', reviewLimiter, async (req, res, next) => {
   try {
     const { tableId, overallRating, foodRating, serviceRating, comment, customerPhone } = req.body;
     if (!tableId || !UUID_RE.test(tableId)) {
@@ -265,7 +277,13 @@ router.post('/reviews', async (req, res, next) => {
 
     const toRating = (v) => { const n = parseInt(v, 10); return n >= 1 && n <= 5 ? n : null; };
 
-    const phone = customerPhone ? String(customerPhone).trim() : null;
+    const rawPhone = customerPhone ? String(customerPhone).trim() : null;
+    // Allow digits, spaces, +, -, (, ) — reject anything else or over-long values
+    const PHONE_RE = /^[0-9 +\-().]{7,20}$/;
+    if (rawPhone && !PHONE_RE.test(rawPhone)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+    const phone = rawPhone || null;
 
     // Try to match phone to an existing loyalty customer
     let loyaltyCustomerId = null;

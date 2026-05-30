@@ -16,8 +16,14 @@ function createToken(userId, role, restaurantId, extra = {}) {
 }
 
 function assertStrongPassword(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw new ValidationError('Password must be at least 8 characters');
+  if (typeof password !== 'string' || password.length < 10) {
+    throw new ValidationError('Password must be at least 10 characters');
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new ValidationError('Password must contain at least one uppercase letter');
+  }
+  if (!/[0-9]/.test(password)) {
+    throw new ValidationError('Password must contain at least one number');
   }
 }
 
