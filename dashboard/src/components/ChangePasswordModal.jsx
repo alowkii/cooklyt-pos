@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Lock } from 'lucide-react';
 import api from '../api/client';
 
@@ -34,7 +35,7 @@ export default function ChangePasswordModal({ onClose }) {
 
   const pwdType = showPwd ? 'text' : 'password';
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
@@ -115,6 +116,7 @@ export default function ChangePasswordModal({ onClose }) {
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

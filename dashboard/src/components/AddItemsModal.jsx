@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, Minus, ChevronRight, ChevronDown, Star, CheckCircle, SlidersHorizontal } from 'lucide-react';
 import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useAddItems } from '../hooks/useOrders';
@@ -121,7 +122,7 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
 
   const cartCount = cartItems.reduce((s, m) => s + (cart[m.id]?.quantity ?? 0), 0);
 
-  return (
+  return createPortal(
     <>
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
@@ -298,6 +299,7 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
         onCancel={() => setPickerItem(null)}
       />
     )}
-    </>
+    </>,
+    document.body
   );
 }

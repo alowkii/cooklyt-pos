@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, Minus, ChevronRight, ChevronDown, Utensils, ShoppingBag, Truck, Star, SlidersHorizontal } from 'lucide-react';
 import { useMenuItems, usePopularMenuItems } from '../hooks/useMenu';
 import { useTables } from '../hooks/useTables';
@@ -160,7 +161,7 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
   const cartCount = cartItems.reduce((s, m) => s + (cart[m.id]?.quantity ?? 0), 0);
   const tax = total * 0.1;
 
-  return (
+  return createPortal(
     <>
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
@@ -435,6 +436,7 @@ export default function NewOrderModal({ onClose, initialTableId = null, addItems
         onCancel={() => setPickerItem(null)}
       />
     )}
-    </>
+    </>,
+    document.body
   );
 }

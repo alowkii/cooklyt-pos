@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export default function CustomizationPicker({ item, format, onConfirm, onCancel }) {
@@ -60,7 +61,7 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
     onConfirm({ customizations: selections, notes: note, priceAdd });
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
@@ -159,6 +160,7 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
