@@ -26,4 +26,18 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+router.post('/by-menu-item', async (req, res, next) => {
+  try {
+    res.status(201).json(
+      await service.logWasteByMenuItem({
+        ...req.body,
+        loggedBy:     req.user.userId,
+        restaurantId: req.user.restaurantId,
+      }),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

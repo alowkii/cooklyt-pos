@@ -27,3 +27,16 @@ export function useLogWaste() {
     },
   });
 }
+
+export function useLogWasteByMenuItem() {
+  return useMutation({
+    mutationFn: async (body) => {
+      const { data } = await api.post('/waste/by-menu-item', body);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['waste'] });
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+    },
+  });
+}

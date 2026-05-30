@@ -1,5 +1,8 @@
+const crypto         = require('crypto');
 const repo           = require('./waste.repository');
 const ingredientsRepo = require('../ingredients/ingredients.repository');
+const menuRepo       = require('../menu/menu.repository');
+const recipesRepo    = require('../recipes/recipes.repository');
 const invRepo        = require('../inventory/inventory.repository');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
@@ -44,4 +47,49 @@ async function logWaste({ restaurantId, ingredientId, quantity, unit, reason, no
   return waste;
 }
 
-module.exports = { getAll, logWaste };
+async function logWasteByMenuItem({ restaurantId, menuItemId, portions, reason, notes, loggedBy }) {
+  const portionsNum = parseFloat(portions);
+  if (!menuItemId)                       throw new ValidationError('menuItemId is required');
+  if (!portionsNum || portionsNum <= 0)  throw new ValidationError('portions must be a positive number');
+  if (!VALID_REASONS.includes(reason))   throw new ValidationError(`reason must be one of: ${VALID_REASONS.join(', ')}`);
+
+  const menuItem = await menuRepo.getById(menuItemId, restaurantId);
+  if (!menuItem)          throw new NotFoundError('Menu item');
+  if (!menuItem.recipe_id) throw new ValidationError('This menu item has no recipe linked — link a recipe first');
+
+  const recipe = await recipesRepo.getById(menuItem.recipe_id, restaurantId);
+  if (!recipe || !recipe.ingredients?.length) throw new ValidationError('Recipe has no ingredients');
+
+  const batchId = crypto.randomUUID();
+  const yieldQty = parseFloat(recipe.yield_quantity) || 1;
+  const results  = [];
+
+  for (const ing of recipe.ingredients) {
+    const ingredient = await ingredientsRepo.getById(ing.ingredient_id, restaurantId);
+    if (!ingredient) continue;
+
+    const qty        = parseFloat((parseFloat(ing.quantity) * portionsNum / yieldQty).toFixed(6));
+    const costAtTime = parseFloat(ingredient.latest_unit_cost) || 0;
+    const totalCost  = parseFloat((qty * costAtTime).toFixed(4));
+
+    const waste = await repo.create({
+      restaurantId, ingredientId: ing.ingredient_id,
+      quantity: qty, unit: ing.unit || ingredient.unit,
+      reason, costAtTime, totalCost, loggedBy, notes,
+      menuItemId, menuItemName: menuItem.name, batchId,
+    });
+
+    await ingredientsRepo.adjustStock(ing.ingredient_id, -qty, restaurantId);
+    await invRepo.createTransaction({
+      restaurantId, ingredientId: ing.ingredient_id,
+      txnType: 'WASTE', quantityDelta: -qty,
+      refId: waste.id, unitCost: costAtTime, performedBy: loggedBy || null,
+    });
+
+    results.push(waste);
+  }
+
+  return results;
+}
+
+module.exports = { getAll, logWaste, logWasteByMenuItem };
