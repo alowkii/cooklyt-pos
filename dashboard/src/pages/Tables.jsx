@@ -831,12 +831,26 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                   </div>
                 )}
 
-                {/* Available: seat CTA */}
+                {/* Available: seat + reserve CTAs */}
                 {isAvail && isAdmin && (
-                  <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
-                    style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
-                    <User size={12} /> Seat guests
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button onClick={() => setNewOrderForTable(t)} className="btn-primary"
+                      style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
+                      <User size={12} /> Seat guests
+                    </button>
+                    {reservationsEnabled && (
+                      <button
+                        onClick={() => {
+                          setReservationForTable(t);
+                          setReservationForm({ name: '', phone: '', time: '', party: '', notes: '' });
+                          setReservationError('');
+                        }}
+                        className="btn"
+                        style={{ width: '100%', justifyContent: 'center', height: 28, fontSize: 12 }}>
+                        <CalendarClock size={12} /> Reserve
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* Cleaning: mark ready CTA */}
