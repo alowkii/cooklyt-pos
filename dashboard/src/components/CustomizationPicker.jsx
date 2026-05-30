@@ -65,7 +65,6 @@ export default function CustomizationPicker({ item, format, onConfirm, onCancel 
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
         className="w-full max-w-sm rounded-t-[8px] sm:rounded-[8px]"

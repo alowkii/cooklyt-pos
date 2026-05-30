@@ -39,7 +39,6 @@ export default function ChangePasswordModal({ onClose }) {
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="w-full max-w-sm"

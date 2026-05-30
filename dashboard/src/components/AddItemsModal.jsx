@@ -127,7 +127,6 @@ export default function AddItemsModal({ order, orderTitle, onClose }) {
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(10,10,10,.32)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="flex w-full flex-col h-[100dvh] rounded-none sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-[8px]"
