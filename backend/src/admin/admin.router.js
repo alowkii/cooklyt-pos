@@ -3,11 +3,11 @@ const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
 const service = require('./admin.service');
 const repo    = require('./admin.repository');
-const { authenticateSuperAdmin, requireEmailVerified } = require('./admin.middleware');
+const { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged } = require('./admin.middleware');
 
-// Shorthand: auth only (read routes) vs auth + verified (write routes)
+// Shorthand: auth only (read routes) vs auth + verified + password-changed (write routes)
 const auth  = authenticateSuperAdmin;
-const authV = [authenticateSuperAdmin, requireEmailVerified];
+const authV = [authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged];
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
 
@@ -36,6 +36,30 @@ const setupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   message: 'Too many setup attempts',
+});
+
+const resendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Too many resend attempts, please try again later',
+});
+
+const verifyEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many verification attempts, please try again later',
+});
+
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many password change attempts, please try again later',
+});
+
+const verifyPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many verification attempts, please try again later',
 });
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -73,13 +97,13 @@ router.post('/auth/logout', (req, res) => {
 
 // ── Public verification endpoints ─────────────────────────────────────────────
 
-router.get('/verify-email', async (req, res, next) => {
+router.get('/verify-email', verifyEmailLimiter, async (req, res, next) => {
   try {
     res.json(await service.verifySuperAdminEmail(req.query.token));
   } catch (e) { next(e); }
 });
 
-router.post('/resend-verification', async (req, res, next) => {
+router.post('/resend-verification', resendLimiter, async (req, res, next) => {
   try {
     res.json(await service.resendSuperAdminVerification(req.body.email));
   } catch (e) { next(e); }
@@ -93,7 +117,7 @@ router.get('/auth/me', auth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/auth/change-password', auth, async (req, res, next) => {
+router.post('/auth/change-password', auth, changePasswordLimiter, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const result = await service.changePassword(req.superAdmin.superAdminId, currentPassword, newPassword);
@@ -116,7 +140,7 @@ router.patch('/auth/me/defaults', authV, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/auth/verify-password', authV, async (req, res, next) => {
+router.post('/auth/verify-password', authV, verifyPasswordLimiter, async (req, res, next) => {
   try {
     const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);
     // Log the export action here so it's tied to a verified identity
@@ -211,12 +235,7 @@ router.get('/auth/google/callback', async (req, res) => {
     });
 
     res.cookie('admin_token', token, COOKIE_OPTS);
-
-    const payload = Buffer.from(JSON.stringify({
-      admin: { id: admin.id, email: admin.email, emailVerified: true, forcePasswordChange: admin.force_password_change },
-    })).toString('base64url');
-
-    res.redirect(`${ADMIN_URL}/oauth/callback?d=${payload}`);
+    res.redirect(`${ADMIN_URL}/oauth/callback`);
   } catch (e) {
     console.error('[admin google oauth]', e.message);
     res.redirect(`${ADMIN_URL}/login?error=oauth_failed`);
@@ -332,7 +351,7 @@ router.post('/super-admins/:id/resend-verification', authV, async (req, res, nex
 router.get('/audit-logs', auth, async (req, res, next) => {
   try {
     const { restaurantId, from, to, resourceType, limit } = req.query;
-    res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? parseInt(limit, 10) : 500 }));
+    res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? Math.min(parseInt(limit, 10), 2000) : 500 }));
   } catch (e) { next(e); }
 });
 

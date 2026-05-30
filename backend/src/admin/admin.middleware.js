@@ -20,6 +20,7 @@ async function authenticateSuperAdmin(req, res, next) {
     if (!admin) return next(new UnauthorizedError('Account not found'));
 
     req.superAdmin = decoded;
+    req.superAdminRow = admin;
     next();
   } catch (e) {
     next(e instanceof UnauthorizedError || e instanceof ForbiddenError
@@ -35,4 +36,11 @@ function requireEmailVerified(req, res, next) {
   next();
 }
 
-module.exports = { authenticateSuperAdmin, requireEmailVerified };
+function requirePasswordChanged(req, res, next) {
+  if (req.superAdminRow?.force_password_change) {
+    return next(new ForbiddenError('Please change your password before performing this action'));
+  }
+  next();
+}
+
+module.exports = { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged };

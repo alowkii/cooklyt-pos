@@ -7,6 +7,21 @@ const ws = require('../shared/websocket');
 const { currencies } = require('../../../shared/settings-options.json');
 
 const authRepo = require('../auth/auth.repository');
+const { rateLimit } = require('../shared/middleware/rateLimit');
+
+const pinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  key: (req) => `pin:${req.params.restaurantId}:${req.ip}`,
+  message: 'Too many PIN attempts, please try again later',
+});
+
+const tableStaffLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  key: (req) => `pin:${req.params.tableId}:${req.ip}`,
+  message: 'Too many PIN attempts, please try again later',
+});
 
 const router = express.Router();
 // Allow any origin — customers scan from mobile phones on any network
@@ -67,7 +82,7 @@ router.get('/menu/:restaurantId', async (req, res, next) => {
 
 // GET /api/public/staff/verify-pin/:restaurantId/:pin
 // Returns staff display name if PIN is valid for this restaurant
-router.get('/staff/verify-pin/:restaurantId/:pin', async (req, res, next) => {
+router.get('/staff/verify-pin/:restaurantId/:pin', pinLimiter, async (req, res, next) => {
   try {
     const { restaurantId, pin } = req.params;
     if (!UUID_RE.test(restaurantId) || !/^\d{4}$/.test(pin)) {
@@ -81,7 +96,7 @@ router.get('/staff/verify-pin/:restaurantId/:pin', async (req, res, next) => {
 
 // PATCH /api/public/table/:tableId/staff
 // Assigns a staff member to a table by PIN — no order required
-router.patch('/table/:tableId/staff', async (req, res, next) => {
+router.patch('/table/:tableId/staff', tableStaffLimiter, async (req, res, next) => {
   try {
     const { tableId } = req.params;
     const { staffPin } = req.body;

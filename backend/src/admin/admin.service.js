@@ -17,6 +17,9 @@ function assertStrongPassword(password) {
   if (typeof password !== 'string' || password.length < 8) {
     throw new ValidationError('Password must be at least 8 characters');
   }
+  if (password.length > 128) {
+    throw new ValidationError('Password must be at most 128 characters');
+  }
 }
 const VALID_TIMEZONES = new Set(settingsOptions.timezones.map((t) => t.iana));
 const VALID_CURRENCIES = new Set(settingsOptions.currencies.map((c) => c.code));
@@ -34,7 +37,7 @@ async function login(email, password) {
   if (!valid) throw new UnauthorizedError('Invalid credentials');
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
+    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified, forcePasswordChange: !!admin.force_password_change },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
@@ -221,7 +224,14 @@ async function verifyPassword(superAdminId, password) {
 async function me(superAdminId) {
   const admin = await repo.findSuperAdminById(superAdminId);
   if (!admin) throw new UnauthorizedError('Not found');
-  return { id: admin.id, email: admin.email, createdAt: admin.created_at, defaults: admin.defaults || {} };
+  return {
+    id: admin.id,
+    email: admin.email,
+    emailVerified: admin.email_verified,
+    forcePasswordChange: admin.force_password_change,
+    createdAt: admin.created_at,
+    defaults: admin.defaults || {},
+  };
 }
 
 async function updateDefaults(superAdminId, defaults) {

@@ -13,7 +13,6 @@ export default function OAuthCallback() {
   const navigate       = useNavigate();
 
   useEffect(() => {
-    const d     = searchParams.get('d');
     const error = searchParams.get('error');
 
     if (error) {
@@ -22,18 +21,8 @@ export default function OAuthCallback() {
       return;
     }
 
-    if (d) {
-      try {
-        const data = JSON.parse(atob(d.replace(/-/g, '+').replace(/_/g, '/')));
-        localStorage.setItem('admin_user', JSON.stringify(data.admin));
-        navigate('/', { replace: true });
-      } catch {
-        navigate('/login?oauthError=Sign-in+failed.', { replace: true });
-      }
-      return;
-    }
-
-    navigate('/login', { replace: true });
+    // Cookie is already set by the server; RequireAuth will verify it via /auth/me
+    navigate('/', { replace: true });
   }, []);
 
   return (
