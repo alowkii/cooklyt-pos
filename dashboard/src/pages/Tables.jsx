@@ -194,10 +194,14 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied,    setCopied]    = useState(false);
 
+  function nowLocal() {
+    return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+
   async function handleStatusChange(status) {
     if (status === 'reserved' && reservationsEnabled) {
       setReservationForTable(selected);
-      setReservationForm({ name: '', phone: '', time: '', party: '', notes: '' });
+      setReservationForm({ name: '', phone: '', time: nowLocal(), party: '', notes: '' });
       setReservationError('');
       setSelected(null);
       return;
@@ -872,7 +876,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
                           onClick={() => {
                             if (s === 'reserved' && reservationsEnabled) {
                               setReservationForTable(t);
-                              setReservationForm({ name: '', phone: '', time: '', party: '', notes: '' });
+                              setReservationForm({ name: '', phone: '', time: nowLocal(), party: '', notes: '' });
                               setReservationError('');
                             } else {
                               updateStatus.mutate({ id: t.id, status: s });
