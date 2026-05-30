@@ -18,7 +18,7 @@ export default function Layout() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { admin } = useAuth();
-  const forcePasswordChange = !!admin?.forcePasswordChange;
+  const [forcePasswordChange, setForcePasswordChange] = useState(!!admin?.forcePasswordChange);
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
@@ -207,6 +207,7 @@ export default function Layout() {
         <ChangePasswordModal
           forced={forcePasswordChange}
           onClose={() => setShowChangePwd(false)}
+          onForcedSuccess={() => setForcePasswordChange(false)}
         />
       )}
     </div>

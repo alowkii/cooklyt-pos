@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Lock } from 'lucide-react';
 import api from '../api/client';
 
-export default function ChangePasswordModal({ onClose, forced = false }) {
+export default function ChangePasswordModal({ onClose, forced = false, onForcedSuccess }) {
   const [current, setCurrent] = useState('');
   const [next,    setNext]    = useState('');
   const [confirm, setConfirm] = useState('');
@@ -29,7 +29,10 @@ export default function ChangePasswordModal({ onClose, forced = false }) {
         localStorage.setItem('admin_user', JSON.stringify(stored));
       }
       setSuccess(true);
-      setTimeout(onClose, 1500);
+      setTimeout(() => {
+        if (forced && onForcedSuccess) onForcedSuccess();
+        else onClose();
+      }, 1500);
     } catch (e) {
       setError(e.response?.data?.error || 'Failed to change password.');
     } finally {
