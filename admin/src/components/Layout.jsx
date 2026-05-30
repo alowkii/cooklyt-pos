@@ -15,10 +15,10 @@ const NAV = [
 export default function Layout() {
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
-  const forcePasswordChange = !!admin?.forcePasswordChange;
   const navigate  = useNavigate();
   const location  = useLocation();
   const { admin } = useAuth();
+  const forcePasswordChange = !!admin?.forcePasswordChange;
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
