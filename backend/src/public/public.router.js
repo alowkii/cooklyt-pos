@@ -127,7 +127,7 @@ router.patch('/table/:tableId/staff', tableStaffLimiter, async (req, res, next) 
     await db.query('UPDATE tables SET assigned_staff_id = $1 WHERE id = $2', [staff.id, tableId]);
     ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
 
-    res.json({ success: true });
+    res.json({ success: true, name: staff.name || staff.email.split('@')[0] });
   } catch (err) { next(err); }
 });
 
@@ -272,18 +272,18 @@ router.post('/reviews', reviewLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'overallRating must be between 1 and 5' });
     }
 
-    const { rows } = await db.query('SELECT restaurant_id FROM tables WHERE id = $1', [tableId]);
-    if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
-
-    const toRating = (v) => { const n = parseInt(v, 10); return n >= 1 && n <= 5 ? n : null; };
-
+    // Validate phone before hitting the DB
     const rawPhone = customerPhone ? String(customerPhone).trim() : null;
-    // Allow digits, spaces, +, -, (, ) — reject anything else or over-long values
     const PHONE_RE = /^[0-9 +\-().]{7,20}$/;
     if (rawPhone && !PHONE_RE.test(rawPhone)) {
       return res.status(400).json({ error: 'Invalid phone number format' });
     }
     const phone = rawPhone || null;
+
+    const { rows } = await db.query('SELECT restaurant_id FROM tables WHERE id = $1', [tableId]);
+    if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
+
+    const toRating = (v) => { const n = parseInt(v, 10); return n >= 1 && n <= 5 ? n : null; };
 
     // Try to match phone to an existing loyalty customer
     let loyaltyCustomerId = null;
