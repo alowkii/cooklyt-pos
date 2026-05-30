@@ -15,6 +15,7 @@ const NAV = [
 export default function Layout() {
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
+  const forcePasswordChange = !!admin?.forcePasswordChange;
   const navigate  = useNavigate();
   const location  = useLocation();
   const { admin } = useAuth();
@@ -202,8 +203,11 @@ export default function Layout() {
         </main>
       </div>
 
-      {showChangePwd && (
-        <ChangePasswordModal onClose={() => setShowChangePwd(false)} />
+      {(showChangePwd || forcePasswordChange) && (
+        <ChangePasswordModal
+          forced={forcePasswordChange}
+          onClose={() => setShowChangePwd(false)}
+        />
       )}
     </div>
   );

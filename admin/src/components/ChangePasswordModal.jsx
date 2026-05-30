@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Lock } from 'lucide-react';
 import api from '../api/client';
 
-export default function ChangePasswordModal({ onClose }) {
+export default function ChangePasswordModal({ onClose, forced = false }) {
   const [current, setCurrent] = useState('');
   const [next,    setNext]    = useState('');
   const [confirm, setConfirm] = useState('');
@@ -23,6 +23,11 @@ export default function ChangePasswordModal({ onClose }) {
         currentPassword: current,
         newPassword:     next,
       });
+      if (forced) {
+        const stored = JSON.parse(localStorage.getItem('admin_user') || '{}');
+        stored.forcePasswordChange = false;
+        localStorage.setItem('admin_user', JSON.stringify(stored));
+      }
       setSuccess(true);
       setTimeout(onClose, 1500);
     } catch (e) {
@@ -38,7 +43,7 @@ export default function ChangePasswordModal({ onClose }) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (!forced && e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="w-full max-w-sm"
@@ -50,17 +55,21 @@ export default function ChangePasswordModal({ onClose }) {
         >
           <div className="flex items-center gap-2">
             <Lock size={14} style={{ color: 'var(--mute)' }} />
-            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Change Password</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+              {forced ? 'Set your password' : 'Change Password'}
+            </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 transition-colors"
-            style={{ color: 'var(--mute)', background: 'transparent', border: 0 }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
-          >
-            <X size={16} />
-          </button>
+          {!forced && (
+            <button
+              onClick={onClose}
+              className="rounded-md p-1 transition-colors"
+              style={{ color: 'var(--mute)', background: 'transparent', border: 0 }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {success ? (
@@ -97,10 +106,17 @@ export default function ChangePasswordModal({ onClose }) {
               Show passwords
             </label>
 
+            {forced && (
+              <p style={{ fontSize: 12, color: 'var(--mute)', background: 'var(--hover)', borderRadius: 6, padding: '8px 12px', margin: 0 }}>
+                Your password was set by an administrator. Please set your own password to continue.
+              </p>
+            )}
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-              <button type="submit" disabled={loading} className="btn-primary flex-1 disabled:opacity-50">
-                {loading ? 'Saving…' : 'Change Password'}
+              {!forced && (
+                <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+              )}
+              <button type="submit" disabled={loading} className="btn-primary disabled:opacity-50" style={{ flex: 1 }}>
+                {loading ? 'Saving…' : forced ? 'Set Password' : 'Change Password'}
               </button>
             </div>
           </form>

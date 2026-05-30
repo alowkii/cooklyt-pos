@@ -17,8 +17,8 @@ const getAllSuperAdmins = () =>
 
 const createSuperAdmin = (email, hashedPassword) =>
   db.query(
-    `INSERT INTO super_admins (email, password, email_verified)
-     VALUES ($1, $2, FALSE) RETURNING id, email, email_verified, created_at`,
+    `INSERT INTO super_admins (email, password, email_verified, force_password_change)
+     VALUES ($1, $2, FALSE, TRUE) RETURNING id, email, email_verified, force_password_change, created_at`,
     [email, hashedPassword],
   ).then((r) => r.rows[0]);
 
@@ -37,6 +37,12 @@ const markSuperAdminEmailVerified = (id) =>
     `UPDATE super_admins
      SET email_verified = TRUE, verification_token = NULL, verification_token_expires_at = NULL
      WHERE id = $1`,
+    [id],
+  );
+
+const clearSuperAdminForcePasswordChange = (id) =>
+  db.query(
+    'UPDATE super_admins SET force_password_change = FALSE WHERE id = $1',
     [id],
   );
 
@@ -202,6 +208,7 @@ module.exports = {
   deleteSuperAdminById,
   findSuperAdminByVerificationToken,
   markSuperAdminEmailVerified,
+  clearSuperAdminForcePasswordChange,
   setSuperAdminVerificationToken,
   countSuperAdmins,
   createFirstSuperAdmin,

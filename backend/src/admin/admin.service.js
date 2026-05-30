@@ -39,7 +39,7 @@ async function login(email, password) {
     { expiresIn: '8h' },
   );
 
-  return { token, admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified } };
+  return { token, admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified, forcePasswordChange: admin.force_password_change } };
 }
 
 // Only works when no super admin exists yet — first-run setup.
@@ -243,6 +243,7 @@ async function changePassword(superAdminId, currentPassword, newPassword) {
 
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await repo.updateSuperAdminPassword(superAdminId, hashed);
+  await repo.clearSuperAdminForcePasswordChange(superAdminId);
 
   const token = jwt.sign(
     { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
