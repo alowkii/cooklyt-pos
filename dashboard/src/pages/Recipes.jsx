@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Camera, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, Camera, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe, useTakeSnapshot } from '../hooks/useRecipes';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import Modal from '../components/Modal';
+import ImportModal from '../components/ImportModal';
 import { useCurrency } from '../context/CurrencyContext';
+import { queryClient } from '../lib/queryClient';
 
 const EMPTY_FORM = {
   name:          '',
@@ -73,7 +75,8 @@ export default function Recipes() {
   const location = useLocation();
   const rowRefs  = useRef({});
 
-  const [modal,         setModal]         = useState(null); // null | 'add' | recipe
+  const [modal,         setModal]         = useState(null);
+  const [showImport,    setShowImport]    = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [expanded,      setExpanded]      = useState(() => {
     const id = location.state?.expandRecipeId;
@@ -194,7 +197,10 @@ export default function Recipes() {
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Recipes</h1>
           <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>{recipes.length} recipes</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setShowImport(true)} className="btn">
+            <Upload size={13} /> Import
+          </button>
           <button onClick={openAdd} className="btn-primary">
             <Plus size={13} /> Add recipe
           </button>
@@ -395,6 +401,14 @@ export default function Recipes() {
       )}
 
       <style>{`.label { display:block; margin-bottom:4px; font-size:11.5px; font-weight:500; color:var(--mute); }`}</style>
+
+      {showImport && (
+        <ImportModal
+          type="recipes"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['recipes'] })}
+        />
+      )}
     </div>
   );
 }

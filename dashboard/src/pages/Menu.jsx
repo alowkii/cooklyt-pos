@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, SlidersHorizontal, Eye, EyeOff, BookOpen, Upload } from 'lucide-react';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -10,7 +10,9 @@ import {
 import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
+import ImportModal from '../components/ImportModal';
 import { useCurrency } from '../context/CurrencyContext';
+import { queryClient } from '../lib/queryClient';
 
 const FORM_CATEGORIES = ['starters', 'mains', 'desserts', 'drinks', 'sides', 'other'];
 const EMPTY_FORM = { name: '', price: '', category: 'mains', available: true, sku: '', recipeId: '', description: '', customizationGroups: [] };
@@ -167,7 +169,8 @@ export default function Menu() {
   const [modal,         setModal]         = useState(null);
   const [form,          setForm]          = useState(EMPTY_FORM);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [recipePreview, setRecipePreview] = useState(null); // recipe object
+  const [recipePreview, setRecipePreview] = useState(null);
+  const [showImport,    setShowImport]    = useState(false);
 
   // Derive categories dynamically from items, preserving natural order
   const categories = useMemo(() => {
@@ -262,9 +265,14 @@ export default function Menu() {
             )}
           </div>
           {isAdmin && (
-            <button onClick={openAdd} className="btn-primary">
-              <Plus size={13} /> Add item
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowImport(true)} className="btn">
+                <Upload size={13} /> Import
+              </button>
+              <button onClick={openAdd} className="btn-primary">
+                <Plus size={13} /> Add item
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -632,6 +640,14 @@ export default function Menu() {
           .menu-table-admin { min-width: 380px; }
         }
       `}</style>
+
+      {showImport && (
+        <ImportModal
+          type="menu"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['menu'] })}
+        />
+      )}
     </div>
   );
 }

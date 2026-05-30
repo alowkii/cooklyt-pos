@@ -1,7 +1,11 @@
 const router = require('express').Router();
 const service = require('./menu.service');
 const { authenticate, authorize } = require('../shared/middleware/auth');
+const upload      = require('../shared/middleware/upload');
+const parseImport = require('../shared/parseImport');
 const audit = require('../shared/audit');
+
+const VALID_CATEGORIES = ['starters', 'mains', 'desserts', 'drinks', 'sides', 'other'];
 
 const pos = (req) => ({ actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId });
 
@@ -35,6 +39,36 @@ router.get('/:id', authenticate, async (req, res, next) => {
   } catch (e) {
     next(e);
   }
+});
+
+router.post('/import', authenticate, authorize('admin'), upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const rows = parseImport(req.file.buffer);
+    const results = { imported: 0, errors: [] };
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        const name     = String(row.name     || '').trim();
+        const price    = parseFloat(row.price);
+        const category = String(row.category || 'other').toLowerCase().trim();
+        if (!name)                       throw new Error('name is required');
+        if (isNaN(price) || price < 0)   throw new Error('price must be a valid non-negative number');
+        await service.create({
+          name,
+          price,
+          category: VALID_CATEGORIES.includes(category) ? category : 'other',
+          description: String(row.description || '').trim() || null,
+          sku:         String(row.sku         || '').trim() || null,
+          available:   String(row.available   || 'true').toLowerCase() !== 'false',
+        }, req.user.restaurantId);
+        results.imported++;
+      } catch (e) {
+        results.errors.push({ row: i + 2, reason: e.message });
+      }
+    }
+    res.json(results);
+  } catch (e) { next(e); }
 });
 
 router.post('/', authenticate, authorize('admin'), async (req, res, next) => {

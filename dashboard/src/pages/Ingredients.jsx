@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, AlertTriangle, ShoppingCart, X, ArrowUp, ArrowDown, ChevronsUpDown, Bell } from 'lucide-react';
+import { Plus, Pencil, AlertTriangle, ShoppingCart, X, ArrowUp, ArrowDown, ChevronsUpDown, Bell, Upload } from 'lucide-react';
 import {
   useIngredients,
   useCreateIngredient,
@@ -7,7 +7,9 @@ import {
   useRecordPurchase,
 } from '../hooks/useIngredients';
 import Modal from '../components/Modal';
+import ImportModal from '../components/ImportModal';
 import { useCurrency } from '../context/CurrencyContext';
+import { queryClient } from '../lib/queryClient';
 
 const EMPTY_FORM = { name: '', unit: '', reorderLevel: '', reorderQty: '', latestUnitCost: '' };
 const EMPTY_PURCHASE = { quantity: '', unitCost: '' };
@@ -26,8 +28,9 @@ export default function Ingredients() {
   const updateIngredient  = useUpdateIngredient();
   const recordPurchase    = useRecordPurchase();
 
-  const [modal,    setModal]    = useState(null);
-  const [purchase, setPurchase] = useState(null);
+  const [modal,      setModal]      = useState(null);
+  const [purchase,   setPurchase]   = useState(null);
+  const [showImport, setShowImport] = useState(false);
   const [form,     setForm]     = useState(EMPTY_FORM);
   const [purForm,  setPurForm]  = useState(EMPTY_PURCHASE);
 
@@ -157,6 +160,9 @@ export default function Ingredients() {
               {lowStock.length} low stock
             </span>
           )}
+          <button onClick={() => setShowImport(true)} className="btn">
+            <Upload size={13} /> Import
+          </button>
           <button onClick={openAdd} className="btn-primary">
             <Plus size={13} /> Add ingredient
           </button>
@@ -417,6 +423,14 @@ export default function Ingredients() {
       <style>{`
         .label { display: block; margin-bottom: 4px; font-size: 11.5px; font-weight: 500; color: var(--mute); }
       `}</style>
+
+      {showImport && (
+        <ImportModal
+          type="ingredients"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['ingredients'] })}
+        />
+      )}
     </div>
   );
 }
