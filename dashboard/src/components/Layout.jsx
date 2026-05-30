@@ -30,6 +30,7 @@ import {
   MessageSquare,
   Maximize2,
   Minimize2,
+  Plus,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
