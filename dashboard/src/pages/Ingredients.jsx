@@ -8,6 +8,9 @@ import {
 } from '../hooks/useIngredients';
 import Modal from '../components/Modal';
 import ImportModal from '../components/ImportModal';
+import Combobox from '../components/Combobox';
+
+const UNITS = ['kg', 'g', 'mg', 'L', 'ml', 'piece', 'dozen', 'box', 'bag', 'bottle', 'can', 'pack', 'tbsp', 'tsp', 'cup', 'oz', 'lb', 'portion', 'serving', 'bunch', 'slice'];
 import { useCurrency } from '../context/CurrencyContext';
 import { queryClient } from '../lib/queryClient';
 
@@ -314,17 +317,13 @@ export default function Ingredients() {
               </div>
               <div>
                 <label className="label">Unit</label>
-                <input
-                  list="unit-options"
+                <Combobox
                   value={form.unit}
-                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  className="input" placeholder="Select or type a unit…" required
+                  onChange={(v) => setForm((f) => ({ ...f, unit: v }))}
+                  options={UNITS}
+                  placeholder="Select or type a unit…"
+                  required
                 />
-                <datalist id="unit-options">
-                  {['kg', 'g', 'mg', 'L', 'ml', 'piece', 'dozen', 'box', 'bag', 'bottle', 'can', 'pack', 'tbsp', 'tsp', 'cup', 'oz', 'lb', 'portion', 'serving', 'bunch', 'slice'].map((u) => (
-                    <option key={u} value={u} />
-                  ))}
-                </datalist>
               </div>
               <div>
                 <label className="label">Unit cost ({currency.code})</label>
