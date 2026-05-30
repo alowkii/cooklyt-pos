@@ -192,8 +192,13 @@ router.get('/auth/google/callback', async (req, res) => {
     const admin = await repo.findSuperAdminByEmail(email);
     if (!admin) return res.redirect(`${ADMIN_URL}/login?error=no_account`);
 
+    if (!admin.email_verified) {
+      await repo.markSuperAdminEmailVerified(admin.id);
+      admin.email_verified = true;
+    }
+
     const token = jwt.sign(
-      { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
+      { superAdminId: admin.id, role: 'super_admin', emailVerified: true },
       process.env.JWT_SECRET,
       { expiresIn: '8h' },
     );
@@ -207,7 +212,7 @@ router.get('/auth/google/callback', async (req, res) => {
     res.cookie('admin_token', token, COOKIE_OPTS);
 
     const payload = Buffer.from(JSON.stringify({
-      admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified },
+      admin: { id: admin.id, email: admin.email, emailVerified: true },
     })).toString('base64url');
 
     res.redirect(`${ADMIN_URL}/oauth/callback?d=${payload}`);
