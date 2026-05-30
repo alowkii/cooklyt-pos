@@ -315,10 +315,16 @@ export default function Ingredients() {
               <div>
                 <label className="label">Unit</label>
                 <input
+                  list="unit-options"
                   value={form.unit}
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  className="input" placeholder="ml, g, piece…" required
+                  className="input" placeholder="Select or type a unit…" required
                 />
+                <datalist id="unit-options">
+                  {['kg', 'g', 'mg', 'L', 'ml', 'piece', 'dozen', 'box', 'bag', 'bottle', 'can', 'pack', 'tbsp', 'tsp', 'cup', 'oz', 'lb', 'portion', 'serving', 'bunch', 'slice'].map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="label">Unit cost ({currency.code})</label>
