@@ -28,6 +28,8 @@ import {
   Gift,
   Megaphone,
   MessageSquare,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -162,6 +164,21 @@ export default function Layout() {
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [showMyQR,      setShowMyQR]      = useState(false);
+  const [isFullscreen,  setIsFullscreen]  = useState(!!document.fullscreenElement);
+
+  useEffect(() => {
+    function onFsChange() { setIsFullscreen(!!document.fullscreenElement); }
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
   const [openGroups, setOpenGroups] = useState(() =>
     Object.fromEntries(
       Object.entries(GROUP_PATHS).map(([key, paths]) => [
@@ -457,6 +474,20 @@ export default function Layout() {
           )}
           <div className="ml-auto flex items-center gap-2">
             <SyncBadge />
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, borderRadius: 6, border: 0, cursor: 'pointer',
+                background: 'transparent', color: 'var(--mute)',
+                transition: 'background .08s, color .08s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
             <NotificationBell
               notifications={notifications}
               unreadCount={unreadCount}
