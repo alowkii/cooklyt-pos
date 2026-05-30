@@ -38,6 +38,7 @@ import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationBell from './NotificationBell';
 import Modal from './Modal';
+import NewOrderModal from './NewOrderModal';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -164,6 +165,7 @@ export default function Layout() {
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [showMyQR,      setShowMyQR]      = useState(false);
+  const [showNewOrder,  setShowNewOrder]  = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(!!document.fullscreenElement);
 
   useEffect(() => {
@@ -474,6 +476,16 @@ export default function Layout() {
           )}
           <div className="ml-auto flex items-center gap-2">
             <SyncBadge />
+            {!isKitchen && (
+              <button
+                onClick={() => setShowNewOrder(true)}
+                className="btn-primary btn-sm"
+                style={{ gap: 5 }}
+              >
+                <Plus size={13} />
+                <span className="hidden sm:inline">New Order</span>
+              </button>
+            )}
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
@@ -507,6 +519,9 @@ export default function Layout() {
       )}
       {showMyQR && (
         <MyQRModal user={meProfile} onClose={() => setShowMyQR(false)} />
+      )}
+      {showNewOrder && (
+        <NewOrderModal onClose={() => setShowNewOrder(false)} />
       )}
     </div>
   );
