@@ -53,12 +53,16 @@ router.get('/table/:tableId', async (req, res, next) => {
               r.id AS restaurant_id, r.name AS restaurant_name,
               COALESCE(cur.value, 'USD') AS currency_code,
               COALESCE(sae.value, 'false') AS staff_assignment_enabled,
+              COALESCE(tax.value, '0')::numeric AS tax_rate,
+              COALESCE(sc.value,  '0')::numeric AS service_charge,
               CASE WHEN u.id IS NOT NULL THEN COALESCE(u.name, u.email) END AS assigned_staff_name
        FROM tables t
        JOIN restaurants r ON r.id = t.restaurant_id
        LEFT JOIN users u   ON u.id  = t.assigned_staff_id
        LEFT JOIN settings cur ON cur.restaurant_id = t.restaurant_id AND cur.key = 'currency'
        LEFT JOIN settings sae ON sae.restaurant_id = t.restaurant_id AND sae.key = 'staff_assignment_enabled'
+       LEFT JOIN settings tax ON tax.restaurant_id = t.restaurant_id AND tax.key = 'tax_rate'
+       LEFT JOIN settings sc  ON sc.restaurant_id  = t.restaurant_id AND sc.key  = 'service_charge'
        WHERE t.id = $1`,
       [tableId],
     );
@@ -71,6 +75,8 @@ router.get('/table/:tableId', async (req, res, next) => {
     res.json({
       ...row,
       staff_assignment_enabled: row.staff_assignment_enabled === 'true',
+      tax_rate:       parseFloat(row.tax_rate)       || 0,
+      service_charge: parseFloat(row.service_charge) || 0,
       currency: {
         code: currencyInfo.code,
         symbol: currencyInfo.symbol,

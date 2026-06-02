@@ -30,7 +30,7 @@ export default function OrderMenu() {
 
   const {
     loading, loadError, tableInfo, items, activeOrders, hadOrders,
-    fetchOrders, cancelling, cancelOrder, fmt,
+    fetchOrders, cancelling, cancelOrder, fmt, taxMultiplier,
   } = useTableData(tableId, showToast);
 
   const {
@@ -182,6 +182,7 @@ export default function OrderMenu() {
             hadOrders={hadOrders}
             tableId={tableId}
             fmt={fmt}
+            taxMultiplier={taxMultiplier}
             cancelling={cancelling}
             cancelOrder={cancelOrder}
             billDone={billDone}

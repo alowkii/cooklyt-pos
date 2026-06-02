@@ -13,6 +13,10 @@ export function useTableData(tableId, showToast) {
     if (activeOrders.length > 0) setHadOrders(true);
   }, [activeOrders]);
 
+  const taxMultiplier = tableInfo
+    ? 1 + ((tableInfo.tax_rate || 0) + (tableInfo.service_charge || 0)) / 100
+    : 1;
+
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
     const { symbol, decimals } = tableInfo.currency;
@@ -92,6 +96,6 @@ export function useTableData(tableId, showToast) {
     tableInfo, items, activeOrders, hadOrders,
     fetchOrders, fetchTableInfo,
     cancelling, cancelOrder,
-    fmt,
+    fmt, taxMultiplier,
   };
 }

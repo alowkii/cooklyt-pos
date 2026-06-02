@@ -4,13 +4,16 @@ import { ChevronDown, Plus, Minus, ShoppingCart, CheckCircle, AlertCircle } from
 
 export default function OrderMenu() {
   const { tableId } = useParams();
-  const [phase, setPhase]         = useState('loading');
-  const [tableInfo, setTableInfo] = useState(null);
-  const [items, setItems]         = useState([]);
-  const [cart, setCart]           = useState({});
-  const [openCats, setOpenCats]   = useState(new Set());
-  const [error, setError]         = useState('');
-  const [orderId, setOrderId]     = useState('');
+  const [phase, setPhase]               = useState('loading');
+  const [tableInfo, setTableInfo]       = useState(null);
+  const [items, setItems]               = useState([]);
+  const [cart, setCart]                 = useState({});
+  const [openCats, setOpenCats]         = useState(new Set());
+  const [error, setError]               = useState('');
+  const [orderId, setOrderId]           = useState('');
+  const [hasOrdered, setHasOrdered]     = useState(false);
+  const [billRequested, setBillRequested] = useState(false);
+  const [billStatus, setBillStatus]     = useState('idle'); // 'idle' | 'requesting' | 'done'
 
   const fmt = (v) => {
     if (!tableInfo?.currency) return String(v);
@@ -43,10 +46,17 @@ export default function OrderMenu() {
     load();
   }, [tableId]);
 
-  const categories = [...new Set(items.map((i) => i.category).filter(Boolean))];
-  const cartItems  = items.filter((i) => (cart[i.id] || 0) > 0);
-  const cartCount  = Object.values(cart).reduce((s, v) => s + v, 0);
-  const cartTotal  = cartItems.reduce((s, i) => s + i.price * cart[i.id], 0);
+  const categories        = [...new Set(items.map((i) => i.category).filter(Boolean))];
+  const cartItems         = items.filter((i) => (cart[i.id] || 0) > 0);
+  const cartCount         = Object.values(cart).reduce((s, v) => s + v, 0);
+  const taxRate           = tableInfo?.tax_rate        || 0;
+  const serviceChargeRate = tableInfo?.service_charge  || 0;
+  const taxMultiplier     = 1 + (taxRate + serviceChargeRate) / 100;
+
+  // All prices shown to the customer are tax-inclusive
+  const inclPrice = (base) => base * taxMultiplier;
+
+  const cartTotal = cartItems.reduce((s, i) => s + inclPrice(i.price) * cart[i.id], 0);
 
   function changeQty(id, delta) {
     setCart((prev) => {
@@ -81,10 +91,27 @@ export default function OrderMenu() {
       }
       const json = await res.json();
       setOrderId((json.orderId || '').slice(-6).toUpperCase());
+      setHasOrdered(true);
       setPhase('done');
     } catch (e) {
       setError(e.message);
       setPhase('cart');
+    }
+  }
+
+  async function requestBill() {
+    if (billStatus !== 'idle') return;
+    setBillStatus('requesting');
+    try {
+      await fetch('/api/public/request-bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId }),
+      });
+      setBillStatus('done');
+      setBillRequested(true);
+    } catch {
+      setBillStatus('idle');
     }
   }
 
@@ -125,16 +152,32 @@ export default function OrderMenu() {
         <p style={{ fontSize: 13, color: 'var(--mute)', textAlign: 'center', maxWidth: 280, marginBottom: 32, lineHeight: 1.6 }}>
           Your order has been sent to the kitchen. Thank you!
         </p>
-        <button
-          onClick={() => { setCart({}); setPhase('menu'); }}
-          style={{
-            background: 'var(--ink)', color: 'var(--accent-on)',
-            border: 0, borderRadius: 10, padding: '12px 32px',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Order more
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 }}>
+          <button
+            onClick={() => { setCart({}); setPhase('menu'); }}
+            style={{
+              background: 'var(--ink)', color: 'var(--accent-on)',
+              border: 0, borderRadius: 10, padding: '13px 0',
+              fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Order more
+          </button>
+          <button
+            onClick={requestBill}
+            disabled={billStatus !== 'idle'}
+            style={{
+              background: billStatus === 'done' ? 'rgba(31,138,91,.1)' : 'var(--paper)',
+              color: billStatus === 'done' ? 'var(--ok)' : 'var(--ink)',
+              border: `1px solid ${billStatus === 'done' ? 'var(--ok)' : 'var(--line-2)'}`,
+              borderRadius: 10, padding: '13px 0',
+              fontSize: 14, fontWeight: 600, cursor: billStatus !== 'idle' ? 'default' : 'pointer',
+              fontFamily: 'inherit', opacity: billStatus === 'requesting' ? 0.6 : 1,
+            }}
+          >
+            {billStatus === 'done' ? '✓ Bill requested' : billStatus === 'requesting' ? 'Requesting…' : 'Request Bill'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -186,7 +229,7 @@ export default function OrderMenu() {
                     {item.name}
                   </p>
                   <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 1 }}>
-                    {fmt(item.price)} each
+                    {fmt(inclPrice(item.price))} each
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -218,7 +261,7 @@ export default function OrderMenu() {
                   </button>
                 </div>
                 <div className="mono num" style={{ width: 64, textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                  {fmt(item.price * cart[item.id])}
+                  {fmt(inclPrice(item.price) * cart[item.id])}
                 </div>
               </div>
             ))}
@@ -227,15 +270,18 @@ export default function OrderMenu() {
 
         {/* Footer */}
         <div style={{ borderTop: '1px solid var(--line)', background: 'var(--paper)', padding: 16 }}>
-          <div className="flex justify-between" style={{ marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Subtotal</span>
-            <span className="mono num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-              {fmt(cartTotal)}
-            </span>
+          {/* Total */}
+          <div className="flex justify-between" style={{ marginBottom: 14 }}>
+            <div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Total</span>
+              {(taxRate > 0 || serviceChargeRate > 0) && (
+                <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 2 }}>
+                  Incl. {[taxRate > 0 && `${taxRate}% tax`, serviceChargeRate > 0 && `${serviceChargeRate}% service charge`].filter(Boolean).join(' + ')}
+                </p>
+              )}
+            </div>
+            <span className="mono num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmt(cartTotal)}</span>
           </div>
-          <p style={{ fontSize: 11.5, color: 'var(--mute)', marginBottom: 16, lineHeight: 1.5 }}>
-            Taxes and service charges will be applied by staff at checkout.
-          </p>
           <button
             onClick={placeOrder}
             disabled={phase === 'submitting' || cartCount === 0}
@@ -268,7 +314,7 @@ export default function OrderMenu() {
       </div>
 
       {/* Category accordion */}
-      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 96 }}>
+      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: hasOrdered && cartCount > 0 ? 160 : 96 }}>
         {categories.map((cat) => {
           const catItems = items.filter((i) => i.category === cat);
           const isOpen   = openCats.has(cat);
@@ -319,7 +365,7 @@ export default function OrderMenu() {
                           {item.name}
                         </p>
                         <p className="mono num" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', marginTop: 3 }}>
-                          {fmt(item.price)}
+                          {fmt(inclPrice(item.price))}
                         </p>
                       </div>
 
@@ -380,31 +426,52 @@ export default function OrderMenu() {
         )}
       </div>
 
-      {/* Cart FAB */}
-      {cartCount > 0 && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 14 }}>
-          <button
-            onClick={() => { setError(''); setPhase('cart'); }}
-            className="flex w-full items-center gap-3"
-            style={{
-              background: 'var(--ink)', color: 'var(--accent-on)',
-              border: 0, borderRadius: 14, padding: '14px 18px',
-              cursor: 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 8px 32px -8px rgba(10,10,10,.45)',
-            }}
-          >
-            <span style={{
-              width: 24, height: 24, borderRadius: '50%',
-              background: 'rgba(250,250,248,.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11.5, fontWeight: 700, flexShrink: 0,
-            }}>
-              {cartCount}
-            </span>
-            <span style={{ flex: 1, textAlign: 'left', fontSize: 14, fontWeight: 600 }}>View Order</span>
-            <span className="mono num" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(cartTotal)}</span>
-            <ShoppingCart size={17} />
-          </button>
+      {/* Bottom action area — cart FAB and/or Request Bill */}
+      {(cartCount > 0 || hasOrdered) && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {cartCount > 0 && (
+            <button
+              onClick={() => { setError(''); setPhase('cart'); }}
+              className="flex w-full items-center gap-3"
+              style={{
+                background: 'var(--ink)', color: 'var(--accent-on)',
+                border: 0, borderRadius: 14, padding: '14px 18px',
+                cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 8px 32px -8px rgba(10,10,10,.45)',
+              }}
+            >
+              <span style={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: 'rgba(250,250,248,.18)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11.5, fontWeight: 700, flexShrink: 0,
+              }}>
+                {cartCount}
+              </span>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 14, fontWeight: 600 }}>View Order</span>
+              <span className="mono num" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(cartTotal)}</span>
+              <ShoppingCart size={17} />
+            </button>
+          )}
+          {hasOrdered && (
+            <button
+              onClick={requestBill}
+              disabled={billStatus !== 'idle'}
+              style={{
+                width: '100%', borderRadius: 14, padding: '13px 0',
+                background: billStatus === 'done' ? 'rgba(31,138,91,.12)' : 'var(--paper)',
+                color: billStatus === 'done' ? 'var(--ok)' : 'var(--ink)',
+                border: `1px solid ${billStatus === 'done' ? 'var(--ok)' : 'var(--line-2)'}`,
+                fontSize: 14, fontWeight: 600,
+                cursor: billStatus !== 'idle' ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: billStatus === 'requesting' ? 0.6 : 1,
+                boxShadow: billStatus === 'done' ? 'none' : '0 2px 12px -4px rgba(10,10,10,.15)',
+              }}
+            >
+              {billStatus === 'done' ? '✓ Bill requested — staff will be with you shortly' : billStatus === 'requesting' ? 'Requesting…' : 'Request Bill'}
+            </button>
+          )}
         </div>
       )}
     </div>

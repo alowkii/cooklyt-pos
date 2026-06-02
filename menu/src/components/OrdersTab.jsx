@@ -8,15 +8,17 @@ const STATUS_CONFIG = {
   served:    { label: 'Served',         color: 'var(--mute-2)', canCancel: false },
 };
 
-export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, cancelOrder, billDone, billRequesting, requestBill, showToast }) {
+export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, taxMultiplier = 1, cancelling, cancelOrder, billDone, billRequesting, requestBill, showToast }) {
   const hasServedOrders = activeOrders.some((o) => o.status === 'served');
   const paidAndGone     = hadOrders && activeOrders.length === 0;
+
+  const incl = (price) => price * taxMultiplier;
 
   // Oldest first (API returns DESC)
   const ordered    = [...activeOrders].reverse();
   const multiRound = ordered.length > 1;
   const grandTotal = ordered.reduce((sum, o) =>
-    sum + (o.items || []).reduce((s, it) => s + it.price * it.quantity, 0), 0);
+    sum + (o.items || []).reduce((s, it) => s + incl(it.price) * it.quantity, 0), 0);
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ padding: '14px 16px', paddingBottom: 24 }}>
@@ -41,7 +43,7 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
           {ordered.map((order, i) => {
             const s       = STATUS_CONFIG[order.status] || STATUS_CONFIG.received;
             const served  = order.status === 'served';
-            const total   = (order.items || []).reduce((sum, it) => sum + it.price * it.quantity, 0);
+            const total   = (order.items || []).reduce((sum, it) => sum + incl(it.price) * it.quantity, 0);
 
             return (
               <div key={order.id} style={{
@@ -90,7 +92,7 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
                           {item.name}
                           <span style={{ color: 'var(--mute)', marginLeft: 6 }}>× {item.quantity}</span>
                         </span>
-                        <span style={{ color: 'var(--mute)' }}>{fmt(item.price * item.quantity)}</span>
+                        <span style={{ color: 'var(--mute)' }}>{fmt(incl(item.price) * item.quantity)}</span>
                       </div>
                       {item.notes && (
                         <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2, fontStyle: 'italic' }}>
@@ -104,7 +106,7 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
                       borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 4,
                       fontSize: 13, fontWeight: 600,
                     }}>
-                      <span style={{ color: 'var(--mute)' }}>Subtotal</span>
+                      <span style={{ color: 'var(--mute)' }}>Total{taxMultiplier > 1 ? ' (incl. tax)' : ''}</span>
                       <span style={{ color: 'var(--ink)' }}>{fmt(total)}</span>
                     </div>
                   )}
@@ -120,7 +122,7 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
               fontSize: 13, fontWeight: 700,
               background: 'var(--paper-2)',
             }}>
-              <span style={{ color: 'var(--mute)' }}>Total (all rounds)</span>
+              <span style={{ color: 'var(--mute)' }}>Total{taxMultiplier > 1 ? ' (incl. tax)' : ''}</span>
               <span style={{ color: 'var(--ink)' }}>{fmt(grandTotal)}</span>
             </div>
           )}
@@ -137,7 +139,7 @@ export function OrdersTab({ activeOrders, hadOrders, tableId, fmt, cancelling, c
               Ready to pay?
             </p>
             <p style={{ fontSize: 12, color: 'var(--mute)', margin: '0 0 12px', lineHeight: 1.5 }}>
-              Notify staff to bring your bill. Taxes &amp; charges will be applied at checkout.
+              Notify staff to bring your bill.{taxMultiplier > 1 ? ' Prices above are inclusive of all taxes and charges.' : ''}
             </p>
             <button
               onClick={requestBill}
