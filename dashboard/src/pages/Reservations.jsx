@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, UserCheck, UserX, PhoneCall, CalendarClock, Chevr
 import { useReservations, useCreateReservation, useUpdateReservation, useDeleteReservation, useSeatReservation, useCancelReservation, useNoShowReservation } from '../hooks/useReservations';
 import { useTables } from '../hooks/useTables';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 
 const STATUS_STYLES = {
   upcoming:  { color: 'var(--warn)',   bg: 'rgba(179,120,31,0.10)',  label: 'Upcoming'   },
@@ -299,14 +300,14 @@ export default function Reservations() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label style={LABEL_STYLE}>Table (optional)</label>
-                <select value={form.tableId}
-                  onChange={(e) => setForm((f) => ({ ...f, tableId: e.target.value }))}
-                  className="input w-full">
-                  <option value="">— Unassigned —</option>
-                  {tables.map((t) => (
-                    <option key={t.id} value={t.id}>Table {t.number} ({t.seats}p)</option>
-                  ))}
-                </select>
+                <SelectField
+                  value={form.tableId}
+                  onChange={(v) => setForm((f) => ({ ...f, tableId: v }))}
+                  options={[
+                    { value: '', label: '— Unassigned —' },
+                    ...tables.map((t) => ({ value: t.id, label: `Table ${t.number} (${t.seats}p)` })),
+                  ]}
+                />
               </div>
               <div>
                 <label style={LABEL_STYLE}>Notes</label>

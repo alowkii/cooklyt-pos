@@ -3,6 +3,7 @@ import { Plus, Pencil, X, GripVertical } from 'lucide-react';
 import { useCombos, useCreateCombo, useUpdateCombo } from '../hooks/useCombos';
 import { useMenuItems } from '../hooks/useMenu';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 import { useCurrency } from '../context/CurrencyContext';
 
 const EMPTY_FORM = { name: '', sku: '', price: '', isActive: true, validFrom: '', validUntil: '', items: [] };
@@ -192,10 +193,16 @@ export default function Combos() {
               <div className="space-y-2">
                 {form.items.map((row, idx) => (
                   <div key={row._key} className="flex items-center gap-2">
-                    <select value={row.menuItemId} onChange={(e) => setItemRow(idx, { menuItemId: e.target.value })} className="input flex-1" required>
-                      <option value="">Select item…</option>
-                      {menuItems.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
+                    <div style={{ flex: 1 }}>
+                      <SelectField
+                        value={row.menuItemId}
+                        onChange={(v) => setItemRow(idx, { menuItemId: v })}
+                        options={[
+                          { value: '', label: 'Select item…' },
+                          ...menuItems.map((m) => ({ value: m.id, label: m.name })),
+                        ]}
+                      />
+                    </div>
                     <input type="number" min="1" value={row.quantity} onChange={(e) => setItemRow(idx, { quantity: e.target.value })} className="input w-16" />
                     <button type="button" onClick={() => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
                       className="shrink-0 rounded p-1" style={{ color: 'var(--mute)', background: 'transparent', border: 0, cursor: 'pointer' }}

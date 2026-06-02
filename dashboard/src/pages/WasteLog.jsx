@@ -5,6 +5,7 @@ import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import { useRecipes } from '../hooks/useRecipes';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 import { useCurrency } from '../context/CurrencyContext';
 
 const REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
@@ -319,16 +320,14 @@ export default function WasteLog() {
                 <>
                   <div>
                     <label className="label">Menu Item</label>
-                    <select
+                    <SelectField
                       value={itemForm.menuItemId}
-                      onChange={(e) => setItemForm((f) => ({ ...f, menuItemId: e.target.value }))}
-                      className="input" required
-                    >
-                      <option value="">Select menu item…</option>
-                      {menuItemsWithRecipe.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setItemForm((f) => ({ ...f, menuItemId: v }))}
+                      options={[
+                        { value: '', label: 'Select menu item…' },
+                        ...menuItemsWithRecipe.map((m) => ({ value: m.id, label: m.name })),
+                      ]}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -343,9 +342,11 @@ export default function WasteLog() {
                     </div>
                     <div>
                       <label className="label">Reason</label>
-                      <select value={itemForm.reason} onChange={(e) => setItemForm((f) => ({ ...f, reason: e.target.value }))} className="input">
-                        {REASONS.map((r) => <option key={r} value={r}>{REASON_LABELS[r]}</option>)}
-                      </select>
+                      <SelectField
+                        value={itemForm.reason}
+                        onChange={(v) => setItemForm((f) => ({ ...f, reason: v }))}
+                        options={REASONS.map((r) => ({ value: r, label: REASON_LABELS[r] }))}
+                      />
                     </div>
                   </div>
 
@@ -394,16 +395,17 @@ export default function WasteLog() {
             <form onSubmit={handleIngredientSubmit} className="space-y-4">
               <div>
                 <label className="label">Ingredient</label>
-                <select
+                <SelectField
                   value={ingForm.ingredientId}
-                  onChange={(e) => setIngForm((f) => ({ ...f, ingredientId: e.target.value }))}
-                  className="input" required
-                >
-                  <option value="">Select ingredient…</option>
-                  {ingredients.filter((i) => i.is_active).map((i) => (
-                    <option key={i.id} value={i.id}>{i.name} (stock: {parseFloat(i.stock_on_hand).toFixed(2)} {i.unit})</option>
-                  ))}
-                </select>
+                  onChange={(v) => setIngForm((f) => ({ ...f, ingredientId: v }))}
+                  options={[
+                    { value: '', label: 'Select ingredient…' },
+                    ...ingredients.filter((i) => i.is_active).map((i) => ({
+                      value: i.id,
+                      label: `${i.name} (stock: ${parseFloat(i.stock_on_hand).toFixed(2)} ${i.unit})`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -418,9 +420,11 @@ export default function WasteLog() {
                 </div>
                 <div>
                   <label className="label">Reason</label>
-                  <select value={ingForm.reason} onChange={(e) => setIngForm((f) => ({ ...f, reason: e.target.value }))} className="input">
-                    {REASONS.map((r) => <option key={r} value={r}>{REASON_LABELS[r]}</option>)}
-                  </select>
+                  <SelectField
+                    value={ingForm.reason}
+                    onChange={(v) => setIngForm((f) => ({ ...f, reason: v }))}
+                    options={REASONS.map((r) => ({ value: r, label: REASON_LABELS[r] }))}
+                  />
                 </div>
               </div>
 

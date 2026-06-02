@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Tag, Search, Check, Copy, ToggleLeft, ToggleRight
 import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon } from '../hooks/useCoupons';
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 
 const LABEL = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 };
 const INPUT = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' };
@@ -293,10 +294,15 @@ export default function Coupons() {
               </div>
               <div>
                 <label style={LABEL}>Discount Type</label>
-                <select style={INPUT} value={form.discount_type} onChange={(e) => setForm((f) => ({ ...f, discount_type: e.target.value }))}>
-                  <option value="percent">Percentage (%)</option>
-                  <option value="flat">Flat amount</option>
-                </select>
+                <SelectField
+                  value={form.discount_type}
+                  onChange={(v) => setForm((f) => ({ ...f, discount_type: v }))}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--fg)', fontSize: 14 }}
+                  options={[
+                    { value: 'percent', label: 'Percentage (%)' },
+                    { value: 'flat',    label: 'Flat amount' },
+                  ]}
+                />
               </div>
               <div>
                 <label style={LABEL}>Discount Value</label>

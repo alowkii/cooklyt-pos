@@ -4,6 +4,7 @@ import { useInventoryTransactions, useImportLedger } from '../hooks/useInventory
 import { useIngredients } from '../hooks/useIngredients';
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 
 const TYPE_CFG = {
   PURCHASE:   { label: 'Purchase',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
@@ -174,18 +175,24 @@ export default function InventoryLedger() {
           <span style={{ fontSize: 12, color: 'var(--mute)' }}>–</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)}
             className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
-          <select value={ingredientId} onChange={e => setIngredientId(e.target.value)}
-            className="input" style={{ height: 32, fontSize: 12, minWidth: 150 }}>
-            <option value="">All ingredients</option>
-            {ingredients.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-          <select value={txnType} onChange={e => setTxnType(e.target.value)}
-            className="input" style={{ height: 32, fontSize: 12, minWidth: 120 }}>
-            <option value="">All types</option>
-            {Object.entries(TYPE_CFG).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
+          <SelectField
+            value={ingredientId}
+            onChange={(v) => setIngredientId(v)}
+            style={{ height: 32, fontSize: 12, fontWeight: 500, padding: '0 10px', width: 'auto', minWidth: 150 }}
+            options={[
+              { value: '', label: 'All ingredients' },
+              ...ingredients.map((i) => ({ value: i.id, label: i.name })),
+            ]}
+          />
+          <SelectField
+            value={txnType}
+            onChange={(v) => setTxnType(v)}
+            style={{ height: 32, fontSize: 12, fontWeight: 500, padding: '0 10px', width: 'auto', minWidth: 120 }}
+            options={[
+              { value: '', label: 'All types' },
+              ...Object.entries(TYPE_CFG).map(([k, v]) => ({ value: k, label: v.label })),
+            ]}
+          />
 
           {/* Export */}
           <button

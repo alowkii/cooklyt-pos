@@ -3,6 +3,7 @@ import { UserPlus, Trash2, ShieldCheck, User, ChefHat, Banknote, Check, X, QrCod
 import { useUsers, useCreateUser, useDeleteUser, useUpdateUserRole, useUpdateUserName, useSetStaffPin, useSetUserActive, useSetUserPresent, useResendVerification } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
+import SelectField from '../components/SelectField';
 import QRCode from 'qrcode';
 
 const ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
@@ -75,17 +76,12 @@ function RoleCell({ user, isSelf, onSave }) {
   if (editing) {
     return (
       <div className="flex items-center gap-1.5">
-        <select
+        <SelectField
           value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className="input"
-          style={{ padding: '3px 8px', fontSize: 12, width: 'auto' }}
-          autoFocus
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r} className="capitalize">{r}</option>
-          ))}
-        </select>
+          onChange={(v) => setSelected(v)}
+          style={{ fontSize: 12, fontWeight: 500, padding: '3px 8px', width: 'auto' }}
+          options={ROLES.map((r) => ({ value: r, label: r.charAt(0).toUpperCase() + r.slice(1) }))}
+        />
         <button
           onClick={save}
           disabled={updateRole.isPending}
@@ -537,15 +533,11 @@ export default function Users() {
 
             <div>
               <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Role</label>
-              <select
+              <SelectField
                 value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                className="input"
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r} className="capitalize">{r}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, role: v }))}
+                options={ROLES.map((r) => ({ value: r, label: r.charAt(0).toUpperCase() + r.slice(1) }))}
+              />
               <p style={{ marginTop: 6, fontSize: 11.5, color: 'var(--mute)' }}>
                 <strong>admin</strong> — full access ·{' '}
                 <strong>staff</strong> — orders &amp; tables ·{' '}

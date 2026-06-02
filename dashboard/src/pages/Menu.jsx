@@ -11,6 +11,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import ImportModal from '../components/ImportModal';
+import SelectField from '../components/SelectField';
 import { useCurrency } from '../context/CurrencyContext';
 import { queryClient } from '../lib/queryClient';
 
@@ -511,16 +512,14 @@ export default function Menu() {
               <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>
                 Recipe <span style={{ fontWeight: 400, color: 'var(--mute-2)' }}>(for inventory tracking)</span>
               </label>
-              <select
+              <SelectField
                 value={form.recipeId}
-                onChange={(e) => setForm((f) => ({ ...f, recipeId: e.target.value }))}
-                className="input"
-              >
-                <option value="">None — no inventory tracking</option>
-                {recipes.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, recipeId: v }))}
+                options={[
+                  { value: '', label: 'None — no inventory tracking' },
+                  ...recipes.map((r) => ({ value: r.id, label: r.name })),
+                ]}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -541,15 +540,11 @@ export default function Menu() {
               </div>
               <div>
                 <label className="mb-1 block" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--mute)' }}>Category</label>
-                <select
+                <SelectField
                   value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  className="input"
-                >
-                  {FORM_CATEGORIES.map((c) => (
-                    <option key={c} value={c} className="capitalize">{c}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                  options={FORM_CATEGORIES.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))}
+                />
               </div>
             </div>
 

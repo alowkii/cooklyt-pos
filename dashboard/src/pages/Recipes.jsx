@@ -6,6 +6,7 @@ import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import Modal from '../components/Modal';
 import ImportModal from '../components/ImportModal';
+import SelectField from '../components/SelectField';
 import { useCurrency } from '../context/CurrencyContext';
 import { queryClient } from '../lib/queryClient';
 
@@ -22,17 +23,16 @@ const EMPTY_FORM = {
 function IngredientRow({ row, onUpdate, onRemove, allIngredients }) {
   return (
     <div className="flex items-center gap-2">
-      <select
-        value={row.ingredientId}
-        onChange={(e) => onUpdate({ ...row, ingredientId: e.target.value })}
-        className="input flex-1"
-        required
-      >
-        <option value="">Select ingredient…</option>
-        {allIngredients.map((i) => (
-          <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
-        ))}
-      </select>
+      <div style={{ flex: 1 }}>
+        <SelectField
+          value={row.ingredientId}
+          onChange={(v) => onUpdate({ ...row, ingredientId: v })}
+          options={[
+            { value: '', label: 'Select ingredient…' },
+            ...allIngredients.map((i) => ({ value: i.id, label: `${i.name} (${i.unit})` })),
+          ]}
+        />
+      </div>
       <input
         type="number" step="0.0001" min="0.0001"
         value={row.quantity}
@@ -335,12 +335,16 @@ export default function Recipes() {
             {/* Link to menu item */}
             <div>
               <label className="label">Link to menu item (optional)</label>
-              <select value={form.linkedMenuItemId} onChange={(e) => setForm((f) => ({ ...f, linkedMenuItemId: e.target.value }))} className="input">
-                <option value="">— don't link —</option>
-                {menuItems.filter((m) => !m.recipe_id || (modal !== 'add' && m.recipe_id === modal.id)).map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}{m.sku ? ` (${m.sku})` : ''}</option>
-                ))}
-              </select>
+              <SelectField
+                value={form.linkedMenuItemId}
+                onChange={(v) => setForm((f) => ({ ...f, linkedMenuItemId: v }))}
+                options={[
+                  { value: '', label: "— don't link —" },
+                  ...menuItems
+                    .filter((m) => !m.recipe_id || (modal !== 'add' && m.recipe_id === modal.id))
+                    .map((m) => ({ value: m.id, label: m.name + (m.sku ? ` (${m.sku})` : '') })),
+                ]}
+              />
             </div>
 
             {/* Ingredients */}

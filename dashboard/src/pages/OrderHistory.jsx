@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, UtensilsCrossed, ShoppingBag, Truck, Printer, Download } from 'lucide-react';
+import SelectField from '../components/SelectField';
 import { useOrderHistory } from '../hooks/useOrders';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
@@ -629,33 +630,33 @@ export default function OrderHistory() {
           </div>
 
           {/* Status filter */}
-          <select
-            className="input"
-            style={{ fontSize: 12, height: 32 }}
+          <SelectField
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            <option value="paid">Paid</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="served">Served</option>
-            <option value="ready">Ready</option>
-            <option value="preparing">Preparing</option>
-            <option value="received">Received</option>
-          </select>
+            onChange={(v) => setStatusFilter(v)}
+            style={{ height: 32, fontSize: 12, fontWeight: 500, padding: '0 10px', width: 'auto' }}
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'paid',      label: 'Paid' },
+              { value: 'cancelled', label: 'Cancelled' },
+              { value: 'served',    label: 'Served' },
+              { value: 'ready',     label: 'Ready' },
+              { value: 'preparing', label: 'Preparing' },
+              { value: 'received',  label: 'Received' },
+            ]}
+          />
 
           {/* Channel filter */}
-          <select
-            className="input"
-            style={{ fontSize: 12, height: 32 }}
+          <SelectField
             value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value)}
-          >
-            <option value="">All channels</option>
-            <option value="dining">Dining</option>
-            <option value="takeaway">Takeaway</option>
-            <option value="delivery">Delivery</option>
-          </select>
+            onChange={(v) => setChannelFilter(v)}
+            style={{ height: 32, fontSize: 12, fontWeight: 500, padding: '0 10px', width: 'auto' }}
+            options={[
+              { value: '',         label: 'All channels' },
+              { value: 'dining',   label: 'Dining' },
+              { value: 'takeaway', label: 'Takeaway' },
+              { value: 'delivery', label: 'Delivery' },
+            ]}
+          />
         </div>
       </div>
 

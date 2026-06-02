@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Star, UtensilsCrossed } from 'lucide-react';
+import SelectField from '../components/SelectField';
 import { useReviews } from '../hooks/useReviews';
 import { useTimezone } from '../context/TimezoneContext';
 
@@ -215,18 +216,18 @@ export default function Reviews() {
           </div>
 
           {/* Min rating filter */}
-          <select
-            className="input"
-            style={{ fontSize: 12, height: 32 }}
+          <SelectField
             value={minRating}
-            onChange={(e) => setMinRating(e.target.value)}
-          >
-            <option value="">All ratings</option>
-            <option value="5">5 stars only</option>
-            <option value="4">4+ stars</option>
-            <option value="3">3+ stars</option>
-            <option value="2">2+ stars</option>
-          </select>
+            onChange={(v) => setMinRating(v)}
+            style={{ height: 32, fontSize: 12, fontWeight: 500, padding: '0 10px', width: 'auto' }}
+            options={[
+              { value: '',  label: 'All ratings' },
+              { value: '5', label: '5 stars only' },
+              { value: '4', label: '4+ stars' },
+              { value: '3', label: '3+ stars' },
+              { value: '2', label: '2+ stars' },
+            ]}
+          />
         </div>
       </div>
 
