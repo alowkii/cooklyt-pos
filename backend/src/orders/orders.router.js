@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const service = require('./orders.service');
 const db      = require('../shared/db');
+const settingsRepo = require('../settings/settings.repository');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const audit = require('../shared/audit');
 
@@ -35,6 +36,10 @@ router.get('/table/:tableId', authenticate, async (req, res, next) => {
 
 router.post('/', authenticate, authorize('admin', 'staff'), async (req, res, next) => {
   try {
+    const settings = await settingsRepo.getAll(req.user.restaurantId);
+    if (settings.restaurant_open === 'false') {
+      return res.status(403).json({ error: 'Restaurant is currently closed — new orders are paused' });
+    }
     const { tableId, items, channel, customerRef, assignedStaffId } = req.body;
     const order = await service.createOrder({
       restaurantId:    req.user.restaurantId,

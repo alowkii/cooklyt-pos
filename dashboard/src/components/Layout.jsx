@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -44,7 +45,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 import { useMeProfile, useSetUserPresent } from '../hooks/useUsers';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 
 const GROUP_PATHS = {
   analytics:  ['/reports', '/history', '/waste', '/costing'],
@@ -138,6 +139,8 @@ export default function Layout() {
   const { user, restaurant, isAdmin, isCashier } = useAuth();
   const { data: meProfile } = useMeProfile();
   const { data: settings } = useSettings();
+  const updateSetting = useUpdateSetting();
+  const isOpen = settings?.restaurant_open !== 'false';
   const setUserPresent = useSetUserPresent();
   const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
 
@@ -163,11 +166,12 @@ export default function Layout() {
 
   const navigate  = useNavigate();
   const location  = useLocation();
-  const [sidebarOpen,   setSidebarOpen]   = useState(false);
-  const [showChangePwd, setShowChangePwd] = useState(false);
-  const [showMyQR,      setShowMyQR]      = useState(false);
-  const [showNewOrder,  setShowNewOrder]  = useState(false);
-  const [isFullscreen,  setIsFullscreen]  = useState(!!document.fullscreenElement);
+  const [sidebarOpen,      setSidebarOpen]      = useState(false);
+  const [showChangePwd,   setShowChangePwd]   = useState(false);
+  const [showMyQR,        setShowMyQR]        = useState(false);
+  const [showNewOrder,    setShowNewOrder]    = useState(false);
+  const [isFullscreen,    setIsFullscreen]    = useState(!!document.fullscreenElement);
+  const [confirmOpen,     setConfirmOpen]     = useState(false);
 
   useEffect(() => {
     function onFsChange() { setIsFullscreen(!!document.fullscreenElement); }
@@ -454,6 +458,13 @@ export default function Layout() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
 
+        {/* Closed banner — visible to all staff */}
+        {!isOpen && (
+          <div className="flex shrink-0 items-center justify-center gap-2 px-4 py-2" style={{ background: 'var(--bad)', color: '#fff' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>Restaurant is closed — new orders are paused</span>
+          </div>
+        )}
+
         {/* Topbar */}
         <header
           className="flex h-12 shrink-0 items-center gap-3 px-5"
@@ -477,6 +488,26 @@ export default function Layout() {
           )}
           <div className="ml-auto flex items-center gap-2">
             <SyncBadge />
+            {isAdmin && (
+              <button
+                onClick={() => setConfirmOpen(true)}
+                title={isOpen ? 'Close restaurant' : 'Open restaurant'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  height: 26, padding: '0 10px', borderRadius: 999,
+                  border: `1.5px solid ${isOpen ? 'var(--ok)' : 'var(--bad)'}`,
+                  background: isOpen ? 'rgba(31,138,91,.08)' : 'rgba(179,55,43,.08)',
+                  color: isOpen ? 'var(--ok)' : 'var(--bad)',
+                  fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background .1s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isOpen ? 'rgba(31,138,91,.16)' : 'rgba(179,55,43,.16)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isOpen ? 'rgba(31,138,91,.08)' : 'rgba(179,55,43,.08)')}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isOpen ? 'var(--ok)' : 'var(--bad)', display: 'inline-block', flexShrink: 0 }} />
+                <span className="hidden sm:inline">{isOpen ? 'Open' : 'Closed'}</span>
+              </button>
+            )}
             {!isKitchen && (
               <button
                 onClick={() => setShowNewOrder(true)}
@@ -523,6 +554,47 @@ export default function Layout() {
       )}
       {showNewOrder && (
         <NewOrderModal onClose={() => setShowNewOrder(false)} />
+      )}
+
+      {/* Restaurant open/close confirmation */}
+      {confirmOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: 'rgba(10,10,10,.5)' }}
+        >
+          <div style={{
+            background: 'var(--paper)', border: '1px solid var(--line-2)',
+            borderRadius: 10, padding: 24, maxWidth: 380, width: '100%',
+          }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>
+              {isOpen ? 'Close the restaurant?' : 'Open the restaurant?'}
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--mute)', marginBottom: 20, lineHeight: 1.55 }}>
+              {isOpen
+                ? 'Staff will not be able to place new orders until the restaurant is reopened. Existing orders and payments are unaffected.'
+                : 'The restaurant will accept new orders again immediately.'}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmOpen(false)} className="btn-secondary flex-1 justify-center">
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await updateSetting.mutateAsync({ key: 'restaurant_open', value: isOpen ? 'false' : 'true' });
+                  setConfirmOpen(false);
+                }}
+                disabled={updateSetting.isPending}
+                className="flex-1 justify-center rounded-[6px] px-4 py-2 text-[13px] font-medium text-white border-0 cursor-pointer disabled:opacity-60"
+                style={{ background: isOpen ? 'var(--bad)' : 'var(--ok)' }}
+              >
+                {updateSetting.isPending
+                  ? (isOpen ? 'Closing…' : 'Opening…')
+                  : (isOpen ? 'Yes, close restaurant' : 'Yes, open restaurant')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
