@@ -64,10 +64,11 @@ const MENU = [
   { name: 'Sparkling Water',        price:   80, category: 'Drinks', description: 'Chilled sparkling mineral water, 330 ml.' },
 ];
 
-// Orders spread across 7 days — [daysAgo, hour, minute, tableIndex, [[itemName, qty], ...], paymentMethod?]
-// daysAgo=0 → today, daysAgo=6 → six days ago. paymentMethod defaults to 'cash'.
+// Orders spread across 7 days — [daysAgo, hour, minute, tableIndex, [[itemName, qty], ...], paymentMethod?, channel?]
+// daysAgo=0 → today, daysAgo=6 → six days ago. paymentMethod defaults to 'cash'. channel defaults to 'dining'.
+// For takeaway/delivery tableIndex is ignored (null table_id is used).
 const ORDER_SCHEDULE = [
-  // ── Day 0 (today) ─────────────────────────────────────────────────────────
+  // ── Day 0 (today) — Dining ────────────────────────────────────────────────
   [ 0,  8, 15, 0, [['Veg Spring Rolls', 2], ['Masala Chai', 2], ['Garlic Bread', 1]],                                                         'cash'   ],
   [ 0,  9, 30, 1, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Mango Lassi', 2], ['Garlic Bread', 1]],                                      'card'   ],
   [ 0, 10, 45, 2, [['Bruschetta', 1], ['Pasta Arrabbiata', 2], ['Fresh Lime Soda', 2]],                                                        'cash'   ],
@@ -86,8 +87,24 @@ const ORDER_SCHEDULE = [
   [ 0, 20, 15, 3, [['Veg Spring Rolls', 2], ['Margherita Pizza', 2], ['Veg Burger', 2], ['Chocolate Lava Cake', 4], ['Cold Coffee', 2]],       'cash'   ],
   [ 0, 21,  0, 0, [['Onion Rings', 2], ['Paneer Butter Masala', 2], ['Dal Makhani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],       'cash'   ],
   [ 0, 21, 45, 4, [['Chicken Burger', 3], ['BBQ Chicken Pizza', 1], ['Tiramisu', 3], ['Soft Drink (Can)', 3]],                                 'card'   ],
+  // Day 0 — Takeaway
+  [ 0, 10, 30, null, [['Veg Burger', 1], ['Cold Coffee', 1]],                                                                                  'card',   'takeaway'],
+  [ 0, 11, 45, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                             'mobile', 'takeaway'],
+  [ 0, 12, 20, null, [['Butter Chicken', 1], ['Veg Fried Rice', 1], ['Mineral Water', 2]],                                                     'card',   'takeaway'],
+  [ 0, 13,  5, null, [['Margherita Pizza', 1], ['Garlic Bread', 1], ['Soft Drink (Can)', 2]],                                                  'cash',   'takeaway'],
+  [ 0, 13, 50, null, [['Chicken Burger', 2], ['Fresh Lime Soda', 2]],                                                                          'mobile', 'takeaway'],
+  [ 0, 16, 30, null, [['Paneer Tikka', 1], ['Dal Makhani', 1], ['Masala Chai', 2]],                                                            'cash',   'takeaway'],
+  [ 0, 18, 45, null, [['BBQ Chicken Pizza', 1], ['Chicken Wings', 1], ['Cold Coffee', 2]],                                                     'card',   'takeaway'],
+  [ 0, 20, 15, null, [['Chicken Biryani', 3], ['Gulab Jamun (2 pcs)', 2], ['Mineral Water', 3]],                                               'mobile', 'takeaway'],
+  // Day 0 — Delivery
+  [ 0, 11,  0, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                   'mobile', 'delivery'],
+  [ 0, 12, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                    'mobile', 'delivery'],
+  [ 0, 13, 15, null, [['BBQ Chicken Pizza', 2], ['Garlic Bread', 2], ['Soft Drink (Can)', 4]],                                                 'card',   'delivery'],
+  [ 0, 15,  0, null, [['Margherita Pizza', 2], ['Onion Rings', 1], ['Cold Coffee', 2]],                                                        'mobile', 'delivery'],
+  [ 0, 19, 30, null, [['Chicken Biryani', 4], ['Veg Spring Rolls', 2], ['Mango Lassi', 4]],                                                    'mobile', 'delivery'],
+  [ 0, 20, 45, null, [['Butter Chicken', 3], ['Veg Fried Rice', 2], ['Paneer Butter Masala', 2], ['Mineral Water', 4]],                        'card',   'delivery'],
 
-  // ── Day 1 (yesterday) ─────────────────────────────────────────────────────
+  // ── Day 1 (yesterday) — Dining ────────────────────────────────────────────
   [ 1,  8, 30, 2, [['Garlic Bread', 2], ['Masala Chai', 3]],                                                                                   'cash'   ],
   [ 1,  9, 45, 0, [['Bruschetta', 2], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                                'mobile' ],
   [ 1, 11,  0, 3, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
@@ -104,8 +121,22 @@ const ORDER_SCHEDULE = [
   [ 1, 20, 30, 0, [['Margherita Pizza', 2], ['Veg Spring Rolls', 2], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 4]],                     'cash'   ],
   [ 1, 21, 15, 3, [['Pasta Arrabbiata', 2], ['Tiramisu', 2], ['Cold Coffee', 2]],                                                              'card'   ],
   [ 1, 22,  0, 1, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Mineral Water', 4]],                                                     'cash'   ],
+  // Day 1 — Takeaway
+  [ 1,  9, 45, null, [['Garlic Bread', 2], ['Masala Chai', 2]],                                                                                'cash',   'takeaway'],
+  [ 1, 12,  0, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                         'card',   'takeaway'],
+  [ 1, 12, 40, null, [['Veg Burger', 2], ['Soft Drink (Can)', 2]],                                                                             'mobile', 'takeaway'],
+  [ 1, 14, 15, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Masala Chai', 2]],                                                          'cash',   'takeaway'],
+  [ 1, 17, 30, null, [['BBQ Chicken Pizza', 1], ['Chicken Wings', 1], ['Cold Coffee', 2]],                                                     'card',   'takeaway'],
+  [ 1, 19,  0, null, [['Paneer Tikka', 2], ['Paneer Butter Masala', 1], ['Mineral Water', 2]],                                                 'mobile', 'takeaway'],
+  [ 1, 20, 30, null, [['Chicken Burger', 2], ['Margherita Pizza', 1], ['Fresh Lime Soda', 2]],                                                 'card',   'takeaway'],
+  // Day 1 — Delivery
+  [ 1, 11, 30, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                       'mobile', 'delivery'],
+  [ 1, 13,  0, null, [['Chicken Biryani', 3], ['Veg Spring Rolls', 1], ['Soft Drink (Can)', 3]],                                               'card',   'delivery'],
+  [ 1, 15, 45, null, [['BBQ Chicken Pizza', 2], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                      'mobile', 'delivery'],
+  [ 1, 19, 15, null, [['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Mineral Water', 4]],                                                  'mobile', 'delivery'],
+  [ 1, 21,  0, null, [['Butter Chicken', 2], ['Chicken Biryani', 2], ['Masala Chai', 2]],                                                      'card',   'delivery'],
 
-  // ── Day 2 ─────────────────────────────────────────────────────────────────
+  // ── Day 2 — Dining ────────────────────────────────────────────────────────
   [ 2,  9,  0, 1, [['Veg Spring Rolls', 2], ['Masala Chai', 2]],                                                                               'cash'   ],
   [ 2, 10, 30, 5, [['Garlic Bread', 1], ['Paneer Tikka', 2], ['Fresh Lime Soda', 2]],                                                          'mobile' ],
   [ 2, 12,  0, 0, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                             'card'   ],
@@ -118,8 +149,22 @@ const ORDER_SCHEDULE = [
   [ 2, 19, 30, 2, [['Chicken Biryani', 3], ['Gulab Jamun (2 pcs)', 3], ['Mango Lassi', 3]],                                                    'cash'   ],
   [ 2, 20, 45, 4, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Tiramisu', 2], ['Cold Coffee', 2]],                                      'mobile' ],
   [ 2, 21, 30, 1, [['Veg Burger', 2], ['Chocolate Lava Cake', 2], ['Masala Chai', 2]],                                                         'cash'   ],
+  // Day 2 — Takeaway
+  [ 2, 10,  0, null, [['Veg Spring Rolls', 1], ['Cold Coffee', 1]],                                                                            'cash',   'takeaway'],
+  [ 2, 12, 15, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                             'mobile', 'takeaway'],
+  [ 2, 13, 30, null, [['Margherita Pizza', 1], ['Garlic Bread', 1], ['Soft Drink (Can)', 2]],                                                  'card',   'takeaway'],
+  [ 2, 14, 45, null, [['Fish & Chips', 1], ['Fresh Lime Soda', 1]],                                                                            'cash',   'takeaway'],
+  [ 2, 17,  0, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Masala Chai', 2]],                                                          'card',   'takeaway'],
+  [ 2, 19, 30, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 1], ['Cold Coffee', 2]],                                                     'mobile', 'takeaway'],
+  [ 2, 21,  0, null, [['Chicken Burger', 2], ['Chocolate Lava Cake', 1], ['Soft Drink (Can)', 2]],                                             'card',   'takeaway'],
+  // Day 2 — Delivery
+  [ 2, 11, 45, null, [['Butter Chicken', 2], ['Veg Fried Rice', 2], ['Mango Lassi', 2]],                                                       'mobile', 'delivery'],
+  [ 2, 13,  0, null, [['Chicken Biryani', 2], ['Paneer Tikka', 2], ['Fresh Lime Soda', 2]],                                                    'card',   'delivery'],
+  [ 2, 16,  0, null, [['Margherita Pizza', 2], ['Veg Burger', 1], ['Cold Coffee', 2]],                                                         'mobile', 'delivery'],
+  [ 2, 19,  0, null, [['Paneer Butter Masala', 2], ['Dal Makhani', 2], ['Gulab Jamun (2 pcs)', 2], ['Mineral Water', 4]],                      'mobile', 'delivery'],
+  [ 2, 20, 30, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 2], ['Soft Drink (Can)', 4]],                                                'card',   'delivery'],
 
-  // ── Day 3 ─────────────────────────────────────────────────────────────────
+  // ── Day 3 — Dining ────────────────────────────────────────────────────────
   [ 3,  8, 45, 3, [['Garlic Bread', 2], ['Masala Chai', 2], ['Bruschetta', 1]],                                                                'cash'   ],
   [ 3, 10,  0, 0, [['Chicken Wings', 2], ['Mango Lassi', 2], ['Veg Spring Rolls', 1]],                                                         'card'   ],
   [ 3, 11, 15, 4, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
@@ -134,8 +179,21 @@ const ORDER_SCHEDULE = [
   [ 3, 20,  0, 1, [['Veg Spring Rolls', 2], ['Paneer Tikka', 2], ['Paneer Butter Masala', 2], ['Mineral Water', 4]],                           'cash'   ],
   [ 3, 21,  0, 3, [['Margherita Pizza', 2], ['Chocolate Lava Cake', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 4]],                             'mobile' ],
   [ 3, 21, 50, 0, [['Chicken Burger', 2], ['BBQ Chicken Pizza', 1], ['Cold Coffee', 2]],                                                       'cash'   ],
+  // Day 3 — Takeaway
+  [ 3, 11,  0, null, [['Veg Burger', 2], ['Masala Chai', 2]],                                                                                  'cash',   'takeaway'],
+  [ 3, 12, 30, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                         'mobile', 'takeaway'],
+  [ 3, 14,  0, null, [['Margherita Pizza', 1], ['Garlic Bread', 1], ['Cold Coffee', 1]],                                                       'card',   'takeaway'],
+  [ 3, 17, 30, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                        'cash',   'takeaway'],
+  [ 3, 19, 15, null, [['BBQ Chicken Pizza', 1], ['Paneer Tikka', 1], ['Mango Lassi', 2]],                                                      'mobile', 'takeaway'],
+  [ 3, 21,  0, null, [['Chicken Burger', 2], ['Veg Spring Rolls', 1], ['Soft Drink (Can)', 2]],                                                'card',   'takeaway'],
+  // Day 3 — Delivery
+  [ 3, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                       'mobile', 'delivery'],
+  [ 3, 13, 30, null, [['Chicken Biryani', 3], ['Veg Spring Rolls', 2], ['Cold Coffee', 2]],                                                    'card',   'delivery'],
+  [ 3, 16, 15, null, [['Margherita Pizza', 2], ['Chicken Wings', 1], ['Fresh Lime Soda', 4]],                                                  'mobile', 'delivery'],
+  [ 3, 19, 45, null, [['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Gulab Jamun (2 pcs)', 2], ['Mineral Water', 2]],                      'mobile', 'delivery'],
+  [ 3, 21, 30, null, [['Butter Chicken', 3], ['Chicken Biryani', 2], ['Masala Chai', 3]],                                                      'card',   'delivery'],
 
-  // ── Day 4 ─────────────────────────────────────────────────────────────────
+  // ── Day 4 — Dining ────────────────────────────────────────────────────────
   [ 4,  9, 15, 5, [['Veg Spring Rolls', 1], ['Masala Chai', 2]],                                                                               'cash'   ],
   [ 4, 10, 45, 1, [['Bruschetta', 2], ['Fresh Lime Soda', 2], ['Garlic Bread', 1]],                                                            'card'   ],
   [ 4, 12,  0, 4, [['Dal Makhani', 2], ['Veg Fried Rice', 2], ['Mango Lassi', 2]],                                                             'cash'   ],
@@ -148,8 +206,21 @@ const ORDER_SCHEDULE = [
   [ 4, 19, 45, 0, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Mango Lassi', 2]],                                                       'mobile' ],
   [ 4, 20, 30, 2, [['Chicken Wings', 2], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                              'cash'   ],
   [ 4, 21, 15, 3, [['Veg Burger', 2], ['Margherita Pizza', 1], ['Chocolate Lava Cake', 2], ['Soft Drink (Can)', 2]],                           'card'   ],
+  // Day 4 — Takeaway
+  [ 4, 10, 15, null, [['Garlic Bread', 1], ['Cold Coffee', 1]],                                                                                'cash',   'takeaway'],
+  [ 4, 12,  0, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                             'card',   'takeaway'],
+  [ 4, 13, 30, null, [['Veg Burger', 1], ['Chicken Burger', 1], ['Soft Drink (Can)', 2]],                                                      'mobile', 'takeaway'],
+  [ 4, 16, 45, null, [['Paneer Tikka', 1], ['Dal Makhani', 1], ['Masala Chai', 2]],                                                            'cash',   'takeaway'],
+  [ 4, 19,  0, null, [['BBQ Chicken Pizza', 1], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                      'mobile', 'takeaway'],
+  [ 4, 20, 30, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mineral Water', 2]],                                                     'card',   'takeaway'],
+  // Day 4 — Delivery
+  [ 4, 11, 30, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                          'mobile', 'delivery'],
+  [ 4, 13,  0, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                    'card',   'delivery'],
+  [ 4, 15, 30, null, [['Margherita Pizza', 2], ['Veg Spring Rolls', 1], ['Soft Drink (Can)', 4]],                                              'mobile', 'delivery'],
+  [ 4, 19, 30, null, [['Paneer Butter Masala', 2], ['Veg Fried Rice', 2], ['Mineral Water', 4]],                                               'mobile', 'delivery'],
+  [ 4, 21,  0, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 2], ['Cold Coffee', 2]],                                                     'card',   'delivery'],
 
-  // ── Day 5 ─────────────────────────────────────────────────────────────────
+  // ── Day 5 — Dining ────────────────────────────────────────────────────────
   [ 5,  8,  0, 2, [['Masala Chai', 2], ['Garlic Bread', 1]],                                                                                   'cash'   ],
   [ 5,  9, 30, 4, [['Veg Spring Rolls', 1], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                          'card'   ],
   [ 5, 11, 45, 0, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Masala Chai', 2]],                                                               'cash'   ],
@@ -161,8 +232,20 @@ const ORDER_SCHEDULE = [
   [ 5, 19,  0, 4, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                               'cash'   ],
   [ 5, 20, 15, 5, [['Chicken Biryani', 2], ['Paneer Butter Masala', 2], ['Mango Lassi', 2]],                                                   'mobile' ],
   [ 5, 21,  0, 1, [['BBQ Chicken Pizza', 1], ['Chicken Burger', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 2]],                                 'cash'   ],
+  // Day 5 — Takeaway
+  [ 5, 10, 30, null, [['Veg Spring Rolls', 1], ['Masala Chai', 2]],                                                                            'cash',   'takeaway'],
+  [ 5, 12, 15, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                         'mobile', 'takeaway'],
+  [ 5, 13, 45, null, [['Margherita Pizza', 1], ['Garlic Bread', 1], ['Cold Coffee', 1]],                                                       'card',   'takeaway'],
+  [ 5, 17,  0, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                        'cash',   'takeaway'],
+  [ 5, 19, 30, null, [['BBQ Chicken Pizza', 1], ['Paneer Tikka', 1], ['Mango Lassi', 2]],                                                      'mobile', 'takeaway'],
+  [ 5, 21,  0, null, [['Chicken Burger', 2], ['Soft Drink (Can)', 2]],                                                                         'card',   'takeaway'],
+  // Day 5 — Delivery
+  [ 5, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                       'mobile', 'delivery'],
+  [ 5, 13, 30, null, [['Chicken Biryani', 3], ['Veg Spring Rolls', 1], ['Cold Coffee', 2]],                                                    'card',   'delivery'],
+  [ 5, 19,  0, null, [['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Gulab Jamun (2 pcs)', 2], ['Mineral Water', 2]],                      'mobile', 'delivery'],
+  [ 5, 20, 30, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 1], ['Soft Drink (Can)', 4]],                                                'card',   'delivery'],
 
-  // ── Day 6 ─────────────────────────────────────────────────────────────────
+  // ── Day 6 — Dining ────────────────────────────────────────────────────────
   [ 6,  9, 30, 3, [['Garlic Bread', 2], ['Masala Chai', 2], ['Bruschetta', 1]],                                                                'cash'   ],
   [ 6, 11,  0, 1, [['Veg Spring Rolls', 2], ['Paneer Tikka', 2], ['Fresh Lime Soda', 2]],                                                      'card'   ],
   [ 6, 12, 15, 5, [['Butter Chicken', 2], ['Dal Makhani', 2], ['Mango Lassi', 2]],                                                             'cash'   ],
@@ -175,6 +258,17 @@ const ORDER_SCHEDULE = [
   [ 6, 19, 45, 0, [['Chicken Wings', 2], ['Butter Chicken', 3], ['Chicken Biryani', 2], ['Gulab Jamun (2 pcs)', 3]],                           'mobile' ],
   [ 6, 20, 30, 2, [['BBQ Chicken Pizza', 2], ['Veg Burger', 2], ['Chocolate Lava Cake', 2], ['Cold Coffee', 2]],                               'cash'   ],
   [ 6, 21, 15, 4, [['Margherita Pizza', 2], ['Chicken Burger', 2], ['Tiramisu', 2], ['Soft Drink (Can)', 3]],                                  'card'   ],
+  // Day 6 — Takeaway
+  [ 6, 11,  0, null, [['Veg Burger', 1], ['Masala Chai', 2]],                                                                                  'cash',   'takeaway'],
+  [ 6, 12, 30, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                         'mobile', 'takeaway'],
+  [ 6, 14,  0, null, [['Margherita Pizza', 1], ['Garlic Bread', 1], ['Cold Coffee', 1]],                                                       'card',   'takeaway'],
+  [ 6, 18, 30, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                        'cash',   'takeaway'],
+  [ 6, 20,  0, null, [['BBQ Chicken Pizza', 1], ['Chicken Wings', 1], ['Mango Lassi', 2]],                                                     'mobile', 'takeaway'],
+  // Day 6 — Delivery
+  [ 6, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 2], ['Mango Lassi', 2]],                                                       'mobile', 'delivery'],
+  [ 6, 14, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                        'card',   'delivery'],
+  [ 6, 19,  0, null, [['Margherita Pizza', 2], ['Veg Spring Rolls', 1], ['Fresh Lime Soda', 4]],                                               'mobile', 'delivery'],
+  [ 6, 21,  0, null, [['Paneer Butter Masala', 2], ['Gulab Jamun (2 pcs)', 2], ['Soft Drink (Can)', 2]],                                       'card',   'delivery'],
 ];
 
 // ── Ingredients catalogue (costs in INR per unit) ─────────────────────────
@@ -585,17 +679,22 @@ async function main() {
   console.log('Seeding orders and payments…');
   const ordersCreated = []; // saved for SALE transaction generation in step 11.5
   const nowMs = Date.now();
-  for (const [daysAgo, hour, minute, tableIdx, lines, payMethod = 'cash'] of ORDER_SCHEDULE) {
+  for (const [daysAgo, hour, minute, tableIdx, lines, payMethod = 'cash', channel = 'dining'] of ORDER_SCHEDULE) {
     const dateStr     = new Date(nowMs - daysAgo * 86400_000).toISOString().slice(0, 10);
     const scheduledMs = new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00Z`).getTime();
     // Never use a future timestamp — cap to 2 minutes ago so real orders always sort above seed orders
     const effectiveMs = Math.min(scheduledMs, nowMs - 2 * 60 * 1000);
     const ts = new Date(effectiveMs).toISOString();
 
-    const { rows: [order] } = await client.query(`
-      INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id)
-      VALUES ($1, $2, $3, 'paid', $4, 'dining', gen_random_uuid()) RETURNING id
-    `, [tableIds[tableIdx], RESTAURANT_ID, ADMIN_ID, ts]);
+    const tableId = channel === 'dining' ? tableIds[tableIdx] : null;
+    const { rows: [order] } = await client.query(
+      channel === 'dining'
+        ? `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id)
+           VALUES ($1, $2, $3, 'paid', $4, $5, gen_random_uuid()) RETURNING id`
+        : `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel)
+           VALUES ($1, $2, $3, 'paid', $4, $5) RETURNING id`,
+      [tableId, RESTAURANT_ID, ADMIN_ID, ts, channel],
+    );
 
     let subtotal = 0;
     for (const [name, qty] of lines) {
@@ -956,7 +1055,10 @@ async function main() {
   }
   console.log(`  Tables     : ${tableIds.length}`);
   console.log(`  Menu items : ${MENU.length}`);
-  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders spread across 7 days (cash/card/UPI)`);
+  const diningCount   = ORDER_SCHEDULE.filter(([,,,,,, ch = 'dining']) => ch === 'dining').length;
+  const takeawayCount = ORDER_SCHEDULE.filter(([,,,,,, ch]) => ch === 'takeaway').length;
+  const deliveryCount = ORDER_SCHEDULE.filter(([,,,,,, ch]) => ch === 'delivery').length;
+  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders (${diningCount} dining, ${takeawayCount} takeaway, ${deliveryCount} delivery) across 7 days`);
   console.log(`  Ingredients: ${INGREDIENTS.length} (stock reconciled from ledger)`);
   console.log(`  Recipes    : ${RECIPES.length} (${linkedCount} linked to menu items)`);
   console.log(`  Combos     : ${COMBOS.length}`);

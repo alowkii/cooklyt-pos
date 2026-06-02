@@ -1,7 +1,8 @@
 const repo = require('./reports.repository');
 const { ValidationError } = require('../shared/errors');
 
-const VALID_GROUPS = ['day', 'week', 'month'];
+const VALID_GROUPS   = ['day', 'week', 'month'];
+const VALID_CHANNELS = new Set(['dining', 'takeaway', 'delivery']);
 
 function parseDate(dateStr, field = 'date') {
   if (!dateStr) throw new ValidationError(`${field} is required (YYYY-MM-DD)`);
@@ -25,32 +26,40 @@ function validateGroup(g) {
   return g;
 }
 
+function validateChannel(ch) {
+  if (!ch || ch === 'all') return null;
+  if (!VALID_CHANNELS.has(ch)) throw new ValidationError(`channel must be one of: ${[...VALID_CHANNELS].join(', ')}`);
+  return ch;
+}
+
 function validateRange(from, to) {
   if (from > to) throw new ValidationError('from must be on or before to');
   const days = (new Date(to) - new Date(from)) / 86_400_000;
   if (days > 366) throw new ValidationError('Date range cannot exceed 366 days');
 }
 
-async function getDailySummary(dateStr, tzStr = 'UTC', restaurantId) {
-  const date = parseDate(dateStr);
-  const tz   = validateTz(tzStr);
+async function getDailySummary(dateStr, tzStr = 'UTC', restaurantId, channelRaw) {
+  const date    = parseDate(dateStr);
+  const tz      = validateTz(tzStr);
+  const channel = validateChannel(channelRaw);
   const [summary, byCategory, topItems, hourly] = await Promise.all([
-    repo.getDailySummary(date, tz, restaurantId),
-    repo.getRevenueByCategory(date, tz, restaurantId),
-    repo.getTopItems(date, tz, 10, restaurantId),
-    repo.getHourlySales(date, tz, restaurantId),
+    repo.getDailySummary(date, tz, restaurantId, channel),
+    repo.getRevenueByCategory(date, tz, restaurantId, channel),
+    repo.getTopItems(date, tz, 10, restaurantId, channel),
+    repo.getHourlySales(date, tz, restaurantId, channel),
   ]);
   return { date, summary, byCategory, topItems, hourly };
 }
 
-async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId) {
-  const from  = parseDate(fromStr, 'from');
-  const to    = parseDate(toStr,   'to');
-  const tz    = validateTz(tzStr);
-  const group = validateGroup(groupStr);
+async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const group   = validateGroup(groupStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getTrends(from, to, tz, group, restaurantId);
+  const rows = await repo.getTrends(from, to, tz, group, restaurantId, channel);
   return {
     from, to, group,
     rows: rows.map((r) => ({
@@ -61,14 +70,15 @@ async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restau
   };
 }
 
-async function getItemProfitability(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId) {
-  const from  = parseDate(fromStr, 'from');
-  const to    = parseDate(toStr,   'to');
-  const tz    = validateTz(tzStr);
-  const limit = Math.min(parseInt(limitRaw, 10) || 50, 200);
+async function getItemProfitability(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const limit   = Math.min(parseInt(limitRaw, 10) || 50, 200);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getItemProfitability(from, to, tz, limit, restaurantId);
+  const rows = await repo.getItemProfitability(from, to, tz, limit, restaurantId, channel);
   return {
     from, to,
     items: rows.map((r) => {
@@ -94,13 +104,14 @@ async function getItemProfitability(fromStr, toStr, tzStr = 'UTC', limitRaw, res
   };
 }
 
-async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId) {
-  const from = parseDate(fromStr, 'from');
-  const to   = parseDate(toStr,   'to');
-  const tz   = validateTz(tzStr);
+async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getStaffPerformance(from, to, tz, restaurantId);
+  const rows = await repo.getStaffPerformance(from, to, tz, restaurantId, channel);
   return {
     from, to,
     staff: rows.map((r) => ({
@@ -114,15 +125,16 @@ async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId) 
   };
 }
 
-async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', limitRaw, restaurantId) {
-  const from  = parseDate(fromStr, 'from');
-  const to    = parseDate(toStr,   'to');
-  const tz    = validateTz(tzStr);
-  const group = validateGroup(groupStr);
-  const limit = Math.min(parseInt(limitRaw, 10) || 8, 20);
+async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', limitRaw, restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const group   = validateGroup(groupStr);
+  const limit   = Math.min(parseInt(limitRaw, 10) || 8, 20);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getItemsByPeriod(from, to, tz, group, limit, restaurantId);
+  const rows = await repo.getItemsByPeriod(from, to, tz, group, limit, restaurantId, channel);
   return {
     from, to, group,
     rows: rows.map((r) => ({
@@ -134,14 +146,15 @@ async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day',
   };
 }
 
-async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId) {
-  const from  = parseDate(fromStr, 'from');
-  const to    = parseDate(toStr,   'to');
-  const tz    = validateTz(tzStr);
-  const group = validateGroup(groupStr);
+async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const group   = validateGroup(groupStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getStaffByPeriod(from, to, tz, group, restaurantId);
+  const rows = await repo.getStaffByPeriod(from, to, tz, group, restaurantId, channel);
   return {
     from, to, group,
     rows: rows.map((r) => ({
@@ -153,15 +166,16 @@ async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day',
   };
 }
 
-async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
-  const from = parseDate(fromStr, 'from');
-  const to   = parseDate(toStr,   'to');
-  const tz   = validateTz(tzStr);
+async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
   const [summary, byChannel] = await Promise.all([
-    repo.getSalesSummary(from, to, tz, restaurantId),
-    repo.getRevenueByChannel(from, to, tz, restaurantId),
+    repo.getSalesSummary(from, to, tz, restaurantId, channel),
+    repo.getRevenueByChannel(from, to, tz, restaurantId), // always all channels
   ]);
   const f = (v) => parseFloat(v ?? 0);
   return {
@@ -187,15 +201,16 @@ async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId
   };
 }
 
-async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
-  const from = parseDate(fromStr, 'from');
-  const to   = parseDate(toStr,   'to');
-  const tz   = validateTz(tzStr);
+async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
   const [byMethod, byCounter] = await Promise.all([
-    repo.getCollectionByMethod(from, to, tz, restaurantId),
-    repo.getCollectionByCounter(from, to, tz, restaurantId),
+    repo.getCollectionByMethod(from, to, tz, restaurantId, channel),
+    repo.getCollectionByCounter(from, to, tz, restaurantId, channel),
   ]);
   return {
     from, to,
@@ -204,16 +219,17 @@ async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId) 
   };
 }
 
-async function getItemGroupsReport(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId) {
-  const from  = parseDate(fromStr, 'from');
-  const to    = parseDate(toStr,   'to');
-  const tz    = validateTz(tzStr);
-  const limit = Math.min(parseInt(limitRaw, 10) || 100, 200);
+async function getItemGroupsReport(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const limit   = Math.min(parseInt(limitRaw, 10) || 100, 200);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
   const [byGroup, topItems] = await Promise.all([
-    repo.getRevenueByItemGroup(from, to, tz, restaurantId),
-    repo.getTopSellingItems(from, to, tz, limit, restaurantId),
+    repo.getRevenueByItemGroup(from, to, tz, restaurantId, channel),
+    repo.getTopSellingItems(from, to, tz, limit, restaurantId, channel),
   ]);
   return {
     from, to,
@@ -240,13 +256,14 @@ async function getTableWiseSalesReport(fromStr, toStr, tzStr = 'UTC', restaurant
   };
 }
 
-async function getNCSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
-  const from = parseDate(fromStr, 'from');
-  const to   = parseDate(toStr,   'to');
-  const tz   = validateTz(tzStr);
+async function getNCSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
+  const from    = parseDate(fromStr, 'from');
+  const to      = parseDate(toStr,   'to');
+  const tz      = validateTz(tzStr);
+  const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
-  const rows = await repo.getNCSales(from, to, tz, restaurantId);
+  const rows = await repo.getNCSales(from, to, tz, restaurantId, channel);
   const totalValue = rows.reduce((s, r) => s + parseFloat(r.order_value || 0), 0);
   return {
     from, to,

@@ -8,10 +8,11 @@ function assertGroup(g) {
   return g;
 }
 
-const getDailySummary = (date, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+// NULL channel = all channels; a specific value filters to that channel only.
+// Pattern used throughout: AND ($N::text IS NULL OR o.channel = $N)
+
+const getDailySummary = (date, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       COUNT(DISTINCT o.id)       AS total_orders,
       COALESCE(SUM(p.amount), 0) AS total_revenue
@@ -20,15 +21,12 @@ const getDailySummary = (date, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
       AND o.restaurant_id = $3
-  `,
-      [date, tz, restaurantId],
-    )
-    .then((r) => r.rows[0]);
+      AND ($4::text IS NULL OR o.channel = $4)
+  `, [date, tz, restaurantId, channel])
+  .then((r) => r.rows[0]);
 
-const getRevenueByCategory = (date, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getRevenueByCategory = (date, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       mi.category,
       COUNT(oi.id)                    AS items_sold,
@@ -40,17 +38,14 @@ const getRevenueByCategory = (date, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
       AND o.restaurant_id = $3
+      AND ($4::text IS NULL OR o.channel = $4)
     GROUP BY mi.category
     ORDER BY revenue DESC
-  `,
-      [date, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [date, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-const getTopItems = (date, tz = 'UTC', limit = 10, restaurantId) =>
-  db
-    .query(
-      `
+const getTopItems = (date, tz = 'UTC', limit = 10, restaurantId, channel = null) =>
+  db.query(`
     SELECT
       mi.name,
       mi.category,
@@ -63,18 +58,15 @@ const getTopItems = (date, tz = 'UTC', limit = 10, restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($5::text IS NULL OR o.channel = $5)
     GROUP BY mi.id, mi.name, mi.category
     ORDER BY total_sold DESC
     LIMIT $3
-  `,
-      [date, tz, limit, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [date, tz, limit, restaurantId, channel])
+  .then((r) => r.rows);
 
-const getHourlySales = (date, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getHourlySales = (date, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       EXTRACT(HOUR FROM o.created_at AT TIME ZONE $2)::int AS hour,
       COUNT(DISTINCT o.id)                                  AS orders,
@@ -84,20 +76,17 @@ const getHourlySales = (date, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
       AND o.restaurant_id = $3
+      AND ($4::text IS NULL OR o.channel = $4)
     GROUP BY hour
     ORDER BY hour
-  `,
-      [date, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [date, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-// ── New range-based queries ───────────────────────────────────────────────────
+// ── Range-based queries ───────────────────────────────────────────────────────
 
-const getTrends = (from, to, tz = 'UTC', group, restaurantId) => {
+const getTrends = (from, to, tz = 'UTC', group, restaurantId, channel = null) => {
   assertGroup(group);
-  return db
-    .query(
-      `
+  return db.query(`
     SELECT
       date_trunc($5, o.created_at AT TIME ZONE $3)::date::text AS period,
       COUNT(DISTINCT o.id)::int                                  AS orders,
@@ -107,18 +96,15 @@ const getTrends = (from, to, tz = 'UTC', group, restaurantId) => {
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($6::text IS NULL OR o.channel = $6)
     GROUP BY 1
     ORDER BY 1
-  `,
-      [from, to, tz, restaurantId, group],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, group, channel])
+  .then((r) => r.rows);
 };
 
-const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
-  db
-    .query(
-      `
+const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId, channel = null) =>
+  db.query(`
     SELECT
       mi.id,
       mi.name,
@@ -138,18 +124,15 @@ const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($6::text IS NULL OR o.channel = $6)
     GROUP BY mi.id, mi.name, mi.category, mi.price
     ORDER BY revenue DESC
     LIMIT $5
-  `,
-      [from, to, tz, restaurantId, limit],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, limit, channel])
+  .then((r) => r.rows);
 
-const getStaffPerformance = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getStaffPerformance = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       u.id,
       COALESCE(u.name, u.email)             AS name,
@@ -160,24 +143,19 @@ const getStaffPerformance = (from, to, tz = 'UTC', restaurantId) =>
     FROM users u
     LEFT JOIN orders o ON o.created_by = u.id
       AND (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND ($5::text IS NULL OR o.channel = $5)
     LEFT JOIN payments p ON p.order_id = o.id AND p.status = 'completed'
     WHERE u.restaurant_id = $4
       AND u.is_active = true
       AND u.role IN ('admin', 'staff', 'cashier')
     GROUP BY u.id, u.name, u.email, u.role
     ORDER BY revenue_handled DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-// Revenue of the top `limit` items broken down by time period.
-// Uses a CTE to identify top items first, then fetches their time series.
-const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) => {
+const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId, channel = null) => {
   assertGroup(group);
-  return db
-    .query(
-      `
+  return db.query(`
     WITH top_items AS (
       SELECT mi.id
       FROM order_items oi
@@ -187,6 +165,7 @@ const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) 
       WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
         AND p.status = 'completed'
         AND o.restaurant_id = $4
+        AND ($7::text IS NULL OR o.channel = $7)
       GROUP BY mi.id
       ORDER BY SUM(mi.price * oi.quantity) DESC
       LIMIT $5
@@ -203,20 +182,16 @@ const getItemsByPeriod = (from, to, tz = 'UTC', group, limit = 8, restaurantId) 
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($7::text IS NULL OR o.channel = $7)
     GROUP BY 1, mi.name
     ORDER BY 1, revenue DESC
-  `,
-      [from, to, tz, restaurantId, limit, group],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, limit, group, channel])
+  .then((r) => r.rows);
 };
 
-// Orders and revenue per staff member broken down by time period.
-const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) => {
+const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId, channel = null) => {
   assertGroup(group);
-  return db
-    .query(
-      `
+  return db.query(`
     SELECT
       date_trunc($5, o.created_at AT TIME ZONE $3)::date::text AS period,
       COALESCE(u.name, u.email)              AS name,
@@ -225,24 +200,21 @@ const getStaffByPeriod = (from, to, tz = 'UTC', group, restaurantId) => {
     FROM users u
     JOIN orders o   ON o.created_by = u.id
       AND (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
+      AND ($6::text IS NULL OR o.channel = $6)
     JOIN payments p ON p.order_id = o.id AND p.status = 'completed'
     WHERE u.restaurant_id = $4
       AND u.is_active = true
       AND u.role IN ('admin', 'staff', 'cashier')
     GROUP BY 1, u.id, u.name, u.email
     ORDER BY 1, revenue_handled DESC
-  `,
-      [from, to, tz, restaurantId, group],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, group, channel])
+  .then((r) => r.rows);
 };
 
-// ── New report queries ────────────────────────────────────────────────────────
+// ── Summary / collection / group queries ─────────────────────────────────────
 
-const getSalesSummary = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getSalesSummary = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       COUNT(DISTINCT o.id)::int          AS total_orders,
       COALESCE(SUM(p.total_charged), 0)  AS total_revenue,
@@ -261,21 +233,20 @@ const getSalesSummary = (from, to, tz = 'UTC', restaurantId) =>
         WHERE (o2.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
           AND p2.status = 'completed'
           AND o2.restaurant_id = $4
+          AND ($5::text IS NULL OR o2.channel = $5)
       ) AS total_items_sold
     FROM orders o
     JOIN payments p ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows[0]);
+      AND ($5::text IS NULL OR o.channel = $5)
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows[0]);
 
+// Always shows all channels — filtering by channel would collapse this to one row
 const getRevenueByChannel = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+  db.query(`
     SELECT
       o.channel,
       COUNT(DISTINCT o.id)::int        AS orders,
@@ -288,15 +259,11 @@ const getRevenueByChannel = (from, to, tz = 'UTC', restaurantId) =>
       AND o.restaurant_id = $4
     GROUP BY o.channel
     ORDER BY revenue DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId])
+  .then((r) => r.rows);
 
-const getCollectionByMethod = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getCollectionByMethod = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       p.method,
       COUNT(DISTINCT o.id)::int        AS orders,
@@ -306,17 +273,14 @@ const getCollectionByMethod = (from, to, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($5::text IS NULL OR o.channel = $5)
     GROUP BY p.method
     ORDER BY amount DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-const getCollectionByCounter = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getCollectionByCounter = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       COALESCE(u.name, u.email)          AS counter_name,
       u.email,
@@ -329,17 +293,14 @@ const getCollectionByCounter = (from, to, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($5::text IS NULL OR o.channel = $5)
     GROUP BY u.id, u.name, u.email, u.role
     ORDER BY amount DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-const getRevenueByItemGroup = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getRevenueByItemGroup = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       COALESCE(mi.category, 'Uncategorized') AS item_group,
       COUNT(DISTINCT o.id)::int               AS orders,
@@ -352,17 +313,14 @@ const getRevenueByItemGroup = (from, to, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($5::text IS NULL OR o.channel = $5)
     GROUP BY mi.category
     ORDER BY revenue DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
-const getTopSellingItems = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
-  db
-    .query(
-      `
+const getTopSellingItems = (from, to, tz = 'UTC', limit = 50, restaurantId, channel = null) =>
+  db.query(`
     SELECT
       mi.id,
       mi.name,
@@ -376,18 +334,16 @@ const getTopSellingItems = (from, to, tz = 'UTC', limit = 50, restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND p.status = 'completed'
       AND o.restaurant_id = $4
+      AND ($6::text IS NULL OR o.channel = $6)
     GROUP BY mi.id, mi.name, mi.category
     ORDER BY total_sold DESC
     LIMIT $5
-  `,
-      [from, to, tz, restaurantId, limit],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, limit, channel])
+  .then((r) => r.rows);
 
+// Tables report is inherently dine-in — channel filter not applicable
 const getTableWiseSales = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+  db.query(`
     SELECT
       t.number::text                     AS table_number,
       COUNT(DISTINCT o.id)::int          AS orders,
@@ -402,15 +358,11 @@ const getTableWiseSales = (from, to, tz = 'UTC', restaurantId) =>
       AND o.restaurant_id = $4
     GROUP BY t.id, t.number
     ORDER BY revenue DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId])
+  .then((r) => r.rows);
 
-const getNCSales = (from, to, tz = 'UTC', restaurantId) =>
-  db
-    .query(
-      `
+const getNCSales = (from, to, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
     SELECT
       o.id,
       o.channel,
@@ -430,11 +382,10 @@ const getNCSales = (from, to, tz = 'UTC', restaurantId) =>
     WHERE (o.created_at AT TIME ZONE $3)::date BETWEEN $1 AND $2
       AND o.status = 'cancelled'
       AND o.restaurant_id = $4
+      AND ($5::text IS NULL OR o.channel = $5)
     ORDER BY o.created_at DESC
-  `,
-      [from, to, tz, restaurantId],
-    )
-    .then((r) => r.rows);
+  `, [from, to, tz, restaurantId, channel])
+  .then((r) => r.rows);
 
 module.exports = {
   getDailySummary,

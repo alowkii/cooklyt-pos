@@ -10,6 +10,11 @@ const EVENT_CONFIG = {
   RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)' },
 };
 
+const CHANNEL_CONFIG = {
+  delivery: { label: 'New delivery',  color: '#c2590a' },
+  takeaway: { label: 'New takeaway',  color: '#7c3abf' },
+};
+
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60) return 'just now';
@@ -109,7 +114,10 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
               notifications.map((n) => {
                 const cfg = EVENT_CONFIG[n.event];
                 if (!cfg) return null;
-                const { Icon, label, color } = cfg;
+                const channelCfg = n.event === 'NEW_ORDER' && n.channel ? CHANNEL_CONFIG[n.channel] : null;
+                const Icon  = cfg.Icon;
+                const label = channelCfg?.label ?? cfg.label;
+                const color = channelCfg?.color ?? cfg.color;
                 return (
                   <div
                     key={n.id}
@@ -139,7 +147,7 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
                     {!n.read && (
                       <span style={{
                         width: 5, height: 5, borderRadius: '50%',
-                        background: 'var(--info)', flexShrink: 0, marginTop: 5,
+                        background: color, flexShrink: 0, marginTop: 5,
                       }} />
                     )}
                   </div>

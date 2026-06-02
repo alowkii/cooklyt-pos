@@ -247,13 +247,19 @@ router.post('/request-bill', orderLimiter, async (req, res, next) => {
     }
 
     const { rows } = await db.query(
-      'SELECT t.id, t.number, t.restaurant_id FROM tables t WHERE t.id = $1',
+      'SELECT t.id, t.number, t.restaurant_id, t.assigned_staff_id FROM tables t WHERE t.id = $1',
       [tableId],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
 
-    const { number: tableNumber, restaurant_id: restaurantId } = rows[0];
-    ws.broadcast('BILL_REQUESTED', { tableId, tableNumber }, restaurantId);
+    const { number: tableNumber, restaurant_id: restaurantId, assigned_staff_id: staffId } = rows[0];
+    const payload = { tableId, tableNumber };
+    if (staffId) {
+      // Notify the assigned staff member + all admins + cashiers
+      ws.broadcastToRolesOrUser('BILL_REQUESTED', payload, restaurantId, ['admin', 'cashier'], staffId);
+    } else {
+      ws.broadcast('BILL_REQUESTED', payload, restaurantId);
+    }
 
     res.json({ success: true });
   } catch (err) { next(err); }

@@ -50,6 +50,54 @@ function PRESETS(today) {
   ];
 }
 
+const CHANNELS = [
+  { key: 'all',      label: 'All' },
+  { key: 'dining',   label: 'Dine-in' },
+  { key: 'takeaway', label: 'Takeaway' },
+  { key: 'delivery', label: 'Delivery' },
+];
+
+function ChannelSwitcher({ channel, setChannel }) {
+  const [open, setOpen] = useState(false);
+  const active = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0];
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-[6px] px-3"
+        style={{ height: 32, fontSize: 12, fontWeight: 500, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+      >
+        {active.label} <ChevronDown size={12} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            className="absolute left-0 z-20 mt-1 py-1"
+            style={{ top: '100%', minWidth: 130, background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)' }}
+          >
+            {CHANNELS.map(({ key, label }) => {
+              const isActive = key === channel;
+              return (
+                <button
+                  key={key}
+                  onClick={() => { setChannel(key); setOpen(false); }}
+                  className="w-full px-4 py-2 text-left"
+                  style={{ fontSize: 13, color: 'var(--ink)', background: isActive ? 'var(--hover)' : 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'var(--hover)' : 'none'; }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Colors drawn directly from the design token palette
 const SERIES_COLORS = ['#0A0A0A', '#1f8a5b', '#b3781f', '#1f5bb3', '#b3372b', '#6E6D67', '#2A2A28', '#9B9A92'];
 
@@ -175,7 +223,7 @@ function ErrorMsg() {
 
 // ── Tab components ────────────────────────────────────────────────────────────
 
-function OverviewTab({ from, to, daily }) {
+function OverviewTab({ from, to, daily, channel }) {
   const { format, currency } = useCurrency();
   const { timezone } = useTimezone();
   const isSingleDay = from === to;
@@ -279,9 +327,9 @@ function OverviewTab({ from, to, daily }) {
   );
 }
 
-function TrendsTab({ from, to, setFrom, setTo, today }) {
+function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
   const [group, setGroup] = useState('day');
-  const { data, isLoading, isError } = useTrends(from, to, group);
+  const { data, isLoading, isError } = useTrends(from, to, group, channel);
 
   function handleGroupChange(g) {
     setGroup(g);
@@ -367,7 +415,7 @@ function TrendsTab({ from, to, setFrom, setTo, today }) {
   );
 }
 
-function ItemsTab({ from, to, setFrom, setTo, today }) {
+function ItemsTab({ from, to, setFrom, setTo, today, channel }) {
   const [view,  setView]  = useState('table');
   const [group, setGroup] = useState('day');
 
@@ -380,11 +428,12 @@ function ItemsTab({ from, to, setFrom, setTo, today }) {
   const { format, currency } = useCurrency();
   const [sort, setSort] = useState('revenue');
 
-  const { data: profData, isLoading: profLoading, isError: profError } = useItemProfitability(from, to);
+  const { data: profData, isLoading: profLoading, isError: profError } = useItemProfitability(from, to, channel);
   const { data: trendData, isLoading: trendLoading, isError: trendError } = useItemsTrend(
     view === 'chart' ? from : null,
     view === 'chart' ? to   : null,
     group,
+    channel,
   );
 
   const fmtTick = useCallback((v) => {
@@ -542,10 +591,10 @@ function ItemsTab({ from, to, setFrom, setTo, today }) {
   );
 }
 
-function StaffTab({ from, to, setFrom, setTo, today }) {
+function StaffTab({ from, to, setFrom, setTo, today, channel }) {
   const [group, setGroup] = useState('day');
-  const { data, isLoading, isError }                = useStaffPerformance(from, to);
-  const { data: trendData, isLoading: trendLoading } = useStaffTrend(from, to, group);
+  const { data, isLoading, isError }                = useStaffPerformance(from, to, channel);
+  const { data: trendData, isLoading: trendLoading } = useStaffTrend(from, to, group, channel);
 
   function handleGroupChange(g) {
     setGroup(g);
@@ -656,8 +705,8 @@ function StaffTab({ from, to, setFrom, setTo, today }) {
   );
 }
 
-function SalesTab({ from, to }) {
-  const { data, isLoading, isError } = useSalesSummary(from, to);
+function SalesTab({ from, to, channel }) {
+  const { data, isLoading, isError } = useSalesSummary(from, to, channel);
   const { format } = useCurrency();
 
   if (isLoading) return <Spinner />;
@@ -739,8 +788,8 @@ function SalesTab({ from, to }) {
   );
 }
 
-function CollectionTab({ from, to }) {
-  const { data, isLoading, isError } = useCollection(from, to);
+function CollectionTab({ from, to, channel }) {
+  const { data, isLoading, isError } = useCollection(from, to, channel);
   const { format } = useCurrency();
 
   if (isLoading) return <Spinner />;
@@ -833,8 +882,8 @@ function CollectionTab({ from, to }) {
   );
 }
 
-function ItemGroupsTab({ from, to }) {
-  const { data, isLoading, isError } = useItemGroups(from, to);
+function ItemGroupsTab({ from, to, channel }) {
+  const { data, isLoading, isError } = useItemGroups(from, to, channel);
   const { format } = useCurrency();
   const [sortTop, setSortTop] = useState('qty');
 
@@ -993,8 +1042,8 @@ function TablesTab({ from, to }) {
   );
 }
 
-function NCSalesTab({ from, to }) {
-  const { data, isLoading, isError } = useNCSales(from, to);
+function NCSalesTab({ from, to, channel }) {
+  const { data, isLoading, isError } = useNCSales(from, to, channel);
   const { format } = useCurrency();
   const { iana } = useTimezone();
 
@@ -1064,29 +1113,67 @@ export default function Reports() {
   const { iana } = useTimezone();
   const today = localToday(iana);
 
-  const [from, setFrom] = useState(today);
-  const [to,   setTo]   = useState(today);
-  const [tab,  setTab]  = useState('Overview');
+  const STORAGE_KEY = 'reports_ui_state';
+  const VALID_TABS     = new Set(TABS);
+  const VALID_CHANNELS = new Set(['all', 'dining', 'takeaway', 'delivery']);
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      const s = JSON.parse(raw);
+      // Clamp saved dates to today — don't restore a future date
+      const clamp = (d) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today) ? d : today;
+      return {
+        from:    clamp(s.from),
+        to:      clamp(s.to),
+        tab:     VALID_TABS.has(s.tab)         ? s.tab     : undefined,
+        channel: VALID_CHANNELS.has(s.channel) ? s.channel : undefined,
+      };
+    } catch { return {}; }
+  }
+
+  const saved = useState(() => loadState())[0];
+
+  const [from,    setFrom]    = useState(saved.from    ?? today);
+  const [to,      setTo]      = useState(saved.to      ?? today);
+  const [tab,     setTab]     = useState(saved.tab     ?? 'Overview');
+  const [channel, setChannel] = useState(saved.channel ?? 'all');
   const [showPresets, setShowPresets] = useState(false);
+
+  // Persist state changes
+  function persist(patch) {
+    try {
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+    } catch {}
+  }
+
+  function handleSetFrom(v)    { setFrom(v);    persist({ from: v }); }
+  function handleSetTo(v)      { setTo(v);      persist({ to: v }); }
+  function handleSetTab(v)     { setTab(v);     persist({ tab: v }); }
+  function handleSetChannel(v) { setChannel(v); persist({ channel: v }); }
 
   const presets = PRESETS(today);
   const isSingleDay = from === to;
   const activePreset = presets.find((p) => p.from === from && p.to === to);
 
   function applyPreset(p) {
-    setFrom(p.from);
-    setTo(p.to);
+    handleSetFrom(p.from);
+    handleSetTo(p.to);
     setShowPresets(false);
   }
 
   // For the Overview tab, we use the existing daily endpoint when single day,
   // or the trends endpoint summed for multi-day.
-  const { data: dailyData, isLoading: dailyLoading, isError: dailyError } = useDailyReport(isSingleDay ? from : null);
+  const { data: dailyData, isLoading: dailyLoading, isError: dailyError } = useDailyReport(isSingleDay ? from : null, channel);
 
   // Build a synthetic daily-style summary for multi-day ranges from trends data
   const { data: rangeData, isLoading: rangeLoading, isError: rangeError } = useTrends(
     !isSingleDay ? from : null,
     !isSingleDay ? to   : null,
+    'day',
+    channel,
   );
 
   const overviewData = useMemo(() => {
@@ -1114,14 +1201,14 @@ export default function Reports() {
           <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', whiteSpace: 'nowrap' }}>From</label>
           <input
             type="date" value={from} max={to}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => handleSetFrom(e.target.value)}
             className="input"
             style={{ width: 130, minWidth: 0 }}
           />
           <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--mute)', whiteSpace: 'nowrap' }}>To</label>
           <input
             type="date" value={to} min={from} max={today}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => handleSetTo(e.target.value)}
             className="input"
             style={{ width: 130, minWidth: 0 }}
           />
@@ -1163,6 +1250,9 @@ export default function Reports() {
           </div>
         </div>
 
+        {/* Channel switcher */}
+        <ChannelSwitcher channel={channel} setChannel={handleSetChannel} />
+
         {/* Action links — left on mobile, pushed right on sm+ */}
         <div className="flex items-center gap-2 sm:ml-auto">
           <button
@@ -1191,7 +1281,7 @@ export default function Reports() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => handleSetTab(t)}
             style={{
               display: 'inline-flex', alignItems: 'center',
               fontSize: 13, fontWeight: 600, padding: '8px 14px',
@@ -1211,17 +1301,17 @@ export default function Reports() {
       {tab === 'Overview' && (
         overviewLoading ? <Spinner /> :
         overviewError   ? <ErrorMsg /> :
-        overviewData    ? <OverviewTab from={from} to={to} daily={overviewData} /> :
+        overviewData    ? <OverviewTab from={from} to={to} daily={overviewData} channel={channel} /> :
         null
       )}
-      {tab === 'Trends'       && <TrendsTab      from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
-      {tab === 'Items'        && <ItemsTab        from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
-      {tab === 'Staff'        && <StaffTab        from={from} to={to} setFrom={setFrom} setTo={setTo} today={today} />}
-      {tab === 'Sales'        && <SalesTab        from={from} to={to} />}
-      {tab === 'Collection'   && <CollectionTab   from={from} to={to} />}
-      {tab === 'Item Groups'  && <ItemGroupsTab   from={from} to={to} />}
+      {tab === 'Trends'       && <TrendsTab      from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
+      {tab === 'Items'        && <ItemsTab        from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
+      {tab === 'Staff'        && <StaffTab        from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
+      {tab === 'Sales'        && <SalesTab        from={from} to={to} channel={channel} />}
+      {tab === 'Collection'   && <CollectionTab   from={from} to={to} channel={channel} />}
+      {tab === 'Item Groups'  && <ItemGroupsTab   from={from} to={to} channel={channel} />}
       {tab === 'Tables'       && <TablesTab       from={from} to={to} />}
-      {tab === 'NC Sales'     && <NCSalesTab      from={from} to={to} />}
+      {tab === 'NC Sales'     && <NCSalesTab      from={from} to={to} channel={channel} />}
     </div>
   );
 }

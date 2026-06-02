@@ -116,6 +116,14 @@ function init(server) {
     ws.restaurantId = req._wsRestaurantId;
     ws.userId       = req._wsUserId;
     ws._wsToken     = req._wsToken;
+    ws.role         = null;
+
+    // Fetch role for targeted broadcasts — one DB hit per connection
+    if (ws.userId) {
+      db.query('SELECT role FROM users WHERE id = $1', [ws.userId])
+        .then(({ rows }) => { ws.role = rows[0]?.role ?? null; })
+        .catch(() => {});
+    }
 
     ws.send(JSON.stringify({ event: 'CONNECTED', data: {}, timestamp: Date.now() }));
 
@@ -155,4 +163,19 @@ function sendToUser(userId, event, data, restaurantId) {
   }
 }
 
-module.exports = { init, broadcast, sendToUser };
+// Send to all clients whose role is in `roles` OR whose userId matches `userId`.
+// Used for dine-in orders: admin + kitchen always see them; only the assigned staff member does too.
+function broadcastToRolesOrUser(event, data, restaurantId, roles, userId) {
+  if (!wss || !restaurantId) return;
+  const roleSet  = new Set(roles);
+  const message  = JSON.stringify({ event, data, timestamp: Date.now() });
+  wss.clients.forEach((client) => {
+    if (client.readyState !== 1) return;
+    if (client.restaurantId !== restaurantId) return;
+    if (roleSet.has(client.role) || client.userId === userId) {
+      client.send(message);
+    }
+  });
+}
+
+module.exports = { init, broadcast, sendToUser, broadcastToRolesOrUser };

@@ -39,6 +39,7 @@ import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationBell from './NotificationBell';
+import ToastContainer from './ToastNotification';
 import Modal from './Modal';
 import NewOrderModal from './NewOrderModal';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -136,6 +137,21 @@ function MyQRModal({ user, onClose }) {
 
 export default function Layout() {
   const { notifications, unreadCount, add, markAllRead, clearAll } = useNotifications();
+  const [toasts, setToasts] = useState([]);
+
+  function addToast(toast) {
+    setToasts((prev) => {
+      const isDuplicate = prev.some(
+        (t) => t.event === toast.event && t.token === toast.token && Date.now() - t.ts < 2000,
+      );
+      if (isDuplicate) return prev;
+      return [...prev, toast].slice(-5);
+    });
+  }
+
+  function dismissToast(id) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
   const { user, restaurant, isAdmin, isCashier } = useAuth();
   const { data: meProfile } = useMeProfile();
   const { data: settings } = useSettings();
@@ -147,8 +163,11 @@ export default function Layout() {
   useWebSocket({
     onEvent(event, payload) {
       if (!NOTIFIABLE.has(event)) return;
-      if (event === 'BILL_REQUESTED' && !isAdmin && !isCashier) return;
-      let token = null;
+      // BILL_REQUESTED targeting is handled server-side — every client that receives
+      // it is already the right recipient (assigned staff, admin, or cashier).
+      if (event === 'BILL_REQUESTED' && user?.role === 'kitchen') return;
+      let token   = null;
+      let channel = null;
       if (event === 'BILL_REQUESTED') {
         token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
       } else if (event === 'STAFF_ASSIGNED') {
@@ -157,10 +176,16 @@ export default function Layout() {
         token = payload?.guestName
           ? `${payload.guestName}${payload.tableNumber != null ? ` · T${payload.tableNumber}` : ''}`
           : null;
+      } else if (event === 'NEW_ORDER') {
+        channel = payload?.channel ?? 'dining';
+        const orderId = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
+        const prefix  = channel === 'delivery' ? 'Delivery' : channel === 'takeaway' ? 'Takeaway' : null;
+        token = prefix && orderId ? `${prefix} · ${orderId}` : orderId;
       } else {
         token = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
       }
-      add(event, token);
+      add(event, token, channel);
+      addToast({ id: Date.now() + Math.random(), event, token, channel, ts: Date.now() });
     },
   });
 
@@ -535,7 +560,7 @@ export default function Layout() {
             <NotificationBell
               notifications={notifications}
               unreadCount={unreadCount}
-              onOpen={markAllRead}
+              onOpen={() => { markAllRead(); setToasts([]); }}
               onClear={clearAll}
             />
           </div>
@@ -555,6 +580,8 @@ export default function Layout() {
       {showNewOrder && (
         <NewOrderModal onClose={() => setShowNewOrder(false)} />
       )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Restaurant open/close confirmation */}
       {confirmOpen && createPortal(

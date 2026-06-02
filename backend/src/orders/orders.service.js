@@ -69,7 +69,15 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
   ).catch((err) => console.error('[inventory] deductForOrder failed for order', order.id, err?.message));
 
-  ws.broadcast('NEW_ORDER', { orderId: order.id, tableId: order.table_id }, restaurantId);
+  const newOrderPayload = { orderId: order.id, tableId: order.table_id, channel };
+
+  if (channel === 'dining' && assignedStaffId) {
+    // Dine-in with a specific staff assigned — only that staff + every admin and kitchen screen
+    ws.broadcastToRolesOrUser('NEW_ORDER', newOrderPayload, restaurantId, ['admin', 'kitchen'], assignedStaffId);
+  } else {
+    // Delivery, takeaway, or dine-in without an assigned staff → everyone
+    ws.broadcast('NEW_ORDER', newOrderPayload, restaurantId);
+  }
 
   return order;
 }
