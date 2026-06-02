@@ -59,14 +59,19 @@ async function assignStaff(tableId, staffId, restaurantId) {
   const updated = await repo.assignStaff(tableId, staffId, restaurantId);
   ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
   if (staffId !== null) {
-    const payload = { tableId, tableNumber: updated.number };
+    const { rows: staffRows } = await db.query(
+      'SELECT COALESCE(name, email) AS name FROM users WHERE id = $1',
+      [staffId],
+    );
+    const payload = { tableId, tableNumber: updated.number, staffName: staffRows[0]?.name ?? null };
     // Persist notification so it survives logout/reload
     await db.query(
       `INSERT INTO staff_notifications (user_id, restaurant_id, event, data)
        VALUES ($1, $2, 'STAFF_ASSIGNED', $3)`,
       [staffId, restaurantId, JSON.stringify(payload)],
     );
-    ws.sendToUser(staffId, 'STAFF_ASSIGNED', payload, restaurantId);
+    // Notify the assigned staff member AND all admins
+    ws.broadcastToRolesOrUser('STAFF_ASSIGNED', payload, restaurantId, ['admin'], staffId);
   }
   return updated;
 }

@@ -40,6 +40,7 @@ import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationBell from './NotificationBell';
 import ToastContainer from './ToastNotification';
+import DeliveryAlertContainer from './DeliveryAlert';
 import Modal from './Modal';
 import NewOrderModal from './NewOrderModal';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -152,6 +153,26 @@ export default function Layout() {
   function dismissToast(id) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
+
+  const [deliveryAlerts, setDeliveryAlerts] = useState([]);
+
+  function addDeliveryAlert(order) {
+    setDeliveryAlerts((prev) => {
+      const isDuplicate = prev.some((a) => a.orderId === order.orderId);
+      if (isDuplicate) return prev;
+      return [...prev, order];
+    });
+  }
+
+  function dismissDeliveryAlert(id) {
+    setDeliveryAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  function acceptDeliveryAlert(alertId, orderId) {
+    dismissDeliveryAlert(alertId);
+    // Also clear the 10-second toast for this order so it doesn't linger
+    setToasts((prev) => prev.filter((t) => t.orderId !== orderId));
+  }
   const { user, restaurant, isAdmin, isCashier } = useAuth();
   const { data: meProfile } = useMeProfile();
   const { data: settings } = useSettings();
@@ -171,7 +192,10 @@ export default function Layout() {
       if (event === 'BILL_REQUESTED') {
         token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
       } else if (event === 'STAFF_ASSIGNED') {
-        token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
+        const parts = [];
+        if (payload?.staffName) parts.push(payload.staffName);
+        if (payload?.tableNumber) parts.push(`Table ${payload.tableNumber}`);
+        token = parts.length ? parts.join(' → ') : null;
       } else if (event === 'RESERVATION_REMINDER') {
         token = payload?.guestName
           ? `${payload.guestName}${payload.tableNumber != null ? ` · T${payload.tableNumber}` : ''}`
@@ -184,8 +208,12 @@ export default function Layout() {
       } else {
         token = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
       }
+      const orderId = payload?.orderId ?? null;
       add(event, token, channel);
-      addToast({ id: Date.now() + Math.random(), event, token, channel, ts: Date.now() });
+      addToast({ id: Date.now() + Math.random(), event, token, channel, orderId, ts: Date.now() });
+      if (event === 'NEW_ORDER' && channel === 'delivery') {
+        addDeliveryAlert({ id: Date.now() + Math.random(), orderId });
+      }
     },
   });
 
@@ -582,6 +610,7 @@ export default function Layout() {
       )}
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <DeliveryAlertContainer alerts={deliveryAlerts} onDismiss={dismissDeliveryAlert} onAccept={acceptDeliveryAlert} />
 
       {/* Restaurant open/close confirmation */}
       {confirmOpen && createPortal(

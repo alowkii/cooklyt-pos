@@ -124,10 +124,16 @@ router.patch('/table/:tableId/staff', tableStaffLimiter, async (req, res, next) 
     const staff = await authRepo.findUserByPin(restaurantId, String(staffPin));
     if (!staff) return res.status(404).json({ error: 'Staff not found' });
 
+    const { rows: tableRows } = await db.query('SELECT number FROM tables WHERE id = $1', [tableId]);
     await db.query('UPDATE tables SET assigned_staff_id = $1 WHERE id = $2', [staff.id, tableId]);
     ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
 
-    res.json({ success: true, name: staff.name || staff.email.split('@')[0] });
+    // Notify the self-assigned staff member AND all admins
+    const staffName = staff.name || staff.email.split('@')[0];
+    const assignPayload = { tableId, tableNumber: tableRows[0]?.number ?? null, staffName };
+    ws.broadcastToRolesOrUser('STAFF_ASSIGNED', assignPayload, restaurantId, ['admin'], staff.id);
+
+    res.json({ success: true, name: staffName });
   } catch (err) { next(err); }
 });
 

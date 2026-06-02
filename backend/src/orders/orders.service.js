@@ -258,10 +258,16 @@ async function assignStaff(orderId, staffId, restaurantId) {
   const updated = await repo.assignStaff(orderId, staffId, restaurantId);
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   if (staffId !== null) {
-    ws.sendToUser(staffId, 'STAFF_ASSIGNED', {
+    const { rows: staffRows } = await require('../shared/db').query(
+      'SELECT COALESCE(name, email) AS name FROM users WHERE id = $1',
+      [staffId],
+    );
+    const payload = {
       orderId,
       tableNumber: order.table_number ?? null,
-    }, restaurantId);
+      staffName: staffRows[0]?.name ?? null,
+    };
+    ws.broadcastToRolesOrUser('STAFF_ASSIGNED', payload, restaurantId, ['admin'], staffId);
   }
   return updated;
 }

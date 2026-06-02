@@ -26,6 +26,14 @@ router.get('/:id', authenticate, async (req, res, next) => {
   }
 });
 
+router.get('/:id/items', authenticate, async (req, res, next) => {
+  try {
+    res.json(await service.getItems(req.params.id, req.user.restaurantId));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/table/:tableId', authenticate, async (req, res, next) => {
   try {
     res.json(await service.getActiveByTable(req.params.tableId, req.user.restaurantId));
