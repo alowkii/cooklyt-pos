@@ -96,7 +96,7 @@ export function printReceipt(receipt, currency, win = null) {
         <td style="text-align:right">${fmt(receipt.packaging_fee)}</td>
       </tr>` : '';
 
-  const orderToken = (receipt.order_id || '').slice(-6).toUpperCase();
+  const orderToken = receipt.order_ref || (receipt.order_id || '').slice(-6).toUpperCase();
 
   const html = `<!DOCTYPE html>
 <html>
@@ -152,7 +152,7 @@ export function printReceipt(receipt, currency, win = null) {
 }
 
 function buildKOTBlock(order, restaurantName) {
-  const token    = (order.id || '').slice(-6).toUpperCase();
+  const token    = order.order_ref || (order.id || '').slice(-6).toUpperCase();
   const placed   = new Date(order.created_at);
   const timeStr  = placed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const dateStr  = placed.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
@@ -230,7 +230,7 @@ export function printKOT(order) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>KOT #${esc((order.id || '').slice(-6).toUpperCase())}</title>
+  <title>KOT #${esc(order.order_ref || (order.id || '').slice(-6).toUpperCase())}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}

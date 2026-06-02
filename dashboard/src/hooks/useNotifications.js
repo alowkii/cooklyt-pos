@@ -65,14 +65,14 @@ export function useNotifications() {
     saveLocal(notifications);
   }, [notifications]);
 
-  const add = useCallback((event, token, channel) => {
+  const add = useCallback((event, token, channel, meta) => {
     setNotifications((prev) => {
       const isDuplicate = prev.some(
         (n) => n.event === event && n.token === token && Date.now() - n.ts < 2000,
       );
       if (isDuplicate) return prev;
       return [
-        { id: Date.now() + Math.random(), event, token: token ?? null, channel: channel ?? null, ts: Date.now(), read: false },
+        { id: Date.now() + Math.random(), event, token: token ?? null, channel: channel ?? null, meta: meta ?? null, ts: Date.now(), read: false },
         ...prev,
       ].slice(0, MAX);
     });

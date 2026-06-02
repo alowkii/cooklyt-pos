@@ -547,6 +547,7 @@ async function main() {
     DELETE FROM order_items
     WHERE order_id IN (SELECT id FROM orders WHERE restaurant_id = $1)
   `, [RESTAURANT_ID]);
+  await client.query('DELETE FROM order_counters      WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM orders              WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM menu_items          WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM tables              WHERE restaurant_id = $1', [RESTAURANT_ID]);
@@ -679,6 +680,21 @@ async function main() {
   console.log('Seeding orders and payments…');
   const ordersCreated = []; // saved for SALE transaction generation in step 11.5
   const nowMs = Date.now();
+
+  // In-process counter mirrors order_counters so we don't hit the DB on every insert.
+  const monthCounters = {}; // `${yearMonth}` → seq
+  function nextOrderRef(ts) {
+    // Derive YYMM from the order timestamp (UTC), matching the live generation logic.
+    const d = new Date(ts);
+    const yy = String(d.getUTCFullYear()).slice(2);
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const key = `${yy}${mm}`;
+    const seq = (monthCounters[key] = (monthCounters[key] ?? 0) + 1);
+    const letter = String.fromCharCode(65 + Math.floor(seq / 1000));
+    const digits  = String(seq % 1000).padStart(3, '0');
+    return { yearMonth: key, seq, orderRef: `${key}${letter}${digits}` };
+  }
+
   for (const [daysAgo, hour, minute, tableIdx, lines, payMethod = 'cash', channel = 'dining'] of ORDER_SCHEDULE) {
     const dateStr     = new Date(nowMs - daysAgo * 86400_000).toISOString().slice(0, 10);
     const scheduledMs = new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00Z`).getTime();
@@ -686,14 +702,16 @@ async function main() {
     const effectiveMs = Math.min(scheduledMs, nowMs - 2 * 60 * 1000);
     const ts = new Date(effectiveMs).toISOString();
 
+    const { yearMonth, seq, orderRef } = nextOrderRef(ts);
+
     const tableId = channel === 'dining' ? tableIds[tableIdx] : null;
     const { rows: [order] } = await client.query(
       channel === 'dining'
-        ? `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id)
-           VALUES ($1, $2, $3, 'paid', $4, $5, gen_random_uuid()) RETURNING id`
-        : `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel)
-           VALUES ($1, $2, $3, 'paid', $4, $5) RETURNING id`,
-      [tableId, RESTAURANT_ID, ADMIN_ID, ts, channel],
+        ? `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id, order_ref)
+           VALUES ($1, $2, $3, 'paid', $4, $5, gen_random_uuid(), $6) RETURNING id`
+        : `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, order_ref)
+           VALUES ($1, $2, $3, 'paid', $4, $5, $6) RETURNING id`,
+      [tableId, RESTAURANT_ID, ADMIN_ID, ts, channel, orderRef],
     );
 
     let subtotal = 0;
@@ -711,6 +729,16 @@ async function main() {
     `, [order.id, subtotal.toFixed(2), payMethod]);
 
     ordersCreated.push({ orderId: order.id, ts, lines });
+  }
+
+  // Persist the final counter values so live orders continue from where the seed left off.
+  for (const [yearMonth, seq] of Object.entries(monthCounters)) {
+    await client.query(
+      `INSERT INTO order_counters (restaurant_id, year_month, seq)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (restaurant_id, year_month) DO UPDATE SET seq = $3`,
+      [RESTAURANT_ID, yearMonth, seq],
+    );
   }
 
   // ── 8. Ingredients ─────────────────────────────────────────────────────────

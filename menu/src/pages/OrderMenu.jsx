@@ -44,7 +44,7 @@ export default function OrderMenu() {
     computeExtraPrice, itemCartQty, placeOrder,
   } = useCart(tableId, { fetchOrders, showToast });
 
-  const { billDone, billRequesting, requestBill, resetBill } = useBill(tableId, showToast);
+  const { billDone, billRequesting, requestBill } = useBill(tableId, showToast);
 
   const {
     staffPin, setStaffPin,
@@ -111,7 +111,7 @@ export default function OrderMenu() {
         toggleNoteOpen={toggleNoteOpen}
         updateLineNote={updateLineNote}
         changeLineQty={changeLineQty}
-        onPlaceOrder={() => placeOrder(staffPin, () => { resetBill(); setTab('orders'); })}
+        onPlaceOrder={() => placeOrder(staffPin, () => { setTab('orders'); })}
         fmt={fmt}
       />
 

@@ -66,6 +66,7 @@ const getReceiptData = (orderId, restaurantId) =>
      SELECT
        r.name              AS restaurant_name,
        o.id                AS order_id,
+       o.order_ref,
        o.channel,
        o.customer_ref,
        o.created_at,
@@ -102,7 +103,7 @@ const getReceiptData = (orderId, restaurantId) =>
      LEFT JOIN order_items oi ON oi.order_id = o.id
      LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
      WHERE o.id = $1 AND o.restaurant_id = $2
-     GROUP BY r.name, o.id, o.channel, o.customer_ref, o.created_at,
+     GROUP BY r.name, o.id, o.order_ref, o.channel, o.customer_ref, o.created_at,
               o.discount_type, o.discount_value, t.number,
               pa.method, pa.payments_detail, pa.total_charged, pa.subtotal,
               pa.tax_rate, pa.tax_amount,

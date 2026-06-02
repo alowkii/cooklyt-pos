@@ -58,12 +58,25 @@ const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dini
       sessionId = rows[0]?.table_session_id ?? null;
     }
 
+    // Atomically increment the monthly counter and derive a human-readable ref.
+    // Format: YYMM + letter (A–Z per 1000) + 3-digit sequence.
+    // e.g. seq=29 in Feb 2025 → '2502A029'; seq=1000 → '2502B000'.
+    const { rows: [counter] } = await client.query(
+      `INSERT INTO order_counters (restaurant_id, year_month, seq)
+       VALUES ($1, to_char(NOW() AT TIME ZONE 'UTC', 'YYMM'), 1)
+       ON CONFLICT (restaurant_id, year_month)
+       DO UPDATE SET seq = order_counters.seq + 1
+       RETURNING seq, year_month`,
+      [restaurantId],
+    );
+    const orderRef = `${counter.year_month}${String.fromCharCode(65 + Math.floor(counter.seq / 1000))}${String(counter.seq % 1000).padStart(3, '0')}`;
+
     const {
       rows: [order],
     } = await client.query(
-      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref, assigned_staff_id, table_session_id)
-       VALUES ($1, $2, $3, 'received', $4, $5, $6, COALESCE($7, gen_random_uuid())) RETURNING *`,
-      [restaurantId, tableId || null, createdBy, channel, customerRef, assignedStaffId, sessionId],
+      `INSERT INTO orders (restaurant_id, table_id, created_by, status, channel, customer_ref, assigned_staff_id, table_session_id, order_ref)
+       VALUES ($1, $2, $3, 'received', $4, $5, $6, COALESCE($7, gen_random_uuid()), $8) RETURNING *`,
+      [restaurantId, tableId || null, createdBy, channel, customerRef, assignedStaffId, sessionId, orderRef],
     );
 
     for (const item of items) {
@@ -153,6 +166,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
   db.query(
     `SELECT
        o.id,
+       o.order_ref,
        o.status,
        o.channel,
        o.customer_ref,
@@ -218,7 +232,7 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        AND (o.created_at AT TIME ZONE $2)::date <= $4::date
        AND ($5::text IS NULL OR o.status  = $5)
        AND ($6::text IS NULL OR o.channel = $6)
-     GROUP BY o.id, o.table_session_id, t.number, u.email, su.email, su.name, lc.id, lc.name, lc.phone,
+     GROUP BY o.id, o.order_ref, o.table_session_id, t.number, u.email, su.email, su.name, lc.id, lc.name, lc.phone,
               p.method, p.total_charged, p.subtotal,
               p.tax_rate, p.tax_amount,
               p.service_charge_rate, p.service_charge_amount,

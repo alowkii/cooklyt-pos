@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Clock, ChefHat, ChevronDown, ChevronUp,
   Plus, DollarSign, Utensils, ShoppingBag, Truck, X, Printer, User, UserPlus, Search,
@@ -182,7 +183,7 @@ function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, 
   const cancelPending = useCancelPendingItems();
 
   const time      = elapsed(order.created_at);
-  const token     = order.id.slice(-6).toUpperCase();
+  const token     = order.order_ref || order.id.slice(-6).toUpperCase();
   const next      = NEXT_STATUS[order.status];
   const nextLabel = NEXT_LABEL[order.status];
 
@@ -762,6 +763,7 @@ export default function Orders() {
   const { data: orders = [], isLoading } = useActiveOrders();
   const { data: tables = [] }            = useTables();
   const { isAdmin, user }                = useAuth();
+  const location                         = useLocation();
 
   const canCancel   = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
   const canOrder    = isAdmin || user?.role === 'staff' || user?.role === 'cashier';
@@ -775,6 +777,20 @@ export default function Orders() {
   const [addingToOrder, setAddingToOrder] = useState(null);
 
   const tableMap = useMemo(() => Object.fromEntries(tables.map((t) => [t.id, t])), [tables]);
+
+  // Capture the tableId on mount — stored in a ref so polling re-renders don't re-trigger it.
+  // Using a ref (not state) means no extra render; null-ing it after use makes it fire only once.
+  const pendingPayTable = useRef(location.state?.payForTable ?? null);
+  useEffect(() => {
+    const tableId = pendingPayTable.current;
+    if (!tableId || isLoading || !orders.length) return;
+    const tableOrders = orders.filter((o) => o.table_id === tableId && !['paid', 'cancelled'].includes(o.status));
+    if (!tableOrders.length) return;
+    pendingPayTable.current = null; // consume once — polling won't re-fire this
+    const table = tableMap[tableId];
+    setExpanded(`session-${tableId}`);
+    setPayingOrder({ orders: tableOrders, tableNumber: table?.number ?? null });
+  }, [isLoading, orders, tableMap]);
 
   const counts = {
     all:      orders.length,

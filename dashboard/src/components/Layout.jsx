@@ -191,6 +191,12 @@ export default function Layout() {
       let channel = null;
       if (event === 'BILL_REQUESTED') {
         token = payload?.tableNumber ? `Table ${payload.tableNumber}` : null;
+        channel = null;
+        // Store tableId so the notification can deep-link to the payment flow
+        const meta = payload?.tableId ? { tableId: payload.tableId } : null;
+        add(event, token, null, meta);
+        addToast({ id: Date.now() + Math.random(), event, token, channel: null, orderId: null, ts: Date.now() });
+        return;
       } else if (event === 'STAFF_ASSIGNED') {
         const parts = [];
         if (payload?.staffName) parts.push(payload.staffName);

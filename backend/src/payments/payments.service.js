@@ -145,10 +145,6 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
 
   await repo.updateStatus(payment.id, 'completed');
   await ordersInterface.markOrderPaid(orderId, restaurantId);
-  if (order.table_id) {
-    await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
-    await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
-  }
 
   // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
   if (order.loyalty_customer_id) {
@@ -158,7 +154,18 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     ]).catch((err) => console.error('[loyalty] post-payment update failed for order', orderId, err?.message));
   }
 
-  ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
+  // For dining tables with multiple rounds, only fire once when the LAST order is paid.
+  // This prevents duplicate PAYMENT_COMPLETED notifications for multi-round sessions.
+  if (order.table_id) {
+    const remaining = await ordersInterface.getActiveOrdersForTable(order.table_id, restaurantId);
+    if (remaining.length === 0) {
+      await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
+      await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
+      ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
+    }
+  } else {
+    ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
+  }
 
   return {
     success: true,

@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock, ChevronRight } from 'lucide-react';
 
 const EVENT_CONFIG = {
-  NEW_ORDER:            { label: 'New order',            Icon: ClipboardList, color: 'var(--info)' },
-  ORDER_READY:          { label: 'Ready to serve',       Icon: CheckCircle2,  color: 'var(--ok)'   },
-  PAYMENT_COMPLETED:    { label: 'Payment received',     Icon: CreditCard,    color: 'var(--ok)'   },
-  BILL_REQUESTED:       { label: 'Bill requested',       Icon: Receipt,       color: 'var(--warn)' },
-  STAFF_ASSIGNED:       { label: 'Table assigned',       Icon: UserCheck,     color: 'var(--ok)'   },
-  RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)' },
+  NEW_ORDER:            { label: 'New order',              Icon: ClipboardList, color: 'var(--info)', to: '/orders'       },
+  ORDER_READY:          { label: 'Ready to serve',         Icon: CheckCircle2,  color: 'var(--ok)',   to: '/orders'       },
+  PAYMENT_COMPLETED:    { label: 'Payment received',       Icon: CreditCard,    color: 'var(--ok)',   to: null            },
+  BILL_REQUESTED:       { label: 'Bill requested',         Icon: Receipt,       color: 'var(--warn)', to: '/orders'       },
+  STAFF_ASSIGNED:       { label: 'Table assigned',         Icon: UserCheck,     color: 'var(--ok)',   to: '/tables'       },
+  RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)', to: '/reservations' },
 };
 
 const CHANNEL_CONFIG = {
-  delivery: { label: 'New delivery',  color: '#c2590a' },
-  takeaway: { label: 'New takeaway',  color: '#7c3abf' },
+  delivery: { label: 'New delivery', color: '#c2590a' },
+  takeaway: { label: 'New takeaway', color: '#7c3abf' },
 };
 
 function timeAgo(ts) {
@@ -25,7 +26,8 @@ function timeAgo(ts) {
 
 export default function NotificationBell({ notifications, unreadCount, onOpen, onClear }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref             = useRef(null);
+  const navigate        = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -40,6 +42,17 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
     const next = !open;
     setOpen(next);
     if (next) onOpen?.();
+  }
+
+  function handleNotificationClick(n) {
+    const cfg    = EVENT_CONFIG[n.event];
+    const target = cfg?.to ?? null;
+    if (!target) return;
+    setOpen(false);
+    const state = n.event === 'BILL_REQUESTED' && n.meta?.tableId
+      ? { payForTable: n.meta.tableId }
+      : undefined;
+    navigate(target, state ? { state } : undefined);
   }
 
   return (
@@ -74,7 +87,7 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-          width: 280,
+          width: 288,
           background: 'var(--paper)',
           border: '1px solid var(--line-2)',
           borderRadius: 8,
@@ -112,21 +125,28 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
               </p>
             ) : (
               notifications.map((n) => {
-                const cfg = EVENT_CONFIG[n.event];
+                const cfg        = EVENT_CONFIG[n.event];
                 if (!cfg) return null;
                 const channelCfg = n.event === 'NEW_ORDER' && n.channel ? CHANNEL_CONFIG[n.channel] : null;
-                const Icon  = cfg.Icon;
-                const label = channelCfg?.label ?? cfg.label;
-                const color = channelCfg?.color ?? cfg.color;
+                const Icon       = cfg.Icon;
+                const label      = channelCfg?.label ?? cfg.label;
+                const color      = channelCfg?.color ?? cfg.color;
+                const clickable  = !!cfg.to;
+
                 return (
                   <div
                     key={n.id}
+                    onClick={clickable ? () => handleNotificationClick(n) : undefined}
                     style={{
                       display: 'flex', alignItems: 'flex-start', gap: 9,
                       padding: '9px 12px',
                       borderBottom: '1px solid var(--line)',
                       background: n.read ? 'transparent' : 'rgba(10,10,10,.025)',
+                      cursor: clickable ? 'pointer' : 'default',
+                      transition: 'background .08s',
                     }}
+                    onMouseEnter={clickable ? (e) => { e.currentTarget.style.background = 'var(--hover)'; } : undefined}
+                    onMouseLeave={clickable ? (e) => { e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(10,10,10,.025)'; } : undefined}
                   >
                     <span style={{ color, flexShrink: 0, paddingTop: 1 }}>
                       <Icon size={13} />
@@ -144,12 +164,17 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
                         {timeAgo(n.ts)}
                       </p>
                     </div>
-                    {!n.read && (
-                      <span style={{
-                        width: 5, height: 5, borderRadius: '50%',
-                        background: color, flexShrink: 0, marginTop: 5,
-                      }} />
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginTop: 2 }}>
+                      {!n.read && (
+                        <span style={{
+                          width: 5, height: 5, borderRadius: '50%',
+                          background: color,
+                        }} />
+                      )}
+                      {clickable && (
+                        <ChevronRight size={11} style={{ color: 'var(--mute-2)' }} />
+                      )}
+                    </div>
                   </div>
                 );
               })
