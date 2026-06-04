@@ -6,6 +6,7 @@ const ALLOWED_KEYS = new Set([
   'staff_assignment_enabled', 'reservations_enabled', 'loyalty_enabled',
   'loyalty_points_per_unit', 'loyalty_points_value',
   'cash_denominations', 'restaurant_open',
+  'daily_revenue_target',
 ]);
 
 function validateTz(tz) {
@@ -62,6 +63,12 @@ async function update(key, value, restaurantId) {
   if (key === 'loyalty_points_value') {
     const n = parseFloat(value);
     if (isNaN(n) || n <= 0) throw new ValidationError('loyalty_points_value must be a positive number');
+  }
+  if (key === 'daily_revenue_target') {
+    if (value !== '' && value !== '0') {
+      const n = parseFloat(value);
+      if (isNaN(n) || n < 0) throw new ValidationError('daily_revenue_target must be a non-negative number');
+    }
   }
   if (key === 'cash_denominations') {
     const parts = String(value).split(',').map((s) => parseFloat(s.trim()));
