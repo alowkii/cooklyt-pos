@@ -3,6 +3,7 @@ const cors         = require('cors');
 const helmet       = require('helmet');
 const morgan       = require('morgan');
 const cookieParser = require('cookie-parser');
+const path         = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -28,6 +29,13 @@ const corsOptions = {
 // Security & parsing
 app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: false },
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      // Allow external images so restaurant logos from any URL work
+      'img-src': ["'self'", 'data:', 'blob:', '*'],
+    },
+  },
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '100kb' }));
@@ -38,6 +46,9 @@ app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
+
+// Uploaded assets (logos, etc.) — served before CORS so the dashboard can load them
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Public API — mounted before restricted CORS so customer phones can reach it
 app.use('/api/public', require('./public/public.router'));

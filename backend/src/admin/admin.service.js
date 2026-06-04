@@ -106,6 +106,12 @@ async function deleteRestaurant(id) {
   return result;
 }
 
+async function setRestaurantStatus(id, isActive) {
+  const result = await repo.setRestaurantActive(id, isActive);
+  if (!result) throw new NotFoundError('Restaurant');
+  return result;
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 async function createUser({ email, password, role, restaurantId }) {
@@ -203,7 +209,23 @@ async function updateSetting(restaurantId, key, value) {
     if (isNaN(n) || n < 0 || n > 100)
       throw new ValidationError(`${key} must be a number between 0 and 100`);
   }
-  const VALID_KEYS = new Set(['timezone', 'currency', 'tax_rate', 'service_charge']);
+  const VALID_KEYS = new Set([
+    'timezone', 'currency', 'tax_rate', 'service_charge',
+    // theme — brand
+    'theme_primary', 'theme_accent_on',
+    // theme — surfaces
+    'theme_page_bg', 'theme_paper_2', 'theme_paper_3',
+    // theme — sidebar
+    'theme_sidebar_bg',
+    // theme — text
+    'theme_ink', 'theme_ink_2', 'theme_mute', 'theme_mute_2',
+    // theme — borders
+    'theme_line', 'theme_line_2',
+    // theme — status
+    'theme_ok', 'theme_warn', 'theme_bad', 'theme_info',
+    // theme — logo
+    'theme_logo_url', 'theme_logo_bg',
+  ]);
   if (!VALID_KEYS.has(key)) throw new ValidationError(`Unknown setting: ${key}`);
   await repo.setSetting(restaurantId, key, value);
   return repo.getSettings(restaurantId);
@@ -274,6 +296,7 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
+  setRestaurantStatus,
   createUser,
   deleteUser,
   getAllSuperAdmins,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { UserPlus, Trash2, ShieldCheck, Eye, EyeOff, Loader2, BadgeCheck, MailWarning, Send } from 'lucide-react';
 import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin, useResendSuperAdminVerification } from '../hooks/useAdmin';
 import { useAuth } from '../hooks/useAuth';
@@ -36,7 +37,7 @@ function formatDate(iso) {
 }
 
 function ConfirmDeleteModal({ admin, onConfirm, onClose, isPending }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.45)' }}
@@ -65,7 +66,8 @@ function ConfirmDeleteModal({ admin, onConfirm, onClose, isPending }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -86,7 +88,7 @@ function AddAdminModal({ onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.45)' }}
@@ -159,7 +161,8 @@ function AddAdminModal({ onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

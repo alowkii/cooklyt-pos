@@ -49,6 +49,33 @@ import { useAuth } from '../hooks/useAuth';
 import { useMeProfile, useSetUserPresent } from '../hooks/useUsers';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 
+// ── Theme helpers ──────────────────────────────────────────────────────────────
+
+function hexLuminance(hex) {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  } catch { return 0; }
+}
+
+function contrastColor(hex) {
+  return hexLuminance(hex) > 0.179 ? '#0A0A0A' : '#FAFAF8';
+}
+
+function darkenHex(hex, delta) {
+  try {
+    const clamp = (v) => Math.max(0, Math.min(255, v));
+    const d = Math.round(delta * 255);
+    const r = clamp(parseInt(hex.slice(1, 3), 16) + d).toString(16).padStart(2, '0');
+    const g = clamp(parseInt(hex.slice(3, 5), 16) + d).toString(16).padStart(2, '0');
+    const b = clamp(parseInt(hex.slice(5, 7), 16) + d).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+  } catch { return hex; }
+}
+
 const GROUP_PATHS = {
   analytics:  ['/reports', '/history', '/waste', '/costing'],
   rms:        ['/ingredients', '/inventory', '/recipes', '/combos'],
@@ -242,6 +269,74 @@ export default function Layout() {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // Apply restaurant brand theme as CSS variable overrides
+  useEffect(() => {
+    if (!settings) return;
+    const root = document.documentElement;
+    const {
+      theme_primary, theme_accent_on,
+      theme_page_bg, theme_paper_2, theme_paper_3,
+      theme_sidebar_bg,
+      theme_ink, theme_ink_2, theme_mute, theme_mute_2,
+      theme_line, theme_line_2,
+      theme_ok, theme_warn, theme_bad, theme_info,
+    } = settings;
+
+    // Brand
+    if (theme_primary) {
+      root.style.setProperty('--accent',    theme_primary);
+      root.style.setProperty('--accent-on', theme_accent_on || contrastColor(theme_primary));
+    } else {
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-on');
+    }
+
+    // Surfaces
+    if (theme_page_bg) {
+      root.style.setProperty('--paper',   theme_page_bg);
+      root.style.setProperty('--paper-2', theme_paper_2 || darkenHex(theme_page_bg, -0.035));
+    } else {
+      root.style.removeProperty('--paper');
+      if (theme_paper_2) root.style.setProperty('--paper-2', theme_paper_2);
+      else               root.style.removeProperty('--paper-2');
+    }
+    if (theme_paper_3) root.style.setProperty('--paper-3', theme_paper_3);
+    else               root.style.removeProperty('--paper-3');
+
+    // Sidebar
+    root.style.setProperty('--brand-sidebar', theme_sidebar_bg || theme_page_bg || '');
+
+    // Text
+    const setOrRemove = (prop, val) => val
+      ? root.style.setProperty(prop, val)
+      : root.style.removeProperty(prop);
+    setOrRemove('--ink',    theme_ink);
+    setOrRemove('--ink-2',  theme_ink_2);
+    setOrRemove('--mute',   theme_mute);
+    setOrRemove('--mute-2', theme_mute_2);
+
+    // Borders
+    setOrRemove('--line',   theme_line);
+    setOrRemove('--line-2', theme_line_2);
+
+    // Status
+    setOrRemove('--ok',   theme_ok);
+    setOrRemove('--warn', theme_warn);
+    setOrRemove('--bad',  theme_bad);
+    setOrRemove('--info', theme_info);
+
+    return () => {
+      for (const prop of [
+        '--accent', '--accent-on',
+        '--paper', '--paper-2', '--paper-3',
+        '--brand-sidebar',
+        '--ink', '--ink-2', '--mute', '--mute-2',
+        '--line', '--line-2',
+        '--ok', '--warn', '--bad', '--info',
+      ]) root.style.removeProperty(prop);
+    };
+  }, [settings]);
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen?.();
@@ -314,18 +409,34 @@ export default function Layout() {
           transition-transform duration-200 ease-in-out
           lg:relative lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{ background: 'var(--paper)', borderRight: '1px solid var(--line)' }}
+        style={{ background: 'var(--brand-sidebar, var(--paper))', borderRight: '1px solid var(--line)' }}
       >
         {/* Brand */}
         <div
           className="flex h-12 items-center gap-2.5 px-4 shrink-0"
           style={{ borderBottom: '1px solid var(--line)' }}
         >
-          <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-            <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
-                  fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
-            <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
-          </svg>
+          {settings?.theme_logo_url ? (
+            <div style={{
+              width: 26, height: 26, borderRadius: 4, flexShrink: 0,
+              background: settings.theme_logo_bg || 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              <img
+                src={settings.theme_logo_url}
+                alt="Restaurant logo"
+                referrerPolicy="no-referrer"
+                style={{ maxWidth: 22, maxHeight: 22, objectFit: 'contain' }}
+              />
+            </div>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591"
+                    fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round"/>
+              <circle cx="100" cy="100" r="10.8" fill="#b06a3b"/>
+            </svg>
+          )}
           <span className="truncate text-[12px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.005em' }}>
             {restaurant?.name || 'Cooklyt'}
           </span>

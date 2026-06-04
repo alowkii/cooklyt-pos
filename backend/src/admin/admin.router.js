@@ -1,9 +1,33 @@
 const router = require('express').Router();
 const crypto = require('crypto');
+const path   = require('path');
+const fs     = require('fs');
 const jwt    = require('jsonwebtoken');
+const multer = require('multer');
 const service = require('./admin.service');
 const repo    = require('./admin.repository');
+const settingsRepo = require('../settings/settings.repository');
 const { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged } = require('./admin.middleware');
+
+// Multer instance for restaurant logo uploads (images only, stored on disk)
+const logoUpload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, cb) {
+      const dir = path.join(__dirname, '../../uploads/logos');
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename(req, file, cb) {
+      const ext = path.extname(file.originalname).toLowerCase() || '.png';
+      cb(null, `${req.params.id}-${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ok = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.originalname);
+    cb(ok ? null : new Error('Only image files are accepted'), ok);
+  },
+});
 
 // Shorthand: auth only (read routes) vs auth + verified + password-changed (write routes)
 const auth  = authenticateSuperAdmin;
@@ -272,6 +296,23 @@ router.patch('/restaurants/:id', authV, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.patch('/restaurants/:id/status', authV, async (req, res, next) => {
+  try {
+    const { is_active } = req.body;
+    if (typeof is_active !== 'boolean') return res.status(400).json({ error: 'is_active must be a boolean' });
+    const restaurant = await service.setRestaurantStatus(req.params.id, is_active);
+    audit.log({
+      ...sa(req),
+      restaurantId: req.params.id,
+      action: 'update',
+      resourceType: 'restaurant',
+      resourceId: req.params.id,
+      description: `${is_active ? 'Activated' : 'Suspended'} restaurant "${restaurant.name}"`,
+    });
+    res.json(restaurant);
+  } catch (e) { next(e); }
+});
+
 router.delete('/restaurants/:id', authV, async (req, res, next) => {
   try {
     const deleted = await service.deleteRestaurant(req.params.id);
@@ -313,6 +354,26 @@ router.patch('/restaurants/:id/settings', authV, async (req, res, next) => {
     const settings = await service.updateSetting(req.params.id, key, value);
     audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: key, description: `Set ${key} to "${value}"` });
     res.json(settings);
+  } catch (e) { next(e); }
+});
+
+// ── Logo upload ───────────────────────────────────────────────────────────────
+
+router.post('/restaurants/:id/logo', authV, logoUpload.single('logo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const url = `/uploads/logos/${req.file.filename}`;
+    await settingsRepo.set(req.params.id, 'theme_logo_url', url);
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Updated restaurant logo' });
+    res.json({ url });
+  } catch (e) { next(e); }
+});
+
+router.delete('/restaurants/:id/logo', authV, async (req, res, next) => {
+  try {
+    await settingsRepo.set(req.params.id, 'theme_logo_url', '');
+    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Removed restaurant logo' });
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

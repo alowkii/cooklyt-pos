@@ -52,6 +52,19 @@ export function useDeleteRestaurant() {
   });
 }
 
+export function useSetRestaurantStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_active }) =>
+      api.patch(`/restaurants/${id}/status`, { is_active }).then((r) => r.data),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['restaurants', id] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export function useCreateUser(restaurantId) {
@@ -159,6 +172,29 @@ export function useUpdateDefaults() {
       qc.invalidateQueries({ queryKey: ['me'] });
       qc.invalidateQueries({ queryKey: ['audit-logs'] });
     },
+  });
+}
+
+// ── Logo ──────────────────────────────────────────────────────────────────────
+
+export function useUploadLogo(restaurantId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file) => {
+      const form = new FormData();
+      form.append('logo', file);
+      const { data } = await api.post(`/restaurants/${restaurantId}/logo`, form);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] }),
+  });
+}
+
+export function useDeleteLogo(restaurantId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete(`/restaurants/${restaurantId}/logo`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurants', restaurantId] }),
   });
 }
 

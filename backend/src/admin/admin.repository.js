@@ -79,13 +79,19 @@ const createFirstSuperAdmin = (email, password) =>
 
 const getAllRestaurants = () =>
   db.query(
-    `SELECT r.id, r.name, r.created_at,
+    `SELECT r.id, r.name, r.is_active, r.created_at,
             COUNT(u.id)::int AS user_count
      FROM restaurants r
      LEFT JOIN users u ON u.restaurant_id = r.id
      GROUP BY r.id
      ORDER BY r.created_at DESC`,
   ).then((r) => r.rows);
+
+const setRestaurantActive = (id, isActive) =>
+  db.query(
+    'UPDATE restaurants SET is_active = $1 WHERE id = $2 RETURNING id, name, is_active',
+    [isActive, id],
+  ).then((r) => r.rows[0]);
 
 const getRestaurantById = (id) =>
   db.query('SELECT * FROM restaurants WHERE id = $1', [id])
@@ -219,6 +225,7 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
+  setRestaurantActive,
   getAllUsers,
   findUserById,
   deleteUserById,

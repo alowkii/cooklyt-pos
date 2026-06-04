@@ -98,15 +98,30 @@ function ChannelSwitcher({ channel, setChannel }) {
   );
 }
 
-// Colors drawn directly from the design token palette
-const SERIES_COLORS = ['#0A0A0A', '#1f8a5b', '#b3781f', '#1f5bb3', '#b3372b', '#6E6D67', '#2A2A28', '#9B9A92'];
+// Reads the live CSS-variable values so chart colours follow the active theme.
+// Falls back to the default palette tokens when no override is set.
+function getSeriesColors() {
+  const s = getComputedStyle(document.documentElement);
+  const v = (name, fb) => s.getPropertyValue(name).trim() || fb;
+  return [
+    v('--ink',    '#0A0A0A'),
+    v('--ok',     '#1f8a5b'),
+    v('--warn',   '#b3781f'),
+    v('--info',   '#1f5bb3'),
+    v('--bad',    '#b3372b'),
+    v('--mute',   '#6E6D67'),
+    v('--ink-2',  '#2A2A28'),
+    v('--mute-2', '#9B9A92'),
+  ];
+}
 
 function SeriesLegend({ names }) {
+  const colors = getSeriesColors();
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
       {names.map((name, i) => (
         <span key={name} className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--mute)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: SERIES_COLORS[i % SERIES_COLORS.length], flexShrink: 0 }} />
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: colors[i % colors.length], flexShrink: 0 }} />
           {name}
         </span>
       ))}
@@ -418,6 +433,7 @@ function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
 function ItemsTab({ from, to, setFrom, setTo, today, channel }) {
   const [view,  setView]  = useState('table');
   const [group, setGroup] = useState('day');
+  const seriesColors = getSeriesColors();
 
   function handleGroupChange(g) {
     setGroup(g);
@@ -577,7 +593,7 @@ function ItemsTab({ from, to, setFrom, setTo, today, channel }) {
                   />
                   {itemNames.map((name, i) => (
                     <Line key={name} type="monotone" dataKey={name}
-                      stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                      stroke={seriesColors[i % seriesColors.length]}
                       strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
                   ))}
                 </LineChart>
@@ -593,6 +609,7 @@ function ItemsTab({ from, to, setFrom, setTo, today, channel }) {
 
 function StaffTab({ from, to, setFrom, setTo, today, channel }) {
   const [group, setGroup] = useState('day');
+  const seriesColors = getSeriesColors();
   const { data, isLoading, isError }                = useStaffPerformance(from, to, channel);
   const { data: trendData, isLoading: trendLoading } = useStaffTrend(from, to, group, channel);
 
@@ -692,7 +709,7 @@ function StaffTab({ from, to, setFrom, setTo, today, channel }) {
                 />
                 {staffNames.map((name, i) => (
                   <Line key={name} type="monotone" dataKey={name}
-                    stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                    stroke={seriesColors[i % seriesColors.length]}
                     strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
                 ))}
               </LineChart>

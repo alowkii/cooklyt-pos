@@ -25,6 +25,7 @@
   --warn-soft:  rgba(179,120,31,0.10);
   --info-soft:  rgba(31,91,179,0.10);
   --paper-3:    #ECEAE3;
+  --brand-sidebar: var(--paper);
 }
 
 @layer base {

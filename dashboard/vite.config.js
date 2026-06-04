@@ -59,6 +59,10 @@ export default defineConfig({
         ws: true,
         changeOrigin: false,
       },
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '/frankfurter': {
         target: 'https://api.frankfurter.app',
         changeOrigin: true,

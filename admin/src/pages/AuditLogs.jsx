@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, Lock, TriangleAlert } from 'lucide-react';
 import { useAuditLogs, useRestaurants } from '../hooks/useAdmin';
 import api from '../api/client';
@@ -81,7 +82,7 @@ function PasswordModal({ context, onConfirm, onCancel }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,.4)' }}
@@ -119,7 +120,8 @@ function PasswordModal({ context, onConfirm, onCancel }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
