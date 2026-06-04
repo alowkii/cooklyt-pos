@@ -431,7 +431,7 @@ export default function Settings() {
       {/* ── Business Settings ───────────────────────────────── */}
       <SectionHead icon={Percent} title="Business Settings" />
 
-      <div className="flex flex-wrap items-end gap-3 mb-5">
+      <div className="flex flex-wrap items-end gap-3 mb-3">
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Tax Rate</label>
           <div className="flex items-center gap-1.5">
@@ -439,15 +439,6 @@ export default function Settings() {
               onChange={(e) => { setTaxRate(e.target.value); markDirty(); }}
               className="input mono" style={{ width: 80 }} placeholder="0" />
             <span style={{ fontSize: 12, color: 'var(--mute)' }}>%</span>
-          </div>
-        </div>
-
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Daily Revenue Target</label>
-          <div className="flex items-center gap-1.5">
-            <input type="number" min="0" step="1" value={dailyTarget}
-              onChange={(e) => { setDailyTarget(e.target.value); markDirty(); }}
-              className="input mono" style={{ width: 110 }} placeholder="e.g. 10000" />
           </div>
         </div>
 
@@ -471,6 +462,16 @@ export default function Settings() {
               className="input mono" style={{ width: 80 }} placeholder="0" />
             <span style={{ fontSize: 12, color: 'var(--mute)' }}>{currencies[code]?.symbol ?? '$'}</span>
           </div>
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Daily Revenue Target</label>
+        <div className="flex items-center gap-1.5">
+          <input type="number" min="0" step="1" value={dailyTarget}
+            onChange={(e) => { setDailyTarget(e.target.value); markDirty(); }}
+            className="input mono" style={{ width: 160 }} placeholder="e.g. 10000" />
+          <span style={{ fontSize: 12, color: 'var(--mute)' }}>Shows progress bar on Overview</span>
         </div>
       </div>
 
