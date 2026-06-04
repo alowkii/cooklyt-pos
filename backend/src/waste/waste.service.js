@@ -92,4 +92,16 @@ async function logWasteByMenuItem({ restaurantId, menuItemId, portions, reason, 
   return results;
 }
 
-module.exports = { getAll, logWaste, logWasteByMenuItem };
+// Called when an order item is cancelled as wastage.
+// Creates a pending wastage_review for admin to inspect — stock is NOT touched here
+// (the SALE at order creation already deducted it; the admin decides what to return).
+async function logWasteFromOrder({ restaurantId, menuItemId, quantity, orderId, orderItemId, cancelReason }) {
+  if (!menuItemId || !quantity) return null;
+  const reviewsService = require('../wastage-reviews/wastage-reviews.service');
+  return reviewsService.createReview({
+    restaurantId, orderId, orderItemId,
+    menuItemId, quantity, cancelReason,
+  });
+}
+
+module.exports = { getAll, logWaste, logWasteByMenuItem, logWasteFromOrder };

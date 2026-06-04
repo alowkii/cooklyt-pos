@@ -1,20 +1,22 @@
 import { useState, useMemo } from 'react';
-import { Plus, AlertTriangle, ChevronDown, ChevronRight, Utensils, FlaskConical } from 'lucide-react';
-import { useWasteLogs, useLogWaste, useLogWasteByMenuItem } from '../hooks/useWaste';
+import { Plus, AlertTriangle, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, RotateCcw, Trash2, X } from 'lucide-react';
+import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview } from '../hooks/useWaste';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import { useRecipes } from '../hooks/useRecipes';
+import { useAuth } from '../hooks/useAuth';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
 import { useCurrency } from '../context/CurrencyContext';
 
 const REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
 const REASON_LABELS = {
-  SPOILAGE: 'Spoilage',
-  SPILL:    'Spill',
-  OVERPREP: 'Over-prep',
-  DAMAGED:  'Damaged',
-  OTHER:    'Other',
+  SPOILAGE:   'Spoilage',
+  SPILL:      'Spill',
+  OVERPREP:   'Over-prep',
+  DAMAGED:    'Damaged',
+  OTHER:      'Other',
+  VOID_WASTE: 'Order wastage',
 };
 
 const EMPTY_ING_FORM  = { ingredientId: '', quantity: '', reason: 'SPOILAGE', notes: '' };
@@ -34,36 +36,56 @@ function BatchGroup({ logs, format }) {
 
   return (
     <>
-      {/* Group header row */}
+      {/* Group header — one <td> per column so everything aligns under the headers */}
       <tr
-        style={{ background: 'var(--paper-2)', cursor: 'pointer' }}
+        style={{
+          background: 'rgba(180,83,9,.06)',
+          borderBottom: '1px solid rgba(180,83,9,.18)',
+          borderLeft: '3px solid rgba(180,83,9,.45)',
+          cursor: 'pointer',
+        }}
         onClick={() => setOpen((v) => !v)}
       >
-        <td colSpan={6} style={{ padding: '8px 16px' }}>
+        {/* Ingredient / Item */}
+        <td style={{ padding: '8px 16px' }}>
           <div className="flex items-center gap-2">
             {open
               ? <ChevronDown size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />
               : <ChevronRight size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />}
             <Utensils size={13} style={{ color: 'var(--mute)', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
               {first.menu_item_name}
             </span>
-            <span style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+            <span style={{ fontSize: 11.5, color: '#a16207' }}>
               · {logs.length} ingredient{logs.length !== 1 ? 's' : ''}
             </span>
-            <span style={{
-              marginLeft: 6, fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 4,
-              background: 'var(--paper)', border: '1px solid var(--line)', color: 'var(--ink)',
-            }}>
-              {REASON_LABELS[first.reason] || first.reason}
-            </span>
-            <span className="mono num" style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: 'var(--bad)' }}>
-              {format(batchCost)}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--mute)', marginLeft: 8 }}>
-              {fmtDate(first.logged_at)}
-            </span>
           </div>
+        </td>
+
+        {/* Qty — empty at group level */}
+        <td style={{ padding: '8px 16px' }} />
+
+        {/* Reason */}
+        <td style={{ padding: '8px 16px' }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 4,
+            background: 'rgba(180,83,9,.1)', border: '1px solid rgba(180,83,9,.25)', color: '#92400e',
+          }}>
+            {REASON_LABELS[first.reason] || first.reason}
+          </span>
+        </td>
+
+        {/* Unit cost — empty at group level */}
+        <td style={{ padding: '8px 16px' }} />
+
+        {/* Total cost */}
+        <td className="mono num" style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, color: '#b91c1c' }}>
+          {format(batchCost)}
+        </td>
+
+        {/* Logged at */}
+        <td style={{ padding: '8px 16px', fontSize: 12, color: '#a16207' }}>
+          {fmtDate(first.logged_at)}
         </td>
       </tr>
 
@@ -75,24 +97,24 @@ function BatchGroup({ logs, format }) {
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          <td style={{ padding: '9px 16px 9px 36px' }}>
+          <td style={{ padding: '8px 16px 8px 40px' }}>
             <div className="flex items-center gap-2">
               <FlaskConical size={11} style={{ color: 'var(--mute-2)', flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: 'var(--ink)' }}>{log.ingredient_name}</span>
               {log.notes && <span style={{ fontSize: 11, color: 'var(--mute)' }}>— {log.notes}</span>}
             </div>
           </td>
-          <td className="mono num" style={{ padding: '9px 16px', fontSize: 13, color: 'var(--ink)' }}>
+          <td className="mono num" style={{ padding: '8px 16px', fontSize: 13, color: 'var(--ink)' }}>
             {parseFloat(log.quantity).toFixed(3)} {log.unit}
           </td>
-          <td style={{ padding: '9px 16px' }}>—</td>
-          <td className="mono num" style={{ padding: '9px 16px', fontSize: 12, color: 'var(--mute)' }}>
+          <td style={{ padding: '8px 16px', fontSize: 12, color: 'var(--mute-2)' }}>—</td>
+          <td className="mono num" style={{ padding: '8px 16px', fontSize: 12, color: 'var(--mute)' }}>
             {format(log.cost_at_time)}
           </td>
-          <td className="mono num" style={{ padding: '9px 16px', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+          <td className="mono num" style={{ padding: '8px 16px', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
             {format(log.total_cost)}
           </td>
-          <td style={{ padding: '9px 16px', fontSize: 12, color: 'var(--mute)' }}>—</td>
+          <td style={{ padding: '8px 16px', fontSize: 12, color: 'var(--mute-2)' }}>—</td>
         </tr>
       ))}
     </>
@@ -134,9 +156,337 @@ function SingleRow({ log, format }) {
   );
 }
 
+// ── ReviewModal ──────────────────────────────────────────────────────────────
+// Per-ingredient decision: each ingredient gets a Waste / Return / Split toggle.
+// Waste   → all goes to waste log (cost charged, stock stays out)
+// Return  → all goes back to inventory (stock restored via RETURN transaction)
+// Split   → custom quantities for each outcome
+
+function IngredientDecision({ ing, idx, onChange, format }) {
+  const def   = parseFloat(ing.default_qty);
+  const mode  = ing.mode ?? 'waste';
+
+  function setMode(m) {
+    if (m === 'waste')  onChange(idx, { mode: 'waste',  wasted_qty: def,  returned_qty: 0 });
+    if (m === 'return') onChange(idx, { mode: 'return', wasted_qty: 0,    returned_qty: def });
+    if (m === 'split')  onChange(idx, {
+      mode: 'split',
+      wasted_qty:   parseFloat((def / 2).toFixed(6)),
+      returned_qty: parseFloat((def / 2).toFixed(6)),
+    });
+  }
+
+  function onSplitWasted(val) {
+    const w = Math.max(0, Math.min(parseFloat(val) || 0, def));
+    onChange(idx, { mode: 'split', wasted_qty: w, returned_qty: parseFloat((def - w).toFixed(6)) });
+  }
+  function onSplitReturned(val) {
+    const r = Math.max(0, Math.min(parseFloat(val) || 0, def));
+    onChange(idx, { mode: 'split', wasted_qty: parseFloat((def - r).toFixed(6)), returned_qty: r });
+  }
+
+  const wasteCost = parseFloat(ing.wasted_qty ?? (mode === 'waste' ? def : 0)) * (ing.unit_cost || 0);
+
+  const modeBtn = (m, label, color) => (
+    <button
+      type="button"
+      onClick={() => setMode(m)}
+      style={{
+        flex: 1, fontSize: 11.5, fontWeight: 600, padding: '5px 0', border: 0,
+        cursor: 'pointer', fontFamily: 'inherit', transition: 'background .1s',
+        background: mode === m ? (m === 'waste' ? 'rgba(179,55,43,.12)' : m === 'return' ? 'rgba(22,163,74,.12)' : 'var(--paper-2)') : 'transparent',
+        color: mode === m ? (m === 'waste' ? 'var(--bad)' : m === 'return' ? 'var(--ok)' : 'var(--ink)') : 'var(--mute)',
+        borderBottom: mode === m ? `2px solid ${m === 'waste' ? 'var(--bad)' : m === 'return' ? 'var(--ok)' : 'var(--ink)'}` : '2px solid transparent',
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden', background: 'var(--paper)' }}>
+      {/* Ingredient header */}
+      <div className="flex items-center justify-between" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)' }}>
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{ing.ingredient_name}</span>
+          <span className="mono num ml-2" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+            {def.toFixed(3)} {ing.unit}
+          </span>
+        </div>
+        <span className="mono num" style={{ fontSize: 12, color: mode === 'return' ? 'var(--ok)' : 'var(--bad)', fontWeight: 600 }}>
+          {mode === 'return' ? `+${format(def * (ing.unit_cost || 0))}` : `−${format(wasteCost)}`}
+        </span>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex" style={{ borderBottom: mode === 'split' ? '1px solid var(--line)' : 'none' }}>
+        {modeBtn('waste',  '🗑 Waste',     'var(--bad)')}
+        {modeBtn('return', '↩ Return',    'var(--ok)')}
+        {modeBtn('split',  '⟺ Split',   'var(--ink)')}
+      </div>
+
+      {/* Split controls */}
+      {mode === 'split' && (
+        <div style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 10.5, fontWeight: 600, color: 'var(--bad)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              🗑 Wasted ({ing.unit})
+            </label>
+            <input
+              type="number" step="0.001" min="0" max={def}
+              value={ing.wasted_qty ?? def / 2}
+              onChange={(e) => onSplitWasted(e.target.value)}
+              className="input" style={{ fontSize: 12 }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 10.5, fontWeight: 600, color: 'var(--ok)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              ↩ Returned ({ing.unit})
+            </label>
+            <input
+              type="number" step="0.001" min="0" max={def}
+              value={ing.returned_qty ?? def / 2}
+              onChange={(e) => onSplitReturned(e.target.value)}
+              className="input" style={{ fontSize: 12 }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewModal({ review, onClose, format }) {
+  const resolve = useResolveWastageReview();
+  const [error, setError] = useState('');
+
+  const [ings, setIngs] = useState(() =>
+    (review.ingredients || []).map((ing) => ({
+      ...ing,
+      mode:         'waste',
+      wasted_qty:   parseFloat(ing.default_qty ?? 0),
+      returned_qty: 0,
+    })),
+  );
+
+  function updateIng(idx, patch) {
+    setIngs((prev) => prev.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
+  }
+
+  async function handleSubmit(e) {
+    if (e?.preventDefault) e.preventDefault();
+    setError('');
+    try {
+      await resolve.mutateAsync({ id: review.id, ingredients: ings });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resolve review');
+    }
+  }
+
+  const hasIngredients    = ings.length > 0;
+  const totalWastedCost   = ings.reduce((s, i) => s + parseFloat(i.wasted_qty   ?? 0) * (i.unit_cost || 0), 0);
+  const totalReturnedCost = ings.reduce((s, i) => s + parseFloat(i.returned_qty ?? 0) * (i.unit_cost || 0), 0);
+
+  return (
+    <Modal title={`Wastage Review — ${review.menu_item_name}`} onClose={onClose}>
+      <div className="space-y-4">
+
+        {/* Summary strip */}
+        <div className="rounded-[7px] p-3 space-y-1.5" style={{ background: 'var(--paper-2)', border: '1px solid var(--line)' }}>
+          <div className="flex items-center justify-between" style={{ fontSize: 12.5 }}>
+            <span style={{ color: 'var(--mute)' }}>Cancelled item</span>
+            <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
+              {review.menu_item_name}
+              <span style={{ fontWeight: 400, color: 'var(--mute)', marginLeft: 5 }}>×{review.quantity}</span>
+            </span>
+          </div>
+          {review.cancel_reason && (
+            <div className="flex items-start justify-between gap-4" style={{ fontSize: 12.5 }}>
+              <span style={{ color: 'var(--mute)', flexShrink: 0 }}>Reason</span>
+              <span style={{ color: 'var(--ink)', textAlign: 'right', fontStyle: 'italic' }}>{review.cancel_reason}</span>
+            </div>
+          )}
+        </div>
+
+        {!hasIngredients ? (
+          <>
+            <div className="rounded-[7px] p-4 space-y-1" style={{ background: 'rgba(180,83,9,.05)', border: '1px solid rgba(180,83,9,.2)' }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#92400e', margin: 0 }}>
+                No recipe linked to this item
+              </p>
+              <p style={{ fontSize: 12, color: '#a16207', margin: 0, lineHeight: 1.5 }}>
+                <strong>{review.menu_item_name}</strong> has no recipe, so ingredient-level waste tracking isn't available.
+                The cost of this item has already been deducted from inventory at order time.
+                Mark it as reviewed to close this entry.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
+              <button onClick={handleSubmit} disabled={resolve.isPending} className="btn-primary flex-1 justify-center">
+                <ClipboardCheck size={13} /> {resolve.isPending ? 'Saving…' : 'Mark as Reviewed'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-3">
+
+            <p style={{ fontSize: 11, color: 'var(--mute)', margin: 0 }}>
+              For each ingredient decide what happened:
+              <span style={{ color: 'var(--bad)', fontWeight: 600 }}> Waste</span> logs the cost,
+              <span style={{ color: 'var(--ok)', fontWeight: 600 }}> Return</span> puts it back in stock,
+              <span style={{ color: 'var(--ink)', fontWeight: 600 }}> Split</span> lets you enter exact quantities.
+            </p>
+
+            {/* Per-ingredient decisions */}
+            <div className="space-y-2">
+              {ings.map((ing, idx) => (
+                <IngredientDecision
+                  key={ing.ingredient_id}
+                  ing={ing}
+                  idx={idx}
+                  onChange={updateIng}
+                  format={format}
+                />
+              ))}
+            </div>
+
+            {/* Totals */}
+            {(totalWastedCost > 0 || totalReturnedCost > 0) && (
+              <div
+                className="flex items-center justify-between rounded-[7px] px-3 py-2"
+                style={{ background: 'var(--paper-2)', border: '1px solid var(--line)', fontSize: 12.5 }}
+              >
+                <span style={{ color: 'var(--bad)', fontWeight: 600 }}>
+                  🗑 Waste cost: <span className="mono num">{format(totalWastedCost)}</span>
+                </span>
+                <span style={{ color: 'var(--ok)', fontWeight: 600 }}>
+                  ↩ Return value: <span className="mono num">{format(totalReturnedCost)}</span>
+                </span>
+              </div>
+            )}
+
+            {error && (
+              <p style={{ fontSize: 12, color: 'var(--bad)', background: 'rgba(179,55,43,.06)', padding: '8px 12px', borderRadius: 6 }}>
+                {error}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
+              <button type="submit" disabled={resolve.isPending} className="btn-primary flex-1 justify-center">
+                <ClipboardCheck size={13} /> {resolve.isPending ? 'Saving…' : 'Confirm & Log'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── PendingReviews ────────────────────────────────────────────────────────────
+// Card list of unresolved wastage items waiting for admin review.
+
+function PendingReviews({ format, isAdmin }) {
+  const { data: reviews = [], isLoading } = useWastageReviews('pending');
+  const [active, setActive] = useState(null);
+
+  if (isLoading) return null;
+  if (reviews.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+          Pending Wastage Reviews
+        </h2>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
+          background: 'rgba(180,83,9,.12)', color: '#b45309', border: '1px solid rgba(180,83,9,.25)',
+        }}>
+          {reviews.length}
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+        {reviews.map((review) => {
+          const totalCost = (review.ingredients || []).reduce(
+            (s, i) => s + parseFloat(i.wasted_qty ?? i.default_qty ?? 0) * (i.unit_cost || 0), 0,
+          );
+          const ingCount = (review.ingredients || []).length;
+          const ago = (() => {
+            const m = Math.floor((Date.now() - new Date(review.created_at).getTime()) / 60_000);
+            if (m < 1) return 'just now';
+            if (m < 60) return `${m}m ago`;
+            return `${Math.floor(m / 60)}h ago`;
+          })();
+
+          return (
+            <div
+              key={review.id}
+              style={{
+                background: 'var(--paper)', border: '1px solid rgba(180,83,9,.25)',
+                borderRadius: 10, padding: '14px 16px',
+                boxShadow: '0 1px 4px rgba(180,83,9,.08)',
+              }}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+                    {review.menu_item_name}
+                  </p>
+                  <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '2px 0 0' }}>
+                    ×{review.quantity} · {ingCount} ingredient{ingCount !== 1 ? 's' : ''} · {ago}
+                  </p>
+                </div>
+                <span className="mono num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--bad)', flexShrink: 0 }}>
+                  {format(totalCost)}
+                </span>
+              </div>
+
+              {review.cancel_reason && (
+                <p style={{
+                  fontSize: 11.5, color: 'var(--mute)', margin: '0 0 10px',
+                  background: 'var(--paper-2)', padding: '5px 8px', borderRadius: 5,
+                  borderLeft: '2px solid rgba(180,83,9,.3)',
+                }}>
+                  "{review.cancel_reason}"
+                </p>
+              )}
+
+              {isAdmin ? (
+                <button
+                  onClick={() => setActive(review)}
+                  className="btn-primary btn-sm w-full justify-center"
+                  style={{ marginTop: 4 }}
+                >
+                  <ClipboardCheck size={12} /> Review & Decide
+                </button>
+              ) : (
+                <div
+                  className="w-full flex items-center justify-center gap-1.5"
+                  style={{ marginTop: 4, padding: '5px 0', fontSize: 11.5, color: 'var(--mute)', background: 'var(--paper-2)', borderRadius: 6, border: '1px solid var(--line)' }}
+                >
+                  Awaiting admin review
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {active && (
+        <ReviewModal review={active} onClose={() => setActive(null)} format={format} />
+      )}
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function WasteLog() {
+  const { isAdmin } = useAuth();
   const [from, setFrom] = useState(today());
   const [to,   setTo]   = useState(today());
   const [modal, setModal] = useState(false);
@@ -250,6 +600,9 @@ export default function WasteLog() {
         </div>
       </div>
 
+      {/* Pending wastage reviews — visible to all staff, resolvable by admin only */}
+      <PendingReviews format={format} isAdmin={isAdmin} />
+
       {/* Table */}
       {isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
@@ -262,9 +615,9 @@ export default function WasteLog() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
-                <tr style={{ background: 'var(--paper-2)', borderBottom: '1px solid var(--line)' }}>
+                <tr style={{ background: 'var(--paper-2)', borderBottom: '2px solid var(--line)' }}>
                   {['Ingredient / Item', 'Qty', 'Reason', 'Unit cost', 'Total cost', 'Logged at'].map((h) => (
-                    <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>
+                    <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
                       {h}
                     </th>
                   ))}

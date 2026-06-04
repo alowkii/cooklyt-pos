@@ -14,7 +14,7 @@ const UNITS = ['kg', 'g', 'mg', 'L', 'ml', 'piece', 'dozen', 'box', 'bag', 'bott
 import { useCurrency } from '../context/CurrencyContext';
 import { queryClient } from '../lib/queryClient';
 
-const EMPTY_FORM = { name: '', unit: '', reorderLevel: '', reorderQty: '', latestUnitCost: '' };
+const EMPTY_FORM = { name: '', unit: '', reorderLevel: '', reorderQty: '', latestUnitCost: '', perishable: false };
 const EMPTY_PURCHASE = { quantity: '', unitCost: '' };
 
 function SortIcon({ col, sortCol, sortDir }) {
@@ -36,6 +36,7 @@ export default function Ingredients() {
   const [showImport, setShowImport] = useState(false);
   const [form,     setForm]     = useState(EMPTY_FORM);
   const [purForm,  setPurForm]  = useState(EMPTY_PURCHASE);
+  const [filter,   setFilter]   = useState('all');
 
   const [sortCol,  setSortCol]  = useState('name');
   const [sortDir,  setSortDir]  = useState('asc');
@@ -77,7 +78,13 @@ export default function Ingredients() {
     }
   }
 
-  const sorted = [...items].sort((a, b) => {
+  const filtered = items.filter((i) => {
+    if (filter === 'perishable') return i.perishable;
+    if (filter === 'dry')        return !i.perishable;
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
     let av, bv;
     switch (sortCol) {
       case 'name':    av = a.name.toLowerCase();              bv = b.name.toLowerCase();              break;
@@ -99,6 +106,7 @@ export default function Ingredients() {
       reorderLevel:    ing.reorder_level,
       reorderQty:      ing.reorder_qty,
       latestUnitCost:  parseFloat(ing.latest_unit_cost).toFixed(currency.decimals),
+      perishable:      ing.perishable ?? false,
     });
     setModal(ing);
   }
@@ -114,6 +122,7 @@ export default function Ingredients() {
       latestUnitCost: parseFloat(form.latestUnitCost) || 0,
       reorderLevel:   parseFloat(form.reorderLevel)   || 0,
       reorderQty:     parseFloat(form.reorderQty)     || 0,
+      perishable:     form.perishable,
     };
     if (modal === 'add') await createIngredient.mutateAsync(payload);
     else                 await updateIngredient.mutateAsync({ id: modal.id, ...payload });
@@ -134,9 +143,12 @@ export default function Ingredients() {
   const lowStock = items.filter(
     (i) => i.is_active && parseFloat(i.stock_on_hand) <= parseFloat(i.reorder_level),
   );
+  const perishableCount = items.filter((i) => i.perishable).length;
+  const dryCount        = items.filter((i) => !i.perishable).length;
 
   const COLS = [
     { key: 'name',    label: 'Ingredient' },
+    { key: null,      label: 'Type'       },
     { key: null,      label: 'Unit'       },
     { key: 'stock',   label: 'Stock'      },
     { key: 'reorder', label: 'Reorder at' },
@@ -151,7 +163,9 @@ export default function Ingredients() {
       <div className="flex items-center gap-3 flex-wrap">
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Ingredients</h1>
-          <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>{items.length} total · refreshes every 30 s</p>
+          <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>
+            {items.length} total · {perishableCount} perishable · {dryCount} dry goods · refreshes every 30 s
+          </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {lowStock.length > 0 && (
@@ -170,6 +184,30 @@ export default function Ingredients() {
             <Plus size={13} /> Add ingredient
           </button>
         </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-4 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)', paddingBottom: 0, marginBottom: -4 }}>
+        {[
+          ['all',        'All',        items.length],
+          ['perishable', 'Perishable', perishableCount],
+          ['dry',        'Dry Goods',  dryCount],
+        ].map(([k, label, count]) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k)}
+            className="btn-ghost shrink-0"
+            style={{
+              height: 32, padding: '0 2px', borderRadius: 0, marginBottom: -1,
+              borderBottom: filter === k ? '1.5px solid var(--ink)' : '1.5px solid transparent',
+              color: filter === k ? 'var(--ink)' : 'var(--mute)',
+              fontWeight: filter === k ? 600 : 500,
+            }}
+          >
+            {label}
+            <span className="mono num ml-1.5" style={{ fontSize: 11, color: 'var(--mute-2)' }}>{count}</span>
+          </button>
+        ))}
       </div>
 
       {/* Low stock summary banner */}
@@ -204,12 +242,12 @@ export default function Ingredients() {
       {/* Table */}
       {isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
-      ) : items.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div
           className="py-16 text-center rounded-[8px]"
           style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}
         >
-          No ingredients yet — add one to start tracking stock
+          {filter === 'all' ? 'No ingredients yet — add one to start tracking stock' : `No ${filter === 'perishable' ? 'perishable' : 'dry goods'} ingredients`}
         </div>
       ) : (
         <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
@@ -257,6 +295,17 @@ export default function Ingredients() {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        {ing.perishable ? (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: '#b45309', background: 'rgba(180,83,9,.08)', border: '1px solid rgba(180,83,9,.2)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+                            Perishable
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--mute)', background: 'var(--paper-2)', border: '1px solid var(--line)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+                            Dry goods
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: 13, color: 'var(--mute)' }}>{ing.unit}</td>
                       <td style={{ padding: '10px 16px' }}>
@@ -352,6 +401,30 @@ export default function Ingredients() {
                   className="input" placeholder="0"
                 />
               </div>
+            </div>
+            <div className="col-span-2">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                <div
+                  onClick={() => setForm((f) => ({ ...f, perishable: !f.perishable }))}
+                  style={{
+                    width: 36, height: 20, borderRadius: 99, flexShrink: 0,
+                    background: form.perishable ? '#b45309' : 'var(--line-2)',
+                    position: 'relative', transition: 'background .15s', cursor: 'pointer',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 2, left: form.perishable ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+                  }} />
+                </div>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>Perishable</span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--mute)' }}>
+                    {form.perishable ? 'Needs daily stock check' : 'Long-lasting dry goods'}
+                  </span>
+                </div>
+              </label>
             </div>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setModal(null)} className="btn-secondary flex-1 justify-center">Cancel</button>

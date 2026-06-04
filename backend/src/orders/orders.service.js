@@ -3,10 +3,28 @@ const tablesInterface = require('../tables/tables.interface');
 const menuInterface = require('../menu/menu.interface');
 const settingsRepo = require('../settings/settings.repository');
 const inventoryService = require('../inventory/inventory.service');
+const wasteService = require('../waste/waste.service');
 const couponsInterface = require('../coupons/coupons.interface');
 const loyaltyInterface = require('../loyalty/loyalty.interface');
 const ws = require('../shared/websocket');
+const db = require('../shared/db');
 const { NotFoundError, ValidationError } = require('../shared/errors');
+
+// Persists a notification for all active admins + kitchen users and broadcasts over WebSocket.
+async function _notifyAdmins(restaurantId, event, payload) {
+  const { rows: recipients } = await db.query(
+    `SELECT id FROM users
+     WHERE restaurant_id = $1 AND role = ANY($2) AND is_active = true`,
+    [restaurantId, ['admin', 'kitchen']],
+  );
+  await Promise.all(recipients.map((u) =>
+    db.query(
+      'INSERT INTO staff_notifications (user_id, restaurant_id, event, data) VALUES ($1, $2, $3, $4)',
+      [u.id, restaurantId, event, JSON.stringify(payload)],
+    ),
+  ));
+  ws.broadcast(event, payload, restaurantId);
+}
 
 async function getById(orderId, restaurantId) {
   const order = await repo.getById(orderId, restaurantId);
@@ -112,32 +130,70 @@ async function addItems(orderId, items, restaurantId) {
 }
 
 const ITEM_STATUS_ORDER = ['pending', 'preparing', 'ready', 'served'];
-const CANCELLABLE_ITEM_STATUSES = ['pending', 'preparing'];
+// void    — pending only: kitchen never started it, stock is returned
+// wastage — preparing/ready/served: kitchen touched it, stock stays out, waste is logged
+const VOID_STATUSES    = ['pending'];
+const WASTAGE_STATUSES = ['pending', 'preparing', 'ready', 'served'];
 
-async function updateItemStatus(orderId, itemId, status, restaurantId) {
+async function updateItemStatus(orderId, itemId, status, restaurantId, actionType = 'void', cancelReason = null) {
   const validStatuses = [...ITEM_STATUS_ORDER, 'cancelled'];
   if (!validStatuses.includes(status))
     throw new ValidationError(`Invalid item status: ${status}`);
+  if (status === 'cancelled' && !['void', 'wastage'].includes(actionType))
+    throw new ValidationError('actionType must be void or wastage');
 
   if (status === 'cancelled') {
     const order = await getById(orderId, restaurantId);
     if (['paid', 'cancelled'].includes(order.status))
       throw new ValidationError('Cannot update items on a paid or cancelled order');
-    // Fetch current item status to enforce cancellable constraint
+
     const [itemRow] = await repo.getItemStatuses(orderId).then((rows) => rows.filter((r) => r.id === itemId));
     if (!itemRow) throw new NotFoundError('Order item');
     const currentStatus = itemRow.status ?? 'pending';
-    if (!CANCELLABLE_ITEM_STATUSES.includes(currentStatus))
-      throw new ValidationError(`Cannot cancel an item that is already ${currentStatus}`);
-    const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled');
+
+    const allowed = actionType === 'wastage' ? WASTAGE_STATUSES : VOID_STATUSES;
+    if (!allowed.includes(currentStatus))
+      throw new ValidationError(`Cannot ${actionType} an item that is already ${currentStatus}`);
+
+    const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled', cancelReason || null);
     if (!updated) throw new NotFoundError('Order item');
 
-    inventoryService.returnStock(orderId, restaurantId, [
-      { menu_item_id: itemRow.menu_item_id, quantity: itemRow.quantity },
-    ]).catch((err) => console.error('[inventory] returnStock failed for order', orderId, err?.message));
+    if (actionType === 'wastage') {
+      // Ingredients already deducted at order creation — log waste for reporting only, no stock change.
+      try {
+        await wasteService.logWasteFromOrder({
+          restaurantId,
+          menuItemId:   itemRow.menu_item_id,
+          quantity:     itemRow.quantity,
+          orderId,
+          orderItemId:  itemId,
+          cancelReason: cancelReason || null,
+        });
+      } catch (err) {
+        console.error('[wastage-review] create failed for order', orderId, err?.message);
+      }
+    } else {
+      // Void — item was never made, return ingredients to stock.
+      inventoryService.returnStock(orderId, restaurantId, [
+        { menu_item_id: itemRow.menu_item_id, quantity: itemRow.quantity },
+      ]).catch((err) => console.error('[inventory] returnStock failed for order', orderId, err?.message));
+    }
 
-    // Re-evaluate order status now that this item is gone
-    const allItems = await repo.getItemStatuses(orderId);
+    // Notify admins so the action is visible in the notification bell.
+    const notifEvent   = actionType === 'wastage' ? 'ITEM_WASTED' : 'ITEM_VOIDED';
+    const notifPayload = {
+      orderId,
+      itemId,
+      menuItemName: itemRow.menu_item_name ?? 'item',
+      quantity:     itemRow.quantity,
+      actionType,
+      cancelReason: cancelReason || null,
+    };
+    _notifyAdmins(restaurantId, notifEvent, notifPayload)
+      .catch((err) => console.error('[notify]', notifEvent, 'failed', err?.message));
+
+    // Re-evaluate order status now that this item is gone.
+    const allItems  = await repo.getItemStatuses(orderId);
     const remaining = allItems.filter((i) => i.status !== 'cancelled');
     let nextOrderStatus = null;
     if (remaining.length === 0) {

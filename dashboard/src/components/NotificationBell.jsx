@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock, ChevronRight } from 'lucide-react';
+import { Bell, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock, ChevronRight, XCircle, Trash2 } from 'lucide-react';
 
 const EVENT_CONFIG = {
   NEW_ORDER:            { label: 'New order',              Icon: ClipboardList, color: 'var(--info)', to: '/orders'       },
@@ -9,6 +9,8 @@ const EVENT_CONFIG = {
   BILL_REQUESTED:       { label: 'Bill requested',         Icon: Receipt,       color: 'var(--warn)', to: '/orders'       },
   STAFF_ASSIGNED:       { label: 'Table assigned',         Icon: UserCheck,     color: 'var(--ok)',   to: '/tables'       },
   RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)', to: '/reservations' },
+  ITEM_VOIDED:          { label: 'Item voided',            Icon: XCircle,       color: 'var(--mute)', to: '/orders'       },
+  ITEM_WASTED:          { label: 'Item wasted',            Icon: Trash2,        color: '#b45309',     to: '/waste'        },
 };
 
 const CHANNEL_CONFIG = {

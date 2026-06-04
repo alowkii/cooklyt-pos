@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock } from 'lucide-react';
+import { X, ClipboardList, CheckCircle2, CreditCard, Receipt, UserCheck, CalendarClock, XCircle, Trash2 } from 'lucide-react';
 
 const DURATION = 10_000;
 
@@ -11,6 +11,8 @@ const EVENT_CFG = {
   BILL_REQUESTED:       { label: 'Bill requested',         Icon: Receipt,       color: 'var(--warn)' },
   STAFF_ASSIGNED:       { label: 'Table assigned',         Icon: UserCheck,     color: 'var(--ok)'   },
   RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)' },
+  ITEM_VOIDED:          { label: 'Item voided',            Icon: XCircle,       color: 'var(--mute)' },
+  ITEM_WASTED:          { label: 'Item wasted',            Icon: Trash2,        color: '#b45309'     },
 };
 
 const CHANNEL_OVERRIDE = {

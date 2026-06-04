@@ -272,44 +272,46 @@ const ORDER_SCHEDULE = [
 ];
 
 // ── Ingredients catalogue (costs in INR per unit) ─────────────────────────
-// [name, unit, opening_stock, reorder_level, reorder_qty, latest_unit_cost]
+// [name, unit, opening_stock, reorder_level, reorder_qty, latest_unit_cost, perishable]
 // opening_stock is the amount received as initial stock (used for PURCHASE txn).
 // stock_on_hand in the DB is set to 0 on insert and reconciled at the end.
 const INGREDIENTS = [
-  ['Chicken',              'kg',  10.000,  2.0,  5.0, 280.0000],
-  ['Butter',               'kg',   5.000,  1.0,  3.0, 450.0000],
-  ['Tomatoes',             'kg',   8.000,  2.0,  5.0,  60.0000],
-  ['Black Lentils',        'kg',   5.000,  1.0,  3.0, 120.0000],
-  ['Basmati Rice',         'kg',  15.000,  3.0, 10.0, 100.0000],
-  ['Milk',                 'L',   10.000,  2.0,  5.0,  60.0000],
-  ['Tea Leaves',           'kg',   2.000,  0.3,  1.0, 600.0000],
-  ['Coffee',               'kg',   2.000,  0.3,  1.0, 900.0000],
-  ['Mango Pulp',           'L',    5.000,  1.0,  3.0, 200.0000],
-  ['Oranges',              'kg',   6.000,  1.5,  4.0, 100.0000],
-  ['Cooking Cream',        'L',    4.000,  1.0,  3.0, 280.0000],
-  ['Onions',               'kg',  10.000,  2.0,  5.0,  40.0000],
-  ['Garlic',               'kg',   3.000,  0.5,  2.0, 200.0000],
-  ['Spice Blend',          'kg',   2.000,  0.3,  1.0, 350.0000],
-  ['Paneer',               'kg',   4.000,  0.8,  2.0, 340.0000],
-  ['All-Purpose Flour',    'kg',  10.000,  2.0,  5.0,  45.0000],
-  ['Chicken Breast',       'kg',   8.000,  2.0,  5.0, 380.0000],
-  ['Fish Fillet',          'kg',   5.000,  1.0,  3.0, 550.0000],
-  ['Potatoes',             'kg',  10.000,  2.0,  5.0,  30.0000],
-  ['Mozzarella Cheese',    'kg',   3.000,  0.5,  2.0, 480.0000],
-  ['Pizza Dough',          'pcs', 20.000,  5.0, 10.0,  45.0000],
-  ['Pasta',                'kg',   5.000,  1.0,  3.0,  80.0000],
-  ['Dark Chocolate',       'kg',   2.000,  0.3,  1.0, 600.0000],
-  ['Sugar',                'kg',   5.000,  1.0,  3.0,  45.0000],
-  ['Yogurt',               'L',    5.000,  1.0,  3.0,  80.0000],
-  ['Burger Bun',           'pcs', 50.000, 10.0, 20.0,  20.0000],
-  // Additional ingredients for full menu coverage
-  ['Bread Loaf',           'pcs', 30.000,  8.0, 20.0,  30.0000],
-  ['Vegetable Mix',        'kg',   5.000,  1.5,  3.0,  80.0000],
-  ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,   8.0000],
-  ['Calamari',             'kg',   3.000,  0.8,  2.0, 650.0000],
-  ['Heavy Cream',          'L',    2.000,  0.5,  1.5, 180.0000],
-  ['BBQ Sauce',            'L',    2.000,  0.5,  1.5, 250.0000],
-  ['Eggs',                 'pcs', 30.000,  8.0, 20.0,  12.0000],
+  // ── Perishable (daily check) ───────────────────────────────────────────
+  ['Chicken',              'kg',  10.000,  2.0,  5.0, 280.0000, true ],
+  ['Chicken Breast',       'kg',   8.000,  2.0,  5.0, 380.0000, true ],
+  ['Fish Fillet',          'kg',   5.000,  1.0,  3.0, 550.0000, true ],
+  ['Calamari',             'kg',   3.000,  0.8,  2.0, 650.0000, true ],
+  ['Paneer',               'kg',   4.000,  0.8,  2.0, 340.0000, true ],
+  ['Mozzarella Cheese',    'kg',   3.000,  0.5,  2.0, 480.0000, true ],
+  ['Milk',                 'L',   10.000,  2.0,  5.0,  60.0000, true ],
+  ['Butter',               'kg',   5.000,  1.0,  3.0, 450.0000, true ],
+  ['Cooking Cream',        'L',    4.000,  1.0,  3.0, 280.0000, true ],
+  ['Heavy Cream',          'L',    2.000,  0.5,  1.5, 180.0000, true ],
+  ['Yogurt',               'L',    5.000,  1.0,  3.0,  80.0000, true ],
+  ['Eggs',                 'pcs', 30.000,  8.0, 20.0,  12.0000, true ],
+  ['Tomatoes',             'kg',   8.000,  2.0,  5.0,  60.0000, true ],
+  ['Mango Pulp',           'L',    5.000,  1.0,  3.0, 200.0000, true ],
+  ['Oranges',              'kg',   6.000,  1.5,  4.0, 100.0000, true ],
+  ['Vegetable Mix',        'kg',   5.000,  1.5,  3.0,  80.0000, true ],
+  ['Pizza Dough',          'pcs', 20.000,  5.0, 10.0,  45.0000, true ],
+  ['Burger Bun',           'pcs', 50.000, 10.0, 20.0,  20.0000, true ],
+  ['Bread Loaf',           'pcs', 30.000,  8.0, 20.0,  30.0000, true ],
+
+  // ── Dry goods (long-lasting) ───────────────────────────────────────────
+  ['Basmati Rice',         'kg',  15.000,  3.0, 10.0, 100.0000, false],
+  ['Black Lentils',        'kg',   5.000,  1.0,  3.0, 120.0000, false],
+  ['Pasta',                'kg',   5.000,  1.0,  3.0,  80.0000, false],
+  ['All-Purpose Flour',    'kg',  10.000,  2.0,  5.0,  45.0000, false],
+  ['Sugar',                'kg',   5.000,  1.0,  3.0,  45.0000, false],
+  ['Dark Chocolate',       'kg',   2.000,  0.3,  1.0, 600.0000, false],
+  ['Tea Leaves',           'kg',   2.000,  0.3,  1.0, 600.0000, false],
+  ['Coffee',               'kg',   2.000,  0.3,  1.0, 900.0000, false],
+  ['Spice Blend',          'kg',   2.000,  0.3,  1.0, 350.0000, false],
+  ['Onions',               'kg',  10.000,  2.0,  5.0,  40.0000, false],
+  ['Garlic',               'kg',   3.000,  0.5,  2.0, 200.0000, false],
+  ['Potatoes',             'kg',  10.000,  2.0,  5.0,  30.0000, false],
+  ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,   8.0000, false],
+  ['BBQ Sauce',            'L',    2.000,  0.5,  1.5, 250.0000, false],
 ];
 
 // ── Recipes & ingredients ──────────────────────────────────────────────────
@@ -746,12 +748,12 @@ async function main() {
   const ingredientIdByName = {};
   const ingredientCostByName = {};
   const ingredientUnitByName = {};
-  for (const [name, unit, , reorder_level, reorder_qty, cost] of INGREDIENTS) {
+  for (const [name, unit, , reorder_level, reorder_qty, cost, perishable] of INGREDIENTS) {
     const { rows: [ing] } = await client.query(`
       INSERT INTO ingredients
-        (restaurant_id, name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost, is_active)
-      VALUES ($1, $2, $3, 0, $4, $5, $6, true) RETURNING id
-    `, [RESTAURANT_ID, name, unit, reorder_level, reorder_qty, cost]);
+        (restaurant_id, name, unit, stock_on_hand, reorder_level, reorder_qty, latest_unit_cost, is_active, perishable)
+      VALUES ($1, $2, $3, 0, $4, $5, $6, true, $7) RETURNING id
+    `, [RESTAURANT_ID, name, unit, reorder_level, reorder_qty, cost, perishable ?? false]);
     ingredientIdByName[name]   = ing.id;
     ingredientCostByName[name] = cost;
     ingredientUnitByName[name] = unit;

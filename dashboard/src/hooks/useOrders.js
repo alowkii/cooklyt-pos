@@ -177,17 +177,17 @@ export function useCancelPendingItems() {
 
 export function useUpdateItemStatus() {
   return useMutation({
-    mutationFn: async ({ orderId, itemId, status }) => {
+    mutationFn: async ({ orderId, itemId, status, actionType, cancelReason }) => {
       if (navigator.onLine) {
         try {
-          const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status });
+          const { data } = await api.patch(`/orders/${orderId}/items/${itemId}/status`, { status, actionType, cancelReason });
           return data;
         } catch (err) {
           if (err.response) throw err;
         }
       }
       await db.kitchen.update(itemId, { item_status: status });
-      await enqueue('orders', 'items:PATCH', { orderId, itemId, status });
+      await enqueue('orders', 'items:PATCH', { orderId, itemId, status, actionType, cancelReason });
       return { orderId, itemId, status };
     },
     onSuccess: () => {

@@ -91,7 +91,7 @@ const ALL_NAV = [
   { to: '/settings', label: 'Settings', Icon: Settings, adminOnly: true },
 ];
 
-const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED', 'STAFF_ASSIGNED', 'RESERVATION_REMINDER']);
+const NOTIFIABLE = new Set(['NEW_ORDER', 'ORDER_READY', 'PAYMENT_COMPLETED', 'BILL_REQUESTED', 'STAFF_ASSIGNED', 'RESERVATION_REMINDER', 'ITEM_VOIDED', 'ITEM_WASTED']);
 
 function MyQRModal({ user, onClose }) {
   const [qrUrl, setQrUrl] = useState('');
@@ -211,6 +211,10 @@ export default function Layout() {
         const orderId = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
         const prefix  = channel === 'delivery' ? 'Delivery' : channel === 'takeaway' ? 'Takeaway' : null;
         token = prefix && orderId ? `${prefix} · ${orderId}` : orderId;
+      } else if (event === 'ITEM_VOIDED' || event === 'ITEM_WASTED') {
+        const name = payload?.menuItemName ?? 'Item';
+        const qty  = payload?.quantity    ?? '';
+        token = qty ? `${name} ×${qty}` : name;
       } else {
         token = payload?.orderId ? `#${payload.orderId.slice(-6).toUpperCase()}` : null;
       }

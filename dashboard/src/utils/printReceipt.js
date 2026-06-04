@@ -17,17 +17,44 @@ function mergeItems(items, nameKey = 'name') {
   return result;
 }
 
-function formatPaymentMethod(receipt) {
+function methodLabel(m) {
+  if (!m) return '';
+  return m.split('+').map((p) => {
+    const t = p.trim().toLowerCase();
+    if (t === 'mobile') return 'UPI';
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }).join(' + ');
+}
+
+// Returns one or more <tr> elements for the payment section of the receipt.
+function buildPaymentRows(receipt, fmt) {
   const detail = receipt.payments_detail;
-  if (!detail || detail.length === 0) return receipt.payment_method || '';
-  if (detail.length === 1) {
-    const tenders = detail[0].tenders;
-    if (tenders && tenders.length > 1) {
-      return tenders.map((t) => t.method).join(' + ');
-    }
-    return detail[0].method || receipt.payment_method;
+
+  if (!detail || detail.length === 0) {
+    return `<tr><td class="lbl">Payment</td><td style="text-align:right">${esc(methodLabel(receipt.payment_method))}</td></tr>`;
   }
-  return detail.map((p, i) => `Bill ${i + 1}: ${p.method}`).join('  |  ');
+
+  if (detail.length === 1) {
+    const p = detail[0];
+    const tenders = p.tenders;
+    // Split tender on one bill (e.g. Cash ₹200 + UPI ₹300)
+    if (tenders && tenders.length > 1) {
+      return tenders.map((t, i) => `
+        <tr>
+          <td class="lbl">${i === 0 ? 'Payment' : ''}</td>
+          <td style="text-align:right">${esc(methodLabel(t.method))}&ensp;<span style="color:#777">${fmt(t.amount)}</span></td>
+        </tr>`).join('');
+    }
+    // Simple single payment — method only, no amount clutter
+    return `<tr><td class="lbl">Payment</td><td style="text-align:right">${esc(methodLabel(p.method))}</td></tr>`;
+  }
+
+  // Multiple records = split by items — show Bill N + method + amount
+  return detail.map((p, i) => `
+    <tr>
+      <td class="lbl">${i === 0 ? 'Payment' : ''}</td>
+      <td style="text-align:right">Bill ${i + 1}&ensp;${esc(methodLabel(p.method))}&ensp;<span style="color:#777">${fmt(p.amount)}</span></td>
+    </tr>`).join('');
 }
 
 export function printReceipt(receipt, currency, win = null) {
@@ -124,7 +151,7 @@ export function printReceipt(receipt, currency, win = null) {
     <tr><td class="lbl">Order</td><td style="text-align:right">#${esc(orderToken)}</td></tr>
     <tr><td class="lbl">Date</td><td style="text-align:right;font-size:12px">${esc(date)}</td></tr>
     <tr><td class="lbl">Type</td><td style="text-align:right;text-transform:capitalize">${esc(location)}</td></tr>
-    <tr><td class="lbl">Payment</td><td style="text-align:right;text-transform:capitalize">${esc(formatPaymentMethod(receipt))}</td></tr>
+    ${buildPaymentRows(receipt, fmt)}
   </table>
   <hr>
   <table>${itemsHtml}</table>

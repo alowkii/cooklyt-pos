@@ -20,16 +20,16 @@ const getById = (id, restaurantId) =>
     .query('SELECT * FROM ingredients WHERE id = $1 AND restaurant_id = $2', [id, restaurantId])
     .then((r) => r.rows[0]);
 
-const create = ({ restaurantId, name, unit, reorderLevel, reorderQty, latestUnitCost }) =>
+const create = ({ restaurantId, name, unit, reorderLevel, reorderQty, latestUnitCost, perishable }) =>
   db
     .query(
-      `INSERT INTO ingredients (restaurant_id, name, unit, reorder_level, reorder_qty, latest_unit_cost)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [restaurantId, name, unit, reorderLevel || 0, reorderQty || 0, latestUnitCost || 0],
+      `INSERT INTO ingredients (restaurant_id, name, unit, reorder_level, reorder_qty, latest_unit_cost, perishable)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [restaurantId, name, unit, reorderLevel || 0, reorderQty || 0, latestUnitCost || 0, perishable ?? false],
     )
     .then((r) => r.rows[0]);
 
-const update = (id, { name, unit, reorderLevel, reorderQty, latestUnitCost, isActive }, restaurantId) =>
+const update = (id, { name, unit, reorderLevel, reorderQty, latestUnitCost, isActive, perishable }, restaurantId) =>
   db
     .query(
       `UPDATE ingredients
@@ -38,9 +38,10 @@ const update = (id, { name, unit, reorderLevel, reorderQty, latestUnitCost, isAc
            reorder_level    = COALESCE($3, reorder_level),
            reorder_qty      = COALESCE($4, reorder_qty),
            latest_unit_cost = COALESCE($5, latest_unit_cost),
-           is_active        = COALESCE($6, is_active)
-       WHERE id = $7 AND restaurant_id = $8 RETURNING *`,
-      [name ?? null, unit ?? null, reorderLevel ?? null, reorderQty ?? null, latestUnitCost ?? null, isActive ?? null, id, restaurantId],
+           is_active        = COALESCE($6, is_active),
+           perishable       = COALESCE($7, perishable)
+       WHERE id = $8 AND restaurant_id = $9 RETURNING *`,
+      [name ?? null, unit ?? null, reorderLevel ?? null, reorderQty ?? null, latestUnitCost ?? null, isActive ?? null, perishable ?? null, id, restaurantId],
     )
     .then((r) => r.rows[0]);
 

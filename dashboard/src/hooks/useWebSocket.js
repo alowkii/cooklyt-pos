@@ -67,6 +67,12 @@ export function useWebSocket({ onEvent } = {}) {
             case 'SETTINGS_UPDATED':
               qc.invalidateQueries({ queryKey: ['settings'] });
               break;
+            case 'ITEM_VOIDED':
+            case 'ITEM_WASTED':
+              qc.invalidateQueries({ queryKey: ['kitchen'] });
+              qc.invalidateQueries({ queryKey: ['orders'] });
+              qc.invalidateQueries({ queryKey: ['wastage-reviews'] });
+              break;
           }
           onEventRef.current?.(event, payload ?? {});
         } catch {

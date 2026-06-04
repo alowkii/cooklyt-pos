@@ -130,17 +130,26 @@ const assignStaff = (orderId, staffId, restaurantId) =>
     )
     .then((r) => r.rows[0]);
 
-const updateItemStatus = (itemId, orderId, status) =>
+const updateItemStatus = (itemId, orderId, status, cancelReason = null) =>
   db
     .query(
-      'UPDATE order_items SET status = $1 WHERE id = $2 AND order_id = $3 RETURNING *',
-      [status, itemId, orderId],
+      `UPDATE order_items
+       SET status        = $1,
+           cancel_reason = CASE WHEN $4::varchar IS NOT NULL THEN $4 ELSE cancel_reason END
+       WHERE id = $2 AND order_id = $3 RETURNING *`,
+      [status, itemId, orderId, cancelReason],
     )
     .then((r) => r.rows[0]);
 
 const getItemStatuses = (orderId) =>
   db
-    .query('SELECT id, status, menu_item_id, quantity FROM order_items WHERE order_id = $1', [orderId])
+    .query(
+      `SELECT oi.id, oi.status, oi.menu_item_id, oi.quantity, mi.name AS menu_item_name
+       FROM order_items oi
+       JOIN menu_items mi ON mi.id = oi.menu_item_id
+       WHERE oi.order_id = $1`,
+      [orderId],
+    )
     .then((r) => r.rows);
 
 const setDiscount = (id, discountType, discountValue) =>

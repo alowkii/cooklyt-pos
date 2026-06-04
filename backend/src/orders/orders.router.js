@@ -78,7 +78,8 @@ router.post('/:id/items', authenticate, authorize('admin', 'staff'), async (req,
 
 router.patch('/:id/items/:itemId/status', authenticate, authorize('admin', 'staff', 'kitchen'), async (req, res, next) => {
   try {
-    res.json(await service.updateItemStatus(req.params.id, req.params.itemId, req.body.status, req.user.restaurantId));
+    const { status, actionType, cancelReason } = req.body;
+    res.json(await service.updateItemStatus(req.params.id, req.params.itemId, status, req.user.restaurantId, actionType, cancelReason));
   } catch (e) {
     next(e);
   }

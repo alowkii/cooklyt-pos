@@ -83,7 +83,12 @@ const ITEM_NEXT = {
   served:    null,
 };
 
-const CANCELLABLE = ['pending', 'preparing'];
+// pending               → void    (kitchen hasn't started, return stock)
+// preparing/ready/served → wastage (kitchen touched it, cost is logged, stock stays out)
+const CANCELLABLE_STATUSES = ['pending', 'preparing', 'ready', 'served'];
+function autoActionType(status) {
+  return status === 'pending' ? 'void' : 'wastage';
+}
 
 const CHANNEL_ICON = {
   dining:   Utensils,
@@ -104,75 +109,205 @@ function elapsed(dateStr) {
 
 /* ── ItemRow ─────────────────────────────────────────────── */
 
+/* ── CancelItemModal ─────────────────────────────────────────────────────── */
+
+function CancelItemModal({ item, actionType, onConfirm, onClose }) {
+  const [reason, setReason] = useState('');
+  const isWastage = actionType === 'wastage';
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    onConfirm(reason.trim() || null);
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,.45)',
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          background: 'var(--paper)', borderRadius: 12, padding: '20px 22px',
+          width: 340, boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+          border: '1px solid var(--line)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+              {isWastage ? 'Mark as Wastage' : 'Void Item'}
+            </p>
+            <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 2 }}>
+              {isWastage
+                ? 'Item was prepared — cost stays, waste is logged'
+                : 'Item not prepared — stock will be returned'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mute)', padding: 0, display: 'flex', flexShrink: 0 }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Item summary */}
+        <div
+          style={{
+            background: 'var(--paper-2)', borderRadius: 7, padding: '8px 12px',
+            border: '1px solid var(--line)', marginBottom: 14,
+            fontSize: 13, color: 'var(--ink)',
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>{item.item_name}</span>
+          <span style={{ color: 'var(--mute)', marginLeft: 6 }}>×{item.quantity}</span>
+        </div>
+
+        {/* Reason form */}
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 500, color: 'var(--mute)', marginBottom: 5 }}>
+              Reason <span style={{ fontWeight: 400 }}>(optional)</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={isWastage ? 'e.g. Customer changed mind after food was prepared' : 'e.g. Wrong item entered by mistake'}
+              autoFocus
+              rows={2}
+              style={{
+                width: '100%', resize: 'none', borderRadius: 7,
+                border: '1px solid var(--line-2)', background: 'var(--paper)',
+                padding: '8px 10px', fontSize: 12.5, color: 'var(--ink)',
+                outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+              }}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--ink)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary flex-1 justify-center"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 justify-center"
+              style={{
+                fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+                padding: '7px 0', borderRadius: 7, border: 'none', cursor: 'pointer',
+                background: isWastage ? 'rgba(180,83,9,.12)' : 'var(--bad)',
+                color: isWastage ? '#b45309' : '#fff',
+              }}
+            >
+              {isWastage ? 'Confirm Wastage' : 'Confirm Void'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ── ItemRow ─────────────────────────────────────────────── */
+
 function ItemRow({ orderId, item, canUpdate }) {
   const updateItemStatus = useUpdateItemStatus();
+  const [cancelTarget, setCancelTarget] = useState(false);
   const status    = item.item_status ?? 'pending';
   const next      = ITEM_NEXT[status];
-  const cancellable = CANCELLABLE.includes(status) && canUpdate;
   const busy      = updateItemStatus.isPending;
   const cancelled = status === 'cancelled';
+  const canAct    = CANCELLABLE_STATUSES.includes(status) && canUpdate;
+  const actionType = autoActionType(status);
+
+  function handleConfirm(cancelReason) {
+    updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: 'cancelled', actionType, cancelReason });
+    setCancelTarget(false);
+  }
 
   const custLabels = Object.entries(item.customizations || {})
     .flatMap(([, v]) => Array.isArray(v) ? v : [v]);
 
   return (
-    <div
-      className="flex items-start gap-3 py-2"
-      style={{ borderBottom: '1px dashed var(--line)' }}
-    >
-      <span
-        className="mono num shrink-0 text-[13px] w-7"
-        style={{ color: 'var(--mute)', textDecoration: cancelled ? 'line-through' : 'none' }}
+    <>
+      <div
+        className="flex items-start gap-3 py-2"
+        style={{ borderBottom: '1px dashed var(--line)' }}
       >
-        {item.quantity}×
-      </span>
-
-      <div className="flex-1 min-w-0">
         <span
-          className="text-[13px]"
-          style={{
-            color: cancelled ? 'var(--mute)' : 'var(--ink)',
-            textDecoration: cancelled ? 'line-through' : 'none',
-          }}
+          className="mono num shrink-0 text-[13px] w-7"
+          style={{ color: 'var(--mute)', textDecoration: cancelled ? 'line-through' : 'none' }}
         >
-          {item.item_name}
-          {item.notes && (
-            <span className="ml-2 italic" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
-              {item.notes}
-            </span>
-          )}
+          {item.quantity}×
         </span>
-        {custLabels.length > 0 && (
-          <div className="mono mt-0.5" style={{ fontSize: 11, color: 'var(--mute)' }}>
-            ↳ {custLabels.join(' · ')}
-          </div>
-        )}
+
+        <div className="flex-1 min-w-0">
+          <span
+            className="text-[13px]"
+            style={{
+              color: cancelled ? 'var(--mute)' : 'var(--ink)',
+              textDecoration: cancelled ? 'line-through' : 'none',
+            }}
+          >
+            {item.item_name}
+            {item.notes && (
+              <span className="ml-2 italic" style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+                {item.notes}
+              </span>
+            )}
+          </span>
+          {custLabels.length > 0 && (
+            <div className="mono mt-0.5" style={{ fontSize: 11, color: 'var(--mute)' }}>
+              ↳ {custLabels.join(' · ')}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => canUpdate && next && !busy && updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: next })}
+            disabled={!canUpdate || !next || busy}
+            title={next ? `Mark ${next}` : cancelled ? 'Cancelled' : 'Fully served'}
+            style={{ background: 'transparent', border: 0, padding: 0, cursor: 'default' }}
+          >
+            <ItemStatusDot status={status} />
+          </button>
+
+          {canAct && (
+            <button
+              onClick={() => !busy && setCancelTarget(true)}
+              disabled={busy}
+              title={actionType === 'void' ? 'Void — not prepared, stock returned' : 'Wastage — already prepared, cost logged'}
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'var(--mute-2)', background: 'transparent', border: 0 }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={() => canUpdate && next && !busy && updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: next })}
-          disabled={!canUpdate || !next || busy}
-          title={next ? `Mark ${next}` : cancelled ? 'Cancelled' : 'Fully served'}
-          style={{ background: 'transparent', border: 0, padding: 0, cursor: 'default' }}
-        >
-          <ItemStatusDot status={status} />
-        </button>
-        {cancellable && (
-          <button
-            onClick={() => !busy && updateItemStatus.mutate({ orderId, itemId: item.order_item_id, status: 'cancelled' })}
-            disabled={busy}
-            title="Cancel this item"
-            className="rounded p-0.5 transition-colors"
-            style={{ color: 'var(--mute-2)', background: 'transparent', border: 0 }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; e.currentTarget.style.background = 'var(--hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute-2)'; e.currentTarget.style.background = 'transparent'; }}
-          >
-            <X size={11} />
-          </button>
-        )}
-      </div>
-    </div>
+      {cancelTarget && (
+        <CancelItemModal
+          item={item}
+          actionType={actionType}
+          onConfirm={handleConfirm}
+          onClose={() => setCancelTarget(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -187,7 +322,7 @@ function OrderExpandedDetail({ order, table, canOrder, canPrepare, canAddItems, 
   const next      = NEXT_STATUS[order.status];
   const nextLabel = NEXT_LABEL[order.status];
 
-  const hasPending       = order.items.some((i) => CANCELLABLE.includes(i.item_status ?? 'pending'));
+  const hasPending       = order.items.some((i) => ['pending', 'preparing'].includes(i.item_status ?? 'pending'));
   const hasServedOrReady = order.items.some((i) => i.item_status === 'ready' || i.item_status === 'served');
 
   const orderTitle = order.channel === 'dining'
