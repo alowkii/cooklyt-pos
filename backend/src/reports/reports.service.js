@@ -42,13 +42,25 @@ async function getDailySummary(dateStr, tzStr = 'UTC', restaurantId, channelRaw)
   const date    = parseDate(dateStr);
   const tz      = validateTz(tzStr);
   const channel = validateChannel(channelRaw);
-  const [summary, byCategory, topItems, hourly] = await Promise.all([
+  const [summary, byCategory, topItems, hourly, cancelled] = await Promise.all([
     repo.getDailySummary(date, tz, restaurantId, channel),
     repo.getRevenueByCategory(date, tz, restaurantId, channel),
     repo.getTopItems(date, tz, 10, restaurantId, channel),
     repo.getHourlySales(date, tz, restaurantId, channel),
+    repo.getDailyCancelled(date, tz, restaurantId, channel),
   ]);
-  return { date, summary, byCategory, topItems, hourly };
+  const f = (v) => parseFloat(v ?? 0);
+  return {
+    date, byCategory, topItems, hourly,
+    summary: {
+      total_orders:      parseInt(summary.total_orders, 10)     || 0,
+      total_revenue:     f(summary.total_revenue),
+      returning_orders:  parseInt(summary.returning_orders, 10) || 0,
+      new_orders:        parseInt(summary.new_orders, 10)       || 0,
+      avg_serve_minutes: Math.round(f(summary.avg_serve_minutes)),
+      cancelled_orders:  cancelled.cancelled_orders              || 0,
+    },
+  };
 }
 
 async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId, channelRaw) {

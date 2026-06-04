@@ -150,6 +150,7 @@ export default function Settings() {
   const [saveError,       setSaveError]       = useState('');
   const [taxRate,         setTaxRate]         = useState('');
   const [serviceCharge,   setServiceCharge]   = useState('');
+  const [dailyTarget,     setDailyTarget]     = useState('');
   const [packagingFee,    setPackagingFee]     = useState('');
   const [staffAssignment,   setStaffAssignment]   = useState(false);
   const [reservationsEnabled, setReservationsEnabled] = useState(false);
@@ -175,8 +176,9 @@ export default function Settings() {
   /* Load from server */
   useEffect(() => {
     if (!settings) return;
-    if (settings.tax_rate       !== undefined) setTaxRate(settings.tax_rate);
-    if (settings.service_charge !== undefined) setServiceCharge(settings.service_charge);
+    if (settings.tax_rate             !== undefined) setTaxRate(settings.tax_rate);
+    if (settings.service_charge       !== undefined) setServiceCharge(settings.service_charge);
+    if (settings.daily_revenue_target !== undefined) setDailyTarget(settings.daily_revenue_target || '');
     if (settings.packaging_fee  !== undefined) {
       const display = parseFloat(settings.packaging_fee || '0');
       setPackagingFee(display ? display.toFixed(currency.decimals ?? 2) : '');
@@ -232,8 +234,9 @@ export default function Settings() {
   async function doSave() {
     setSaveErr(''); setSaved(false); setSaving(true);
     try {
-      await updateSetting.mutateAsync({ key: 'tax_rate',       value: taxRate       || '0' });
-      await updateSetting.mutateAsync({ key: 'service_charge', value: serviceCharge || '0' });
+      await updateSetting.mutateAsync({ key: 'tax_rate',             value: taxRate       || '0' });
+      await updateSetting.mutateAsync({ key: 'service_charge',       value: serviceCharge || '0' });
+      if (dailyTarget) await updateSetting.mutateAsync({ key: 'daily_revenue_target', value: dailyTarget });
       await updateSetting.mutateAsync({ key: 'packaging_fee',  value: parseFloat(packagingFee || '0').toFixed(4) });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
       await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });
@@ -436,6 +439,15 @@ export default function Settings() {
               onChange={(e) => { setTaxRate(e.target.value); markDirty(); }}
               className="input mono" style={{ width: 80 }} placeholder="0" />
             <span style={{ fontSize: 12, color: 'var(--mute)' }}>%</span>
+          </div>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Daily Revenue Target</label>
+          <div className="flex items-center gap-1.5">
+            <input type="number" min="0" step="1" value={dailyTarget}
+              onChange={(e) => { setDailyTarget(e.target.value); markDirty(); }}
+              className="input mono" style={{ width: 110 }} placeholder="e.g. 10000" />
           </div>
         </div>
 

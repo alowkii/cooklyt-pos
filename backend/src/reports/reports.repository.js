@@ -14,14 +14,28 @@ function assertGroup(g) {
 const getDailySummary = (date, tz = 'UTC', restaurantId, channel = null) =>
   db.query(`
     SELECT
-      COUNT(DISTINCT o.id)       AS total_orders,
-      COALESCE(SUM(p.amount), 0) AS total_revenue
+      COUNT(DISTINCT o.id)                                                               AS total_orders,
+      COALESCE(SUM(p.amount), 0)                                                         AS total_revenue,
+      COUNT(DISTINCT CASE WHEN o.loyalty_customer_id IS NOT NULL THEN o.id END)          AS returning_orders,
+      COUNT(DISTINCT CASE WHEN o.loyalty_customer_id IS NULL     THEN o.id END)          AS new_orders,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (p.created_at - o.created_at)) / 60.0), 0)         AS avg_serve_minutes
     FROM orders o
     JOIN payments p ON p.order_id = o.id
     WHERE (o.created_at AT TIME ZONE $2)::date = $1
       AND p.status = 'completed'
       AND o.restaurant_id = $3
       AND ($4::text IS NULL OR o.channel = $4)
+  `, [date, tz, restaurantId, channel])
+  .then((r) => r.rows[0]);
+
+const getDailyCancelled = (date, tz = 'UTC', restaurantId, channel = null) =>
+  db.query(`
+    SELECT COUNT(*)::int AS cancelled_orders
+    FROM orders
+    WHERE (created_at AT TIME ZONE $2)::date = $1
+      AND status = 'cancelled'
+      AND restaurant_id = $3
+      AND ($4::text IS NULL OR channel = $4)
   `, [date, tz, restaurantId, channel])
   .then((r) => r.rows[0]);
 
@@ -389,6 +403,7 @@ const getNCSales = (from, to, tz = 'UTC', restaurantId, channel = null) =>
 
 module.exports = {
   getDailySummary,
+  getDailyCancelled,
   getRevenueByCategory,
   getTopItems,
   getHourlySales,
