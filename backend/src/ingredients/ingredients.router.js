@@ -9,7 +9,7 @@ router.use(authenticate, authorize('admin'));
 router.post('/import', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const rows = parseImport(req.file.buffer);
+    const rows = await parseImport(req.file.buffer);
     const results = { imported: 0, errors: [] };
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
