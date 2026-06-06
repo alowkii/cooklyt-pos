@@ -77,7 +77,12 @@ function HoverAreaChart({ data, labels, fmtVal, height = 150, color = 'var(--ink
   const ref = useRef(null);
   const lineRef = useRef(null);
   const areaRef = useRef(null);
+  const prevDataRef = useRef(null);
   useEffect(() => {
+    const prev = prevDataRef.current;
+    prevDataRef.current = data;
+    if (!prev || prev.length === 0) return;
+    if (data.length === prev.length && data.every((v, i) => v === prev[i])) return;
     const line = lineRef.current;
     if (!line) return;
     const len = line.getTotalLength();
