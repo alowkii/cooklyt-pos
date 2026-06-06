@@ -58,6 +58,14 @@ export default defineConfig({
         target: 'http://localhost:3000',
         ws: true,
         changeOrigin: false,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            // ECONNABORTED / ECONNRESET / EPIPE all mean the browser tab closed
+            // or refreshed before the socket was fully torn down — harmless in dev.
+            if (['ECONNABORTED', 'ECONNRESET', 'EPIPE'].includes(err.code)) return;
+            console.error('[ws proxy]', err.message);
+          });
+        },
       },
       '/uploads': {
         target: 'http://localhost:3000',
