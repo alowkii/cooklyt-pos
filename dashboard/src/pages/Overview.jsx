@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Minus, ChefHat, Star,
@@ -75,6 +75,26 @@ function smoothPath(pts) {
 function HoverAreaChart({ data, labels, fmtVal, height = 150, color = 'var(--ink)' }) {
   const [hi, setHi] = useState(null);
   const ref = useRef(null);
+  const lineRef = useRef(null);
+  const areaRef = useRef(null);
+  useEffect(() => {
+    const line = lineRef.current;
+    if (!line) return;
+    const len = line.getTotalLength();
+    line.style.transition = 'none';
+    line.style.strokeDasharray = len;
+    line.style.strokeDashoffset = len;
+    line.getBoundingClientRect();
+    line.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)';
+    line.style.strokeDashoffset = '0';
+    if (areaRef.current) {
+      areaRef.current.style.opacity = '0';
+      areaRef.current.style.transition = 'none';
+      areaRef.current.getBoundingClientRect();
+      areaRef.current.style.transition = 'opacity 0.8s ease 0.4s';
+      areaRef.current.style.opacity = '1';
+    }
+  }, [data]);
   const padX = 6, padY = 20, W = 600;
   if (!data.length) return null;
   const max = Math.max(...data) * 1.08;
@@ -82,10 +102,11 @@ function HoverAreaChart({ data, labels, fmtVal, height = 150, color = 'var(--ink
   const span = max - min || 1;
   const innerW = W - padX * 2;
   const innerH = height - padY * 2;
-  const pts = data.map((v, i) => [
+  let pts = data.map((v, i) => [
     padX + (i / Math.max(data.length - 1, 1)) * innerW,
     padY + innerH - ((v - min) / span) * innerH,
   ]);
+  if (pts.length === 1) pts = [[padX, pts[0][1]], [W - padX, pts[0][1]]];
   const pathD = smoothPath(pts);
   const areaD = `${pathD} L ${pts[pts.length - 1][0]},${height} L ${pts[0][0]},${height} Z`;
   const hp = hi != null ? pts[hi] : null;
@@ -112,8 +133,8 @@ function HoverAreaChart({ data, labels, fmtVal, height = 150, color = 'var(--ink
           <line key={i} x1={padX} x2={W - padX} y1={padY + innerH * g} y2={padY + innerH * g}
             stroke="var(--line)" strokeWidth="1" />
         ))}
-        <path d={areaD} fill="url(#ov-area-grad)" />
-        <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path ref={areaRef} d={areaD} fill="url(#ov-area-grad)" />
+        <path ref={lineRef} d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {hp && (
           <>
             <line x1={hp[0]} x2={hp[0]} y1={padY} y2={height - padY} stroke="var(--line-2)" strokeWidth="1" />

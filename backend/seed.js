@@ -9,6 +9,12 @@ const DB_URL =
 const RESTAURANT_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID      = '00000000-0000-0000-0000-000000000002';
 const STAFF_ID      = '00000000-0000-0000-0000-000000000003';
+const STAFF_IDS     = [
+  '00000000-0000-0000-0000-000000000003', // Arjun
+  '00000000-0000-0000-0000-000000000004', // Priya
+  '00000000-0000-0000-0000-000000000005', // Ravi
+];
+function pickStaff() { return STAFF_IDS[Math.floor(Math.random() * STAFF_IDS.length)]; }
 
 const SEED_USERS = [
   { id: ADMIN_ID,                                    email: 'admin@demo.com',   password: 'admin123', role: 'admin',   name: 'Admin',      pin: null   },
@@ -706,14 +712,15 @@ async function main() {
 
     const { yearMonth, seq, orderRef } = nextOrderRef(ts);
 
-    const tableId = channel === 'dining' ? tableIds[tableIdx] : null;
+    const tableId  = channel === 'dining' ? tableIds[tableIdx] : null;
+    const staffId  = pickStaff();
     const { rows: [order] } = await client.query(
       channel === 'dining'
-        ? `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, table_session_id, order_ref)
-           VALUES ($1, $2, $3, 'paid', $4, $5, gen_random_uuid(), $6) RETURNING id`
-        : `INSERT INTO orders (table_id, restaurant_id, created_by, status, created_at, channel, order_ref)
-           VALUES ($1, $2, $3, 'paid', $4, $5, $6) RETURNING id`,
-      [tableId, RESTAURANT_ID, ADMIN_ID, ts, channel, orderRef],
+        ? `INSERT INTO orders (table_id, restaurant_id, created_by, assigned_staff_id, status, created_at, channel, table_session_id, order_ref)
+           VALUES ($1, $2, $3, $3, 'paid', $4, $5, gen_random_uuid(), $6) RETURNING id`
+        : `INSERT INTO orders (table_id, restaurant_id, created_by, assigned_staff_id, status, created_at, channel, order_ref)
+           VALUES ($1, $2, $3, $3, 'paid', $4, $5, $6) RETURNING id`,
+      [tableId, RESTAURANT_ID, staffId, ts, channel, orderRef],
     );
 
     let subtotal = 0;
@@ -730,7 +737,7 @@ async function main() {
       VALUES ($1, $2, $3, 'completed', $2, $2)
     `, [order.id, subtotal.toFixed(2), payMethod]);
 
-    ordersCreated.push({ orderId: order.id, ts, lines });
+    ordersCreated.push({ orderId: order.id, ts, lines, staffId });
   }
 
   // Persist the final counter values so live orders continue from where the seed left off.
@@ -817,7 +824,7 @@ async function main() {
   }
 
   let saleTxnCount = 0;
-  for (const { orderId, ts, lines } of ordersCreated) {
+  for (const { orderId, ts, lines, staffId } of ordersCreated) {
     for (const [itemName, qty] of lines) {
       const recipe = recipeIngsByMenuItem[itemName];
       if (!recipe) continue;
@@ -827,7 +834,7 @@ async function main() {
           INSERT INTO inventory_transactions
             (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by, created_at)
           VALUES ($1, $2, 'SALE', $3, $4, $5, $6, $7)
-        `, [RESTAURANT_ID, ingredientId, delta, unitCost, orderId, ADMIN_ID, ts]);
+        `, [RESTAURANT_ID, ingredientId, delta, unitCost, orderId, staffId, ts]);
         saleTxnCount++;
       }
     }

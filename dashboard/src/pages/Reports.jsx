@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar,
@@ -59,6 +59,26 @@ function smoothPath(pts) {
 function HoverAreaChart({ data, labels, fmtVal, height = 220, color = 'var(--ink)' }) {
   const [hi, setHi] = useState(null);
   const ref = useRef(null);
+  const lineRef = useRef(null);
+  const areaRef = useRef(null);
+  useEffect(() => {
+    const line = lineRef.current;
+    if (!line) return;
+    const len = line.getTotalLength();
+    line.style.transition = 'none';
+    line.style.strokeDasharray = len;
+    line.style.strokeDashoffset = len;
+    line.getBoundingClientRect();
+    line.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)';
+    line.style.strokeDashoffset = '0';
+    if (areaRef.current) {
+      areaRef.current.style.opacity = '0';
+      areaRef.current.style.transition = 'none';
+      areaRef.current.getBoundingClientRect();
+      areaRef.current.style.transition = 'opacity 0.8s ease 0.4s';
+      areaRef.current.style.opacity = '1';
+    }
+  }, [data]);
   const padX = 6, padY = 20, W = 600;
   if (!data.length) return null;
   const max = Math.max(...data) * 1.08;
@@ -66,10 +86,11 @@ function HoverAreaChart({ data, labels, fmtVal, height = 220, color = 'var(--ink
   const span = max - min || 1;
   const innerW = W - padX * 2;
   const innerH = height - padY * 2;
-  const pts = data.map((v, i) => [
+  let pts = data.map((v, i) => [
     padX + (i / Math.max(data.length - 1, 1)) * innerW,
     padY + innerH - ((v - min) / span) * innerH,
   ]);
+  if (pts.length === 1) pts = [[padX, pts[0][1]], [W - padX, pts[0][1]]];
   const pathD = smoothPath(pts);
   const areaD = `${pathD} L ${pts[pts.length - 1][0]},${height} L ${pts[0][0]},${height} Z`;
   const hp = hi != null ? pts[hi] : null;
@@ -95,8 +116,8 @@ function HoverAreaChart({ data, labels, fmtVal, height = 220, color = 'var(--ink
           <line key={i} x1={padX} x2={W - padX} y1={padY + innerH * g} y2={padY + innerH * g}
             stroke="var(--line)" strokeWidth="1" />
         ))}
-        <path d={areaD} fill="url(#rp-area-grad)" />
-        <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path ref={areaRef} d={areaD} fill="url(#rp-area-grad)" />
+        <path ref={lineRef} d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {hp && (
           <>
             <line x1={hp[0]} x2={hp[0]} y1={padY} y2={height - padY} stroke="var(--line-2)" strokeWidth="1" />
@@ -429,16 +450,8 @@ function OverviewTab({ from, to, daily, channel }) {
   );
 }
 
-function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
-  const [group, setGroup] = useState('day');
-  const { data, isLoading, isError } = useTrends(from, to, group, channel);
-
-  function handleGroupChange(g) {
-    setGroup(g);
-    if (g === 'month') { setFrom(shiftDate(today, -179)); setTo(today); }
-    else if (g === 'week') { setFrom(shiftDate(today, -55)); setTo(today); }
-    else { setFrom(shiftDate(today, -29)); setTo(today); }
-  }
+function TrendsTab({ from, to, channel }) {
+  const { data, isLoading, isError } = useTrends(from, to, 'day', channel);
   const { format, currency } = useCurrency();
 
   const fmtTick = useCallback((v) => {
@@ -455,18 +468,10 @@ function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
     return { revenue, orders, avg: orders > 0 ? revenue / orders : 0 };
   }, [data]);
 
-  const periodLabel = (p) => {
-    if (group === 'month') return p.slice(0, 7);
-    if (group === 'week')  return `w/c ${p.slice(5)}`;
-    return p.slice(5); // MM-DD
-  };
-
-  const chartData = data?.rows?.map((r) => ({ ...r, label: periodLabel(r.period) }));
+  const chartData = data?.rows?.map((r) => ({ ...r, label: r.period.slice(5) }));
 
   return (
     <div className="space-y-5">
-      <GroupToggle group={group} setGroup={handleGroupChange} />
-
       {isLoading && <Spinner />}
       {isError   && <ErrorMsg />}
 
@@ -493,18 +498,14 @@ function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
           </div>
 
           <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 16 }}>Orders</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Orders</p>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--mute)' }} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis width={40} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
-                    domain={[0, (m) => Math.ceil(m * 1.2)]} allowDecimals={false} />
-                  <Tooltip formatter={(v) => [v, 'Orders']} contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)' }} />
-                  <Line type="monotone" dataKey="orders" stroke="var(--ink)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              <HoverAreaChart
+                data={chartData.map((r) => parseFloat(r.orders ?? 0))}
+                labels={chartData.map((r) => r.label)}
+                fmtVal={(v) => `${Math.round(v)}`}
+                height={240}
+              />
             ) : <EmptyChart height={240} />}
           </div>
         </div>
@@ -702,14 +703,7 @@ function StaffTab({ from, to, setFrom, setTo, today, channel }) {
     else if (g === 'week') { setFrom(shiftDate(today, -55)); setTo(today); }
     else { setFrom(shiftDate(today, -29)); setTo(today); }
   }
-  const { format, currency } = useCurrency();
-
-  const fmtTick = useCallback((v) => {
-    const val = parseFloat(v);
-    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1)}M`;
-    if (val >= 1_000)     return `${currency.symbol}${(val / 1_000).toFixed(1)}k`;
-    return `${currency.symbol}${val.toFixed(0)}`;
-  }, [currency]);
+  const { format } = useCurrency();
 
   const { names: staffNames, data: chartData } = useMemo(() => {
     if (!trendData?.rows) return { names: [], data: [] };
@@ -770,37 +764,23 @@ function StaffTab({ from, to, setFrom, setTo, today, channel }) {
       </div>
 
       {/* Revenue over time — per staff member */}
-      <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Revenue over time</p>
-          <GroupToggle group={group} setGroup={handleGroupChange} />
+      {trendLoading && <Spinner />}
+      {!trendLoading && chartData.length > 0 && staffNames.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {staffNames.map((name, i) => (
+            <div key={name} style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: seriesColors[i % seriesColors.length], marginBottom: 8 }}>{name}</p>
+              <HoverAreaChart
+                data={chartData.map((r) => parseFloat(r[name] ?? 0))}
+                labels={chartData.map((r) => r.label)}
+                fmtVal={format}
+                height={180}
+                color={seriesColors[i % seriesColors.length]}
+              />
+            </div>
+          ))}
         </div>
-        {trendLoading && <Spinner />}
-        {!trendLoading && chartData.length === 0 && <EmptyChart height={240} />}
-        {chartData.length > 0 && (
-          <>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--mute)' }} tickLine={false} interval="preserveStartEnd" />
-                <YAxis width={64} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
-                  domain={[0, (m) => Math.ceil(m * 1.15)]} tickFormatter={fmtTick} />
-                <Tooltip
-                  formatter={(v, name) => [format(v), name]}
-                  contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)', color: 'var(--ink)' }}
-                  itemStyle={{ color: 'var(--ink)' }}
-                />
-                {staffNames.map((name, i) => (
-                  <Line key={name} type="monotone" dataKey={name}
-                    stroke={seriesColors[i % seriesColors.length]}
-                    strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-            <SeriesLegend names={staffNames} />
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -1404,7 +1384,7 @@ export default function Reports() {
         overviewData    ? <OverviewTab from={from} to={to} daily={overviewData} channel={channel} /> :
         null
       )}
-      {tab === 'Trends'       && <TrendsTab      from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
+      {tab === 'Trends'       && <TrendsTab      from={from} to={to} channel={channel} />}
       {tab === 'Items'        && <ItemsTab        from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
       {tab === 'Staff'        && <StaffTab        from={from} to={to} setFrom={handleSetFrom} setTo={handleSetTo} today={today} channel={channel} />}
       {tab === 'Sales'        && <SalesTab        from={from} to={to} channel={channel} />}
