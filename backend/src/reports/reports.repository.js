@@ -127,7 +127,7 @@ const getItemProfitability = (from, to, tz = 'UTC', limit = 50, restaurantId, ch
       SUM(oi.quantity)::int                 AS total_sold,
       SUM(mi.price * oi.quantity)           AS revenue,
       (
-        SELECT COALESCE(SUM(ri.quantity * ri.cost_per_unit), NULL)
+        SELECT COALESCE(SUM(ri.quantity * ri.cost_per_unit), 0)
         FROM recipe_ingredients ri
         WHERE ri.recipe_id = mi.recipe_id
       )                                     AS cost_per_unit

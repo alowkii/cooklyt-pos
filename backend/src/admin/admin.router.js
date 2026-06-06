@@ -25,7 +25,8 @@ const logoUpload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     const ok = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.originalname);
-    cb(ok ? null : new Error('Only image files are accepted'), ok);
+    if (!ok) { const e = new Error('Only image files are accepted'); e.statusCode = 400; return cb(e, false); }
+    cb(null, true);
   },
 });
 

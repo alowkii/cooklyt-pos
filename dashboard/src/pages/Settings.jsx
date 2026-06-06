@@ -236,7 +236,7 @@ export default function Settings() {
     try {
       await updateSetting.mutateAsync({ key: 'tax_rate',             value: taxRate       || '0' });
       await updateSetting.mutateAsync({ key: 'service_charge',       value: serviceCharge || '0' });
-      if (dailyTarget) await updateSetting.mutateAsync({ key: 'daily_revenue_target', value: dailyTarget });
+      await updateSetting.mutateAsync({ key: 'daily_revenue_target', value: dailyTarget });
       await updateSetting.mutateAsync({ key: 'packaging_fee',  value: parseFloat(packagingFee || '0').toFixed(4) });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
       await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });

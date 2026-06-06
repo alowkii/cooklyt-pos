@@ -26,6 +26,20 @@
   --info-soft:  rgba(31,91,179,0.10);
   --paper-3:    #ECEAE3;
   --brand-sidebar: var(--paper);
+  --label:      #9a8f73;
+}
+
+@keyframes pulse-dot {
+  0%   { box-shadow: 0 0 0 0 rgba(31,138,91,.45); }
+  70%  { box-shadow: 0 0 0 6px rgba(31,138,91,0); }
+  100% { box-shadow: 0 0 0 0 rgba(31,138,91,0); }
+}
+.pulse-dot {
+  display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ok);
+  flex-shrink: 0;
+  animation: pulse-dot 2.4s infinite;
 }
 
 @layer base {
@@ -171,4 +185,65 @@
   /* ── Scrollbar-free overflow (tab bars, horizontal lists) ── */
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
+}
+
+/* ── Live-ops sticky tab (mobile only) ───────────────────── */
+.rail-tab {
+  position: fixed;
+  right: 0;
+  top: 96px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 54px;
+  border-radius: 999px 0 0 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-2);
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  z-index: 48;
+  box-shadow: -3px 0 14px rgba(10,10,10,.10);
+  transition: width 0.15s ease, opacity 0.2s;
+}
+.rail-tab:hover { width: 26px; }
+.rail-tab.rail-tab-hidden { opacity: 0; pointer-events: none; }
+@media (min-width: 1024px) { .rail-tab { display: none !important; } }
+
+/* ── Live-ops rail drawer (mobile slide-in) ───────────────── */
+.rail-overlay {
+  position: fixed; inset: 0; z-index: 49;
+  background: rgba(10,10,10,.35);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.26s;
+}
+.rail-overlay.rail-open { opacity: 1; pointer-events: auto; }
+
+.rail-drawer {
+  background: var(--paper-2);
+  border-left: 1px solid var(--line);
+  padding: 20px 20px 40px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+@media (max-width: 1023px) {
+  .rail-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(296px, 88vw);
+    overflow-y: auto;
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -12px 0 48px rgba(10,10,10,.16);
+  }
+  .rail-drawer.rail-open { transform: translateX(0); }
+}
+
+@media (min-width: 1024px) {
+  .rail-overlay { display: none !important; }
+  .rail-drawer { flex-shrink: 0; width: 296px; }
+  .rail-close-btn { display: none !important; }
 }
