@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar,
@@ -35,6 +35,97 @@ function prevMonth(dateStr) {
   const [y, m] = dateStr.split('-').map(Number);
   const d = new Date(y, m - 2, 1);
   return d.toISOString().slice(0, 7) + '-01';
+}
+
+// ── Hover area chart (matches Overview style) ─────────────────────────────────
+
+function smoothPath(pts) {
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+function HoverAreaChart({ data, labels, fmtVal, height = 220, color = 'var(--ink)' }) {
+  const [hi, setHi] = useState(null);
+  const ref = useRef(null);
+  const padX = 6, padY = 20, W = 600;
+  if (!data.length) return null;
+  const max = Math.max(...data) * 1.08;
+  const min = Math.min(...data) * 0.92;
+  const span = max - min || 1;
+  const innerW = W - padX * 2;
+  const innerH = height - padY * 2;
+  const pts = data.map((v, i) => [
+    padX + (i / Math.max(data.length - 1, 1)) * innerW,
+    padY + innerH - ((v - min) / span) * innerH,
+  ]);
+  const pathD = smoothPath(pts);
+  const areaD = `${pathD} L ${pts[pts.length - 1][0]},${height} L ${pts[0][0]},${height} Z`;
+  const hp = hi != null ? pts[hi] : null;
+  const leftPct = hp ? (hp[0] / W) * 100 : 0;
+  const topPct  = hp ? (hp[1] / height) * 100 : 0;
+  return (
+    <div ref={ref} style={{ position: 'relative', cursor: 'crosshair' }}
+      onMouseMove={(e) => {
+        const r = ref.current.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        setHi(Math.round(ratio * (data.length - 1)));
+      }}
+      onMouseLeave={() => setHi(null)}
+    >
+      <svg width="100%" viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id="rp-area-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.14" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75].map((g, i) => (
+          <line key={i} x1={padX} x2={W - padX} y1={padY + innerH * g} y2={padY + innerH * g}
+            stroke="var(--line)" strokeWidth="1" />
+        ))}
+        <path d={areaD} fill="url(#rp-area-grad)" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {hp && (
+          <>
+            <line x1={hp[0]} x2={hp[0]} y1={padY} y2={height - padY} stroke="var(--line-2)" strokeWidth="1" />
+            <circle cx={hp[0]} cy={hp[1]} r="4.5" fill="var(--paper)" stroke={color} strokeWidth="2" />
+          </>
+        )}
+      </svg>
+      {hp && (
+        <div style={{
+          position: 'absolute', pointerEvents: 'none',
+          left: `${leftPct}%`, top: `${topPct}%`,
+          transform: 'translate(-50%, -120%)',
+          background: 'var(--ink)', color: 'var(--accent-on)',
+          padding: '4px 9px', borderRadius: 7, fontSize: 11, whiteSpace: 'nowrap',
+          boxShadow: '0 6px 18px rgba(20,18,10,.25)', zIndex: 5,
+        }}>
+          <span style={{ fontFamily: 'Geist Mono, monospace', fontWeight: 600 }}>{fmtVal(data[hi])}</span>
+          {labels?.[hi] && <span style={{ opacity: 0.6, marginLeft: 5 }}>· {labels[hi]}</span>}
+        </div>
+      )}
+      {labels && (
+        <div className="flex justify-between mono" style={{ fontSize: 10, color: 'var(--mute-2)', marginTop: 4 }}>
+          {labels.map((l, i) => (
+            <span key={i} style={{ visibility: l ? 'visible' : 'hidden' }}>{l || '·'}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PRESETS(today) {
@@ -321,16 +412,12 @@ function OverviewTab({ from, to, daily, channel }) {
             {isSingleDay && <span style={{ fontSize: 11, color: 'var(--mute)' }}>{timezone.label}</span>}
           </div>
           {isSingleDay && daily.hourly?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={daily.hourly} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                <XAxis dataKey="hour" tickFormatter={(h) => `${h}:00`} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} />
-                <YAxis width={64} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
-                  domain={[0, (m) => Math.ceil(m * 1.2)]} tickFormatter={fmtTick} />
-                <Tooltip formatter={(v) => [format(v)]} labelFormatter={(h) => `${h}:00`} contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)' }} />
-                <Line type="monotone" dataKey="revenue" stroke="var(--ink)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <HoverAreaChart
+              data={daily.hourly.map((r) => parseFloat(r.revenue ?? 0))}
+              labels={daily.hourly.map((r) => `${r.hour}`)}
+              fmtVal={format}
+              height={220}
+            />
           ) : (
             <div className="flex h-[220px] items-center justify-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
               No hourly data
@@ -394,18 +481,14 @@ function TrendsTab({ from, to, setFrom, setTo, today, channel }) {
       {chartData && (
         <div className="grid gap-5 lg:grid-cols-2">
           <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, padding: 20, background: 'var(--paper)' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 16 }}>Revenue</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Revenue</p>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--mute)' }} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis width={64} tick={{ fontSize: 11, fill: 'var(--mute)' }} tickLine={false} axisLine={false}
-                    domain={[0, (m) => Math.ceil(m * 1.15)]} tickFormatter={fmtTick} />
-                  <Tooltip formatter={(v) => [format(v), 'Revenue']} contentStyle={{ fontSize: 12, border: '1px solid var(--line-2)', borderRadius: 6, background: 'var(--paper)' }} />
-                  <Bar dataKey="revenue" fill="var(--ink)" radius={[3, 3, 0, 0]} opacity={0.85} />
-                </BarChart>
-              </ResponsiveContainer>
+              <HoverAreaChart
+                data={chartData.map((r) => parseFloat(r.revenue ?? 0))}
+                labels={chartData.map((r) => r.label)}
+                fmtVal={format}
+                height={240}
+              />
             ) : <EmptyChart height={240} />}
           </div>
 
