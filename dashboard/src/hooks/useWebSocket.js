@@ -55,6 +55,7 @@ export function useWebSocket({ onEvent } = {}) {
               break;
             case 'TABLE_UPDATED':
               qc.invalidateQueries({ queryKey: ['tables'] });
+              qc.invalidateQueries({ queryKey: ['reservations'] });
               break;
             case 'RESERVATION_REMINDER':
               qc.invalidateQueries({ queryKey: ['reservations'] });
@@ -72,6 +73,10 @@ export function useWebSocket({ onEvent } = {}) {
               qc.invalidateQueries({ queryKey: ['kitchen'] });
               qc.invalidateQueries({ queryKey: ['orders'] });
               qc.invalidateQueries({ queryKey: ['wastage-reviews'] });
+              break;
+            case 'USER_PRESENCE':
+              qc.invalidateQueries({ queryKey: ['users'] });
+              qc.invalidateQueries({ queryKey: ['me'] });
               break;
           }
           onEventRef.current?.(event, payload ?? {});

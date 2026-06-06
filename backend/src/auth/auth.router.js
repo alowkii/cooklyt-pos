@@ -5,6 +5,7 @@ const repo    = require('./auth.repository');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
+const ws = require('../shared/websocket');
 
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -195,6 +196,7 @@ router.patch('/users/:id/present', authenticate, writeLimiter, async (req, res, 
     const isAdmin = req.user.role === 'admin';
     if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
     const user = await service.setUserPresent(req.params.id, !!req.body.is_present, req.user.restaurantId);
+    ws.broadcast('USER_PRESENCE', { userId: user.id, isPresent: user.is_present }, req.user.restaurantId);
     res.json(user);
   } catch (e) { next(e); }
 });

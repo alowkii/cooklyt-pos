@@ -9,6 +9,8 @@ export function useUsers() {
       const { data } = await api.get('/auth/users');
       return data;
     },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 

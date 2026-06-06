@@ -9,6 +9,8 @@ export function useReservations(date) {
       const { data } = await api.get('/reservations', { params: date ? { date } : {} });
       return data;
     },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 

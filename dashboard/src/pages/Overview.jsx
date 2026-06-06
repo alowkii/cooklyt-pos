@@ -376,11 +376,14 @@ export default function Overview() {
   const chartLabels = isToday ? hourlyLabels : weekChartLabels;
 
   // ── Staff ─────────────────────────────────────────────────────────────────
-  const staffPresent  = users.filter((u) => u.is_present).length;
-  const staffTotal    = users.filter((u) => u.role !== 'kitchen').length;
+  const assignedEmails = new Set(
+    activeOrders.filter((o) => o.assigned_staff_email).map((o) => o.assigned_staff_email),
+  );
+  const staffPresent  = users.filter((u) => u.role !== 'admin' && (u.is_present || assignedEmails.has(u.email))).length;
+  const staffTotal    = users.filter((u) => u.role !== 'admin').length;
 
   // ── Reservations ─────────────────────────────────────────────────────────
-  const pendingRes    = reservations.filter((r) => r.status === 'pending' || r.status === 'confirmed');
+  const pendingRes    = reservations.filter((r) => r.status === 'upcoming');
 
   // ── Kitchen / queue ───────────────────────────────────────────────────────
   const now           = Date.now();
@@ -442,29 +445,25 @@ export default function Overview() {
 
         {/* KPI stat strip (admin) */}
         {isAdmin && (
-          <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '16px 22px', background: 'var(--paper)' }}>
-            <div className="overflow-x-auto scrollbar-none">
-              <div style={{ display: 'flex', minWidth: 560 }}>
-                {[
-                  { label: 'Revenue',     value: revenue !== null ? format(revenue) : '—',          sub: revPct !== null ? <DeltaBadge pct={revPct} /> : null,                                                                     Icon: TrendingUp,   iconColor: 'var(--ok)'  },
-                  { label: 'Orders',      value: orderCount ?? '—',                                  sub: ordPct !== null ? <DeltaBadge pct={ordPct} /> : null,                                                                     Icon: ShoppingBag                          },
-                  { label: 'Avg order',   value: avgOrder !== null ? format(avgOrder) : '—',        sub: orderCount ? `${orderCount} orders` : null,                                                                               Icon: BarChart2                             },
-                  { label: 'Top item',    value: topItem?.name ?? '—',                               sub: topItem ? `×${topItem.total_sold} sold` : null,                                                                          Icon: Flame,        iconColor: 'var(--warn)' },
-                  { label: 'Cancelled',   value: cancelled ?? '—',                                   sub: cancelled !== null ? (cancelled > 0 ? 'orders voided' : 'none today') : null,                                            Icon: AlertTriangle, iconColor: cancelled !== null && cancelled > 0 ? 'var(--bad)' : 'var(--mute-2)' },
-                ].map(({ label, value, sub, Icon, iconColor }, i) => (
-                  <div key={label} style={{ flex: 1, minWidth: 110, paddingLeft: i > 0 ? 20 : 0, borderLeft: i > 0 ? '1px solid var(--line)' : 'none', display: 'flex', flexDirection: 'column' }}>
-                    <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-                      <span style={SEC_LABEL}>{label}</span>
-                      <Icon size={13} style={{ color: iconColor || 'var(--mute-2)', flexShrink: 0 }} />
-                    </div>
-                    <div className="mono num" style={{ fontSize: dynFont(value, 22), fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                      {value}
-                    </div>
-                    {sub && <div style={{ fontSize: 11, color: 'var(--mute)', marginTop: 'auto', paddingTop: 6, lineHeight: 1.3 }}>{sub}</div>}
-                  </div>
-                ))}
+          <div className="grid grid-cols-2 md:grid-cols-5" style={{ gap: 10 }}>
+            {[
+              { label: 'Revenue',   value: revenue !== null ? format(revenue) : '—',       sub: revPct !== null ? <DeltaBadge pct={revPct} /> : null,                                                                  Icon: TrendingUp,    iconColor: 'var(--ok)'  },
+              { label: 'Orders',    value: orderCount ?? '—',                               sub: ordPct !== null ? <DeltaBadge pct={ordPct} /> : null,                                                                  Icon: ShoppingBag                            },
+              { label: 'Avg order', value: avgOrder !== null ? format(avgOrder) : '—',     sub: orderCount ? `${orderCount} orders` : null,                                                                            Icon: BarChart2                              },
+              { label: 'Top item',  value: topItem?.name ?? '—',                            sub: topItem ? `×${topItem.total_sold} sold` : null,                                                                       Icon: Flame,         iconColor: 'var(--warn)' },
+              { label: 'Cancelled', value: cancelled ?? '—',                                sub: cancelled !== null ? (cancelled > 0 ? 'orders voided' : 'none today') : null,                                         Icon: AlertTriangle,  iconColor: cancelled !== null && cancelled > 0 ? 'var(--bad)' : 'var(--mute-2)' },
+            ].map(({ label, value, sub, Icon, iconColor }) => (
+              <div key={label} style={{ border: '1px solid var(--line)', borderRadius: 10, background: 'var(--paper)', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+                  <span style={SEC_LABEL}>{label}</span>
+                  <Icon size={13} style={{ color: iconColor || 'var(--mute-2)', flexShrink: 0 }} />
+                </div>
+                <div className="mono num" style={{ fontSize: dynFont(value, 22), fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {value}
+                </div>
+                {sub && <div style={{ fontSize: 11, color: 'var(--mute)', marginTop: 'auto', paddingTop: 6, lineHeight: 1.3 }}>{sub}</div>}
               </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -484,7 +483,7 @@ export default function Overview() {
               <div style={{ display: 'flex', padding: 3, gap: 2, border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper-2)' }}>
                 {[['today', 'Today'], ['week', '7 days']].map(([k, label]) => (
                   <button key={k} onClick={() => setChartRange(k)} style={{
-                    height: 26, padding: '0 11px', border: 0,
+                    height: 26, padding: '0 11px', border: 0, whiteSpace: 'nowrap',
                     background: chartRange === k ? 'var(--paper)' : 'transparent',
                     borderRadius: 6, fontSize: 11.5, fontWeight: chartRange === k ? 600 : 500,
                     color: chartRange === k ? 'var(--ink)' : 'var(--mute)',
@@ -535,11 +534,9 @@ export default function Overview() {
                         { label: 'Card', amt: cardAmt, color: 'var(--info)'  },
                         { label: 'UPI',  amt: upiAmt,  color: 'var(--warn)'  },
                       ].map(({ label, amt, color }) => (
-                        <div key={label} className="flex items-center justify-between" style={{ fontSize: 12 }}>
-                          <span className="flex items-center gap-1.5">
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
-                            {label}
-                          </span>
+                        <div key={label} className="flex items-center" style={{ fontSize: 12, gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
+                          <span style={{ color: 'var(--mute)' }}>{label}</span>
                           <span className="mono num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{pct(amt)}%</span>
                         </div>
                       ))}
