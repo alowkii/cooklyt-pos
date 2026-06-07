@@ -67,7 +67,19 @@ const MENU = [
   { name: 'Fresh Orange Juice',     price:  140, category: 'Drinks', description: 'Freshly squeezed juice from hand-picked oranges — served chilled.' },
   { name: 'Mineral Water',          price:   40, category: 'Drinks', description: 'Still mineral water, 500 ml.' },
   { name: 'Soft Drink (Can)',       price:   60, category: 'Drinks', description: 'Your choice of chilled Coca-Cola, Sprite, or Limca.' },
-  { name: 'Sparkling Water',        price:   80, category: 'Drinks', description: 'Chilled sparkling mineral water, 330 ml.' },
+  { name: 'Sparkling Water',        price:   80, category: 'Drinks',   description: 'Chilled sparkling mineral water, 330 ml.' },
+
+  // Additional Mains
+  { name: 'Hakka Noodles',          price:  260, category: 'Mains',    description: 'Stir-fried noodles tossed with vegetables and soy seasoning in a hot wok.' },
+  { name: 'Pav Bhaji',              price:  220, category: 'Mains',    description: 'Spiced mashed vegetable curry served with butter-toasted pav rolls.' },
+
+  // Additional Desserts
+  { name: 'Ras Malai',              price:  160, category: 'Desserts', description: 'Soft cottage cheese dumplings soaked in sweetened, cardamom-scented milk.' },
+  { name: 'Brownie with Ice Cream', price:  240, category: 'Desserts', description: 'Warm fudge brownie paired with a scoop of vanilla ice cream.' },
+
+  // Additional Drinks
+  { name: 'Iced Tea',               price:   80, category: 'Drinks',   description: 'Chilled brewed tea with lemon and a hint of sweetness — light and refreshing.' },
+  { name: 'Strawberry Milkshake',   price:  160, category: 'Drinks',   description: 'Thick and creamy milkshake blended with fresh strawberry puree and chilled milk.' },
 ];
 
 // Orders spread across 7 days — [daysAgo, hour, minute, tableIndex, [[itemName, qty], ...], paymentMethod?, channel?]
@@ -275,6 +287,137 @@ const ORDER_SCHEDULE = [
   [ 6, 14, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Cold Coffee', 2]],                                                        'card',   'delivery'],
   [ 6, 19,  0, null, [['Margherita Pizza', 2], ['Veg Spring Rolls', 1], ['Fresh Lime Soda', 4]],                                               'mobile', 'delivery'],
   [ 6, 21,  0, null, [['Paneer Butter Masala', 2], ['Gulab Jamun (2 pcs)', 2], ['Soft Drink (Can)', 2]],                                       'card',   'delivery'],
+
+  // ── Day 7 — Dining ────────────────────────────────────────────────────────
+  [ 7,  9,  0, 0, [['Garlic Bread', 2], ['Masala Chai', 2]],                                                                                     'cash'   ],
+  [ 7, 10, 30, 3, [['Veg Spring Rolls', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                        'card'   ],
+  [ 7, 12,  0, 1, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                               'cash'   ],
+  [ 7, 12, 40, 5, [['Chicken Biryani', 2], ['Veg Fried Rice', 1], ['Soft Drink (Can)', 2]],                                                      'mobile' ],
+  [ 7, 13, 20, 2, [['Margherita Pizza', 2], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                            'cash'   ],
+  [ 7, 14, 30, 4, [['Fish & Chips', 2], ['Onion Rings', 1], ['Sparkling Water', 2]],                                                             'card'   ],
+  [ 7, 16,  0, 0, [['Pav Bhaji', 2], ['Masala Chai', 2]],                                                                                        'cash'   ],
+  [ 7, 18, 15, 3, [['Chicken Wings', 2], ['Butter Chicken', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                                 'mobile' ],
+  [ 7, 19, 30, 1, [['BBQ Chicken Pizza', 2], ['Pasta Arrabbiata', 1], ['Iced Tea', 2]],                                                          'card'   ],
+  [ 7, 20, 45, 5, [['Grilled Chicken Steak', 2], ['Hakka Noodles', 1], ['Brownie with Ice Cream', 2], ['Cold Coffee', 2]],                       'cash'   ],
+  [ 7, 21, 30, 2, [['Paneer Butter Masala', 2], ['Dal Makhani', 1], ['Ras Malai', 2], ['Fresh Lime Soda', 2]],                                   'mobile' ],
+  // Day 7 — Takeaway
+  [ 7, 11,  0, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                               'mobile', 'takeaway'],
+  [ 7, 13, 15, null, [['Veg Burger', 1], ['Soft Drink (Can)', 1]],                                                                               'card',   'takeaway'],
+  [ 7, 17,  0, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Masala Chai', 2]],                                                            'cash',   'takeaway'],
+  [ 7, 19, 30, null, [['BBQ Chicken Pizza', 1], ['Chicken Wings', 1], ['Cold Coffee', 2]],                                                       'mobile', 'takeaway'],
+  [ 7, 21,  0, null, [['Hakka Noodles', 2], ['Iced Tea', 2]],                                                                                    'card',   'takeaway'],
+  // Day 7 — Delivery
+  [ 7, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                         'mobile', 'delivery'],
+  [ 7, 15, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                      'card',   'delivery'],
+  [ 7, 19,  0, null, [['Margherita Pizza', 2], ['Garlic Bread', 1], ['Soft Drink (Can)', 4]],                                                    'mobile', 'delivery'],
+  [ 7, 21, 30, null, [['Pav Bhaji', 2], ['Strawberry Milkshake', 2]],                                                                            'card',   'delivery'],
+
+  // ── Day 8 — Dining ────────────────────────────────────────────────────────
+  [ 8,  8, 45, 2, [['Masala Chai', 2], ['Garlic Bread', 1]],                                                                                     'cash'   ],
+  [ 8, 10, 30, 4, [['Veg Spring Rolls', 2], ['Cold Coffee', 2]],                                                                                 'card'   ],
+  [ 8, 12,  0, 0, [['Paneer Tikka', 2], ['Paneer Butter Masala', 2], ['Masala Chai', 2]],                                                        'cash'   ],
+  [ 8, 12, 50, 3, [['Chicken Biryani', 3], ['Onion Rings', 1], ['Mango Lassi', 3]],                                                              'mobile' ],
+  [ 8, 14,  0, 1, [['Fish & Chips', 2], ['Crispy Calamari', 1], ['Iced Tea', 2]],                                                                'card'   ],
+  [ 8, 16, 30, 5, [['Hakka Noodles', 2], ['Pav Bhaji', 1], ['Fresh Lime Soda', 3]],                                                              'cash'   ],
+  [ 8, 18, 15, 2, [['Butter Chicken', 2], ['Dal Makhani', 2], ['Gulab Jamun (2 pcs)', 2], ['Masala Chai', 2]],                                   'card'   ],
+  [ 8, 19, 45, 4, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 1], ['Brownie with Ice Cream', 2], ['Cold Coffee', 2]],                           'mobile' ],
+  [ 8, 21,  0, 0, [['Margherita Pizza', 2], ['Veg Burger', 2], ['Strawberry Milkshake', 2]],                                                     'cash'   ],
+  // Day 8 — Takeaway
+  [ 8, 11, 30, null, [['Pav Bhaji', 1], ['Masala Chai', 2]],                                                                                     'cash',   'takeaway'],
+  [ 8, 13,  0, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                           'card',   'takeaway'],
+  [ 8, 18, 30, null, [['Butter Chicken', 1], ['Veg Fried Rice', 1], ['Mineral Water', 2]],                                                       'mobile', 'takeaway'],
+  [ 8, 20,  0, null, [['Hakka Noodles', 1], ['Iced Tea', 1]],                                                                                    'card',   'takeaway'],
+  // Day 8 — Delivery
+  [ 8, 12, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Mango Lassi', 2]],                                                          'mobile', 'delivery'],
+  [ 8, 16,  0, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Soft Drink (Can)', 4]],                                                       'card',   'delivery'],
+  [ 8, 20, 30, null, [['BBQ Chicken Pizza', 2], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                        'mobile', 'delivery'],
+
+  // ── Day 9 — Dining ────────────────────────────────────────────────────────
+  [ 9,  9, 30, 3, [['Veg Spring Rolls', 1], ['Masala Chai', 2]],                                                                                 'cash'   ],
+  [ 9, 11,  0, 1, [['Paneer Tikka', 2], ['Dal Makhani', 1], ['Fresh Lime Soda', 2]],                                                             'card'   ],
+  [ 9, 12, 30, 5, [['Butter Chicken', 2], ['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                           'cash'   ],
+  [ 9, 13, 15, 0, [['Margherita Pizza', 2], ['Garlic Bread', 1], ['Soft Drink (Can)', 2]],                                                       'mobile' ],
+  [ 9, 15,  0, 4, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Iced Tea', 2]],                                                       'card'   ],
+  [ 9, 17, 30, 2, [['Pav Bhaji', 2], ['Hakka Noodles', 1], ['Masala Chai', 3]],                                                                  'cash'   ],
+  [ 9, 19,  0, 3, [['Chicken Wings', 2], ['BBQ Chicken Pizza', 2], ['Ras Malai', 2], ['Cold Coffee', 2]],                                        'mobile' ],
+  [ 9, 20, 30, 1, [['Paneer Butter Masala', 2], ['Veg Fried Rice', 1], ['Brownie with Ice Cream', 2], ['Fresh Lime Soda', 2]],                   'cash'   ],
+  // Day 9 — Takeaway
+  [ 9, 10, 45, null, [['Garlic Bread', 1], ['Masala Chai', 2]],                                                                                  'cash',   'takeaway'],
+  [ 9, 13,  0, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                               'mobile', 'takeaway'],
+  [ 9, 17, 30, null, [['Pav Bhaji', 1], ['Hakka Noodles', 1], ['Iced Tea', 2]],                                                                  'card',   'takeaway'],
+  [ 9, 20,  0, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                          'cash',   'takeaway'],
+  // Day 9 — Delivery
+  [ 9, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                         'mobile', 'delivery'],
+  [ 9, 15, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Soft Drink (Can)', 2]],                                                     'card',   'delivery'],
+  [ 9, 20, 30, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 1], ['Strawberry Milkshake', 2]],                                              'mobile', 'delivery'],
+
+  // ── Day 10 — Dining ───────────────────────────────────────────────────────
+  [10,  9,  0, 2, [['Garlic Bread', 2], ['Masala Chai', 3]],                                                                                     'cash'   ],
+  [10, 11, 30, 4, [['Paneer Tikka', 2], ['Dal Makhani', 2], ['Fresh Lime Soda', 2]],                                                             'card'   ],
+  [10, 12, 30, 0, [['Butter Chicken', 2], ['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                           'mobile' ],
+  [10, 14,  0, 3, [['Margherita Pizza', 2], ['Onion Rings', 1], ['Cold Coffee', 2]],                                                             'cash'   ],
+  [10, 16, 45, 5, [['Hakka Noodles', 2], ['Pav Bhaji', 2], ['Iced Tea', 2]],                                                                     'card'   ],
+  [10, 18, 30, 1, [['Chicken Wings', 2], ['BBQ Chicken Pizza', 1], ['Ras Malai', 2], ['Masala Chai', 2]],                                        'cash'   ],
+  [10, 20,  0, 2, [['Grilled Chicken Steak', 2], ['Pasta Arrabbiata', 1], ['Brownie with Ice Cream', 2], ['Soft Drink (Can)', 2]],               'mobile' ],
+  [10, 21, 15, 4, [['Paneer Butter Masala', 2], ['Veg Burger', 1], ['Chocolate Lava Cake', 2], ['Fresh Lime Soda', 2]],                          'card'   ],
+  // Day 10 — Takeaway
+  [10, 11, 15, null, [['Pav Bhaji', 1], ['Masala Chai', 2]],                                                                                     'cash',   'takeaway'],
+  [10, 13, 45, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                               'mobile', 'takeaway'],
+  [10, 18,  0, null, [['Hakka Noodles', 1], ['Iced Tea', 1]],                                                                                    'card',   'takeaway'],
+  [10, 20, 30, null, [['Butter Chicken', 1], ['Veg Fried Rice', 1], ['Mineral Water', 2]],                                                       'cash',   'takeaway'],
+  // Day 10 — Delivery
+  [10, 12, 30, null, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                            'mobile', 'delivery'],
+  [10, 16,  0, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Soft Drink (Can)', 2]],                                                     'card',   'delivery'],
+  [10, 20,  0, null, [['BBQ Chicken Pizza', 2], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                        'mobile', 'delivery'],
+
+  // ── Day 11 — Dining ───────────────────────────────────────────────────────
+  [11,  9, 30, 1, [['Garlic Bread', 1], ['Masala Chai', 2]],                                                                                     'cash'   ],
+  [11, 11,  0, 0, [['Veg Spring Rolls', 2], ['Cold Coffee', 2]],                                                                                 'card'   ],
+  [11, 12, 30, 3, [['Butter Chicken', 2], ['Dal Makhani', 2], ['Fresh Lime Soda', 2]],                                                           'cash'   ],
+  [11, 14,  0, 5, [['Chicken Biryani', 2], ['Onion Rings', 1], ['Mango Lassi', 2]],                                                              'mobile' ],
+  [11, 17, 30, 2, [['Margherita Pizza', 2], ['Pasta Arrabbiata', 1], ['Iced Tea', 2]],                                                           'card'   ],
+  [11, 19, 15, 4, [['Paneer Butter Masala', 2], ['Hakka Noodles', 1], ['Ras Malai', 2], ['Masala Chai', 2]],                                     'cash'   ],
+  [11, 21,  0, 1, [['BBQ Chicken Pizza', 2], ['Chicken Burger', 2], ['Strawberry Milkshake', 2]],                                                'mobile' ],
+  // Day 11 — Takeaway
+  [11, 12,  0, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                               'mobile', 'takeaway'],
+  [11, 15,  0, null, [['Pav Bhaji', 1], ['Masala Chai', 2]],                                                                                     'cash',   'takeaway'],
+  [11, 19,  0, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                          'card',   'takeaway'],
+  [11, 21, 30, null, [['Hakka Noodles', 1], ['Iced Tea', 1]],                                                                                    'cash',   'takeaway'],
+  // Day 11 — Delivery
+  [11, 12, 30, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                         'mobile', 'delivery'],
+  [11, 16, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                      'card',   'delivery'],
+  [11, 20,  0, null, [['BBQ Chicken Pizza', 2], ['Garlic Bread', 1], ['Cold Coffee', 2]],                                                        'mobile', 'delivery'],
+
+  // ── Day 12 — Dining ───────────────────────────────────────────────────────
+  [12,  9,  0, 3, [['Masala Chai', 2], ['Veg Spring Rolls', 1]],                                                                                 'cash'   ],
+  [12, 11, 30, 0, [['Paneer Tikka', 2], ['Dal Makhani', 1], ['Fresh Lime Soda', 2]],                                                             'card'   ],
+  [12, 13,  0, 2, [['Chicken Biryani', 2], ['Butter Chicken', 1], ['Mango Lassi', 2]],                                                           'cash'   ],
+  [12, 15, 30, 5, [['Grilled Chicken Steak', 2], ['Soup of the Day', 2], ['Cold Coffee', 2]],                                                    'mobile' ],
+  [12, 18,  0, 4, [['Margherita Pizza', 2], ['Pav Bhaji', 1], ['Iced Tea', 2]],                                                                  'card'   ],
+  [12, 20, 30, 1, [['Chicken Wings', 2], ['BBQ Chicken Pizza', 1], ['Brownie with Ice Cream', 2], ['Masala Chai', 2]],                           'cash'   ],
+  // Day 12 — Takeaway
+  [12, 12,  0, null, [['Pav Bhaji', 2], ['Masala Chai', 2]],                                                                                     'cash',   'takeaway'],
+  [12, 15, 30, null, [['Chicken Biryani', 2], ['Fresh Lime Soda', 2]],                                                                           'mobile', 'takeaway'],
+  [12, 20,  0, null, [['Hakka Noodles', 1], ['Iced Tea', 1]],                                                                                    'card',   'takeaway'],
+  // Day 12 — Delivery
+  [12, 12, 30, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                         'mobile', 'delivery'],
+  [12, 17,  0, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Soft Drink (Can)', 2]],                                                     'card',   'delivery'],
+  [12, 20, 30, null, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 1], ['Cold Coffee', 2]],                                                       'mobile', 'delivery'],
+
+  // ── Day 13 — Dining ───────────────────────────────────────────────────────
+  [13,  9, 30, 4, [['Garlic Bread', 2], ['Masala Chai', 2]],                                                                                     'cash'   ],
+  [13, 12,  0, 2, [['Butter Chicken', 2], ['Dal Makhani', 1], ['Mango Lassi', 2]],                                                               'card'   ],
+  [13, 13, 30, 0, [['Chicken Biryani', 2], ['Onion Rings', 1], ['Soft Drink (Can)', 2]],                                                         'mobile' ],
+  [13, 17,  0, 5, [['Margherita Pizza', 2], ['Pasta Arrabbiata', 1], ['Cold Coffee', 2]],                                                        'cash'   ],
+  [13, 19, 30, 3, [['Paneer Butter Masala', 2], ['Hakka Noodles', 1], ['Ras Malai', 2], ['Masala Chai', 2]],                                     'card'   ],
+  [13, 21,  0, 1, [['BBQ Chicken Pizza', 2], ['Chicken Wings', 2], ['Strawberry Milkshake', 2]],                                                 'mobile' ],
+  // Day 13 — Takeaway
+  [13, 11, 30, null, [['Pav Bhaji', 1], ['Masala Chai', 2]],                                                                                     'cash',   'takeaway'],
+  [13, 14,  0, null, [['Chicken Biryani', 2], ['Mango Lassi', 2]],                                                                               'mobile', 'takeaway'],
+  [13, 20,  0, null, [['Butter Chicken', 1], ['Dal Makhani', 1], ['Mineral Water', 2]],                                                          'card',   'takeaway'],
+  // Day 13 — Delivery
+  [13, 12,  0, null, [['Butter Chicken', 2], ['Veg Fried Rice', 1], ['Mango Lassi', 2]],                                                         'mobile', 'delivery'],
+  [13, 17, 30, null, [['Chicken Biryani', 2], ['Paneer Tikka', 1], ['Fresh Lime Soda', 2]],                                                      'card',   'delivery'],
 ];
 
 // ── Ingredients catalogue (costs in INR per unit) ─────────────────────────
@@ -318,6 +461,11 @@ const INGREDIENTS = [
   ['Potatoes',             'kg',  10.000,  2.0,  5.0,  30.0000, false],
   ['Spring Roll Wrappers', 'pcs', 30.000,  8.0, 20.0,   8.0000, false],
   ['BBQ Sauce',            'L',    2.000,  0.5,  1.5, 250.0000, false],
+
+  // ── Additional ingredients ────────────────────────────────────────────────
+  ['Noodles',              'kg',   5.000,  1.0,  3.0,  70.0000, false],
+  ['Condensed Milk',       'L',    3.000,  0.5,  2.0, 120.0000, true ],
+  ['Strawberry Puree',     'L',    2.000,  0.5,  1.5, 180.0000, true ],
 ];
 
 // ── Recipes & ingredients ──────────────────────────────────────────────────
@@ -506,6 +654,43 @@ const RECIPES = [
   ['Fresh Orange Juice', 1, 'glass', 120, 'Fresh Orange Juice', [
     ['Oranges', 0.3000, 'kg'],
   ]],
+  // ── Additional recipes ────────────────────────────────────────────────────
+  ['Hakka Noodles', 1, 'portion', 600, 'Hakka Noodles', [
+    ['Noodles',       0.1500, 'kg'],
+    ['Vegetable Mix', 0.1000, 'kg'],
+    ['Garlic',        0.0150, 'kg'],
+    ['Spice Blend',   0.0100, 'kg'],
+  ]],
+  ['Pav Bhaji', 1, 'portion', 720, 'Pav Bhaji', [
+    ['Potatoes',      0.2000, 'kg' ],
+    ['Vegetable Mix', 0.1000, 'kg' ],
+    ['Onions',        0.0800, 'kg' ],
+    ['Butter',        0.0400, 'kg' ],
+    ['Spice Blend',   0.0200, 'kg' ],
+    ['Burger Bun',    2.0000, 'pcs'],
+  ]],
+  ['Ras Malai', 1, 'serving', 300, 'Ras Malai', [
+    ['Milk',           0.2000, 'L'  ],
+    ['Sugar',          0.0500, 'kg' ],
+    ['Condensed Milk', 0.0500, 'L'  ],
+  ]],
+  ['Brownie with Ice Cream', 1, 'serving', 600, 'Brownie with Ice Cream', [
+    ['Dark Chocolate',    0.0600, 'kg' ],
+    ['Butter',            0.0350, 'kg' ],
+    ['Sugar',             0.0400, 'kg' ],
+    ['All-Purpose Flour', 0.0400, 'kg' ],
+    ['Eggs',              1.0000, 'pcs'],
+    ['Milk',              0.0500, 'L'  ],
+  ]],
+  ['Iced Tea', 1, 'glass', 120, 'Iced Tea', [
+    ['Tea Leaves', 0.0040, 'kg'],
+    ['Sugar',      0.0200, 'kg'],
+  ]],
+  ['Strawberry Milkshake', 1, 'glass', 120, 'Strawberry Milkshake', [
+    ['Strawberry Puree', 0.0800, 'L' ],
+    ['Milk',             0.1500, 'L' ],
+    ['Sugar',            0.0200, 'kg'],
+  ]],
 ];
 
 // ── Combo meals (prices in INR) ────────────────────────────────────────────
@@ -520,6 +705,22 @@ const COMBOS = [
     ['Chicken Wings',  1, 0],
     ['Butter Chicken', 1, 1],
     ['Cold Coffee',    1, 2],
+  ]],
+  ['Weekend Brunch Combo', 'COMBO-BRUNCH-01', 549, [
+    ['Veg Spring Rolls', 1, 0],
+    ['Veg Fried Rice',   1, 1],
+    ['Mango Lassi',      1, 2],
+  ]],
+  ['Desi Thali', 'COMBO-THALI-01', 799, [
+    ['Butter Chicken', 1, 0],
+    ['Dal Makhani',    1, 1],
+    ['Veg Fried Rice', 1, 2],
+    ['Masala Chai',    1, 3],
+  ]],
+  ['Pizza Night Combo', 'COMBO-PIZZA-01', 749, [
+    ['Margherita Pizza', 1, 0],
+    ['Garlic Bread',     1, 1],
+    ['Soft Drink (Can)', 2, 2],
   ]],
 ];
 
@@ -639,7 +840,10 @@ async function main() {
     { code: 'WELCOME10', description: '10% off for new customers',        discount_type: 'percent', discount_value: 10,  min_order_amount: 0,   max_uses: null, expires_at: null },
     { code: 'FLAT50',    description: '₹50 flat discount on orders ₹300+', discount_type: 'flat',    discount_value: 50,  min_order_amount: 300, max_uses: null, expires_at: null },
     { code: 'SAVE20',    description: '20% off weekday orders',            discount_type: 'percent', discount_value: 20,  min_order_amount: 200, max_uses: 100,  expires_at: null },
-    { code: 'PARTY15',   description: '15% off for groups (orders ₹500+)', discount_type: 'percent', discount_value: 15,  min_order_amount: 500, max_uses: 50,   expires_at: null },
+    { code: 'PARTY15',    description: '15% off for groups (orders ₹500+)',     discount_type: 'percent', discount_value: 15, min_order_amount: 500, max_uses: 50,   expires_at: null },
+    { code: 'LUNCH15',    description: '15% off on weekday lunch orders',        discount_type: 'percent', discount_value: 15, min_order_amount: 300, max_uses: 200,  expires_at: null },
+    { code: 'DELIVERY10', description: '₹10 flat off on delivery orders',       discount_type: 'flat',    discount_value: 10, min_order_amount: 150, max_uses: null, expires_at: null },
+    { code: 'LOYALTY50',  description: '₹50 off for loyalty programme members', discount_type: 'flat',    discount_value: 50, min_order_amount: 400, max_uses: null, expires_at: null },
   ];
   for (const c of SEED_COUPONS) {
     await client.query(`
@@ -864,10 +1068,23 @@ async function main() {
   console.log('Seeding waste logs…');
   const WASTE_ENTRIES = [
     // [ingredientName, qty, reason, notes, hoursAgo]
-    ['Chicken',    0.300, 'SPOILAGE', 'End-of-day stock — exceeded shelf life', 2],
-    ['Milk',       0.500, 'SPOILAGE', 'Opened carton not used in time',         4],
-    ['Paneer',     0.100, 'DAMAGED',  'Dropped during prep',                    6],
-    ['Tomatoes',   0.250, 'OVERPREP', 'Excess chopped for morning prep',        1],
+    ['Chicken',        0.300, 'SPOILAGE', 'End-of-day stock — exceeded shelf life',        2  ],
+    ['Milk',           0.500, 'SPOILAGE', 'Opened carton not used in time',                4  ],
+    ['Paneer',         0.100, 'DAMAGED',  'Dropped during prep',                           6  ],
+    ['Tomatoes',       0.250, 'OVERPREP', 'Excess chopped for morning prep',               1  ],
+    ['Fish Fillet',    0.200, 'SPOILAGE', 'Not used before expiry date',                  26  ],
+    ['Eggs',          12.000, 'DAMAGED',  'Tray dropped in cold storage',                 30  ],
+    ['Burger Bun',    10.000, 'SPOILAGE', 'Buns dried out overnight',                     50  ],
+    ['Cooking Cream',  0.300, 'SPOILAGE', 'Open carton expired',                          52  ],
+    ['Mango Pulp',     0.400, 'SPOILAGE', 'Opened pack not used within shelf life',       74  ],
+    ['Calamari',       0.150, 'DAMAGED',  'Freezer burn — texture unacceptable',          78  ],
+    ['Yogurt',         0.300, 'SPOILAGE', 'Past best-before date',                       100  ],
+    ['Bread Loaf',     5.000, 'OVERPREP', 'Excess pre-sliced for service',               102  ],
+    ['Chicken Breast', 0.250, 'OVERPREP', 'Over-portioned during morning meal prep',     124  ],
+    ['Butter',         0.100, 'OVERPREP', 'Excess melted but not used during service',   128  ],
+    ['Pizza Dough',    3.000, 'SPOILAGE', 'Batch over-proofed and discarded',            150  ],
+    ['Vegetable Mix',  0.500, 'SPOILAGE', 'Left over from previous day — not usable',   176  ],
+    ['Heavy Cream',    0.200, 'SPOILAGE', 'Opened container past use date',              200  ],
   ];
   for (const [ingName, qty, reason, notes, hoursAgo] of WASTE_ENTRIES) {
     const ingId   = ingredientIdByName[ingName];
@@ -930,10 +1147,18 @@ async function main() {
   console.log('Seeding reservations…');
   // Two past (seated), two upcoming dinner slots
   const RESERVATIONS = [
-    { guestName: 'Rahul Sharma',   guestPhone: '9876543210', partySize: 2, tableIdx: 0, hoursOffset: -4, status: 'seated',   notes: 'Window seat preferred' },
-    { guestName: 'Priya Nair',     guestPhone: '9812345678', partySize: 4, tableIdx: 2, hoursOffset: -2, status: 'seated',   notes: null },
-    { guestName: 'Vikram Mehta',   guestPhone: '9700011223', partySize: 3, tableIdx: 1, hoursOffset:  2, status: 'upcoming', notes: 'Anniversary dinner — surprise cake' },
-    { guestName: 'Sunita Kapoor',  guestPhone: '9988776655', partySize: 6, tableIdx: 4, hoursOffset:  4, status: 'upcoming', notes: 'Birthday party, need high chair' },
+    { guestName: 'Rahul Sharma',     guestPhone: '9876543210', partySize: 2, tableIdx: 0, hoursOffset:  -4, status: 'seated',   notes: 'Window seat preferred' },
+    { guestName: 'Priya Nair',       guestPhone: '9812345678', partySize: 4, tableIdx: 2, hoursOffset:  -2, status: 'seated',   notes: null },
+    { guestName: 'Vikram Mehta',     guestPhone: '9700011223', partySize: 3, tableIdx: 1, hoursOffset:   2, status: 'upcoming', notes: 'Anniversary dinner — surprise cake' },
+    { guestName: 'Sunita Kapoor',    guestPhone: '9988776655', partySize: 6, tableIdx: 4, hoursOffset:   4, status: 'upcoming', notes: 'Birthday party, need high chair' },
+    { guestName: 'Arjun Reddy',      guestPhone: '9811223344', partySize: 2, tableIdx: 0, hoursOffset: -28, status: 'seated',   notes: null },
+    { guestName: 'Meera Nambiar',    guestPhone: '9922334455', partySize: 5, tableIdx: 3, hoursOffset: -26, status: 'seated',   notes: 'Vegetarian only — confirmed' },
+    { guestName: 'Dev Anand',        guestPhone: '9633221100', partySize: 8, tableIdx: 5, hoursOffset: -50, status: 'seated',   notes: 'Corporate lunch, separate bills' },
+    { guestName: 'Kavya Pillai',     guestPhone: '9745612398', partySize: 2, tableIdx: 1, hoursOffset: -48, status: 'seated',   notes: null },
+    { guestName: 'Rohit Shetty',     guestPhone: '9123409876', partySize: 4, tableIdx: 2, hoursOffset:   6, status: 'upcoming', notes: 'Allergy: nuts, please inform kitchen' },
+    { guestName: 'Ishaan Chaudhary', guestPhone: '9867452301', partySize: 3, tableIdx: 3, hoursOffset:   8, status: 'upcoming', notes: 'Jain food only' },
+    { guestName: 'Aditya Kumar',     guestPhone: '9087654321', partySize: 6, tableIdx: 4, hoursOffset:  24, status: 'upcoming', notes: 'Team dinner, keep a table near the window' },
+    { guestName: 'Nisha Verma',      guestPhone: '9345678012', partySize: 2, tableIdx: 0, hoursOffset:  48, status: 'upcoming', notes: null },
   ];
   let resCount = 0;
   for (const r of RESERVATIONS) {
@@ -1010,6 +1235,56 @@ async function main() {
     ['9432109876', 'Rohan Bose',       800, [
       ['earn',    800, 'Earned from order',          21],
     ]],
+    ['9111222333', 'Farhan Sheikh',   4500, [
+      ['earn',   2000, 'Earned from order',          75],
+      ['earn',   1500, 'Earned from order',          40],
+      ['earn',   1000, 'Earned from order',          10],
+    ]],
+    ['9222333444', 'Rekha Pillai',     850, [
+      ['earn',    500, 'Earned from order',          30],
+      ['earn',    350, 'Earned from order',          12],
+    ]],
+    ['9333444555', 'Siddharth Rao',  9200, [
+      ['earn',   3000, 'Earned from order',         160],
+      ['earn',   2500, 'Earned from order',         110],
+      ['redeem',-1000, 'Redeemed on order',          85],
+      ['earn',   2000, 'Earned from order',          55],
+      ['earn',   2700, 'Earned from order',          20],
+    ]],
+    ['9444555666', 'Pooja Desai',    1200, [
+      ['earn',    700, 'Earned from order',          45],
+      ['earn',    500, 'Earned from order',          18],
+    ]],
+    ['9555666777', 'Nitin Sawant',   3800, [
+      ['earn',   1000, 'Earned from order',          80],
+      ['earn',   1200, 'Earned from order',          55],
+      ['adjust',  500, 'Welcome bonus',              45],
+      ['earn',   1100, 'Earned from order',          20],
+    ]],
+    ['9666777888', 'Geeta Nair',      600, [
+      ['earn',    600, 'Earned from order',           8],
+    ]],
+    ['9777888999', 'Aryan Kapoor',  11500, [
+      ['earn',   4500, 'Earned from order',         200],
+      ['redeem',-2000, 'Redeemed on order',         150],
+      ['earn',   3500, 'Earned from order',         100],
+      ['redeem',-1500, 'Redeemed on order',          60],
+      ['earn',   7000, 'Earned from order',          25],
+    ]],
+    ['9888999000', 'Smita Kulkarni', 2100, [
+      ['earn',    900, 'Earned from order',          65],
+      ['earn',    700, 'Earned from order',          40],
+      ['earn',    500, 'Earned from order',          15],
+    ]],
+    ['9012345678', 'Manish Tiwari',   350, [
+      ['earn',    350, 'Earned from order',           3],
+    ]],
+    ['9198765432', 'Kavita Sharma',  6500, [
+      ['earn',   2200, 'Earned from order',         130],
+      ['earn',   1800, 'Earned from order',          90],
+      ['redeem', -500, 'Redeemed on order',          75],
+      ['earn',   3000, 'Earned from order',          30],
+    ]],
   ];
 
   let loyaltyCustomerCount = 0;
@@ -1059,7 +1334,29 @@ async function main() {
     [1, 5, 5, 5, 'Outstanding! Every dish we ordered was exceptional. Will be back soon.',          6, 2,  '9876543210'],
     [2, 3, 3, 4, 'Decent food but nothing extraordinary. Portions were a bit small.',               6, 4,  null],
     [5, 5, 5, 4, 'The fish and chips were crispy and fresh. Great service as well!',                6, 6,  '9812345670'],
-    [3, 4, 5, 4, 'Beautiful presentation and delicious flavors. Loved the tiramisu.',               6, 8,  null],
+    [3, 4, 5, 4, 'Beautiful presentation and delicious flavors. Loved the tiramisu.',               6,  8, null],
+    // Days 7–9
+    [0, 4, 4, 5, 'Great food and quick service. The mango lassi is absolutely divine!',             7,  2, '9111222333'],
+    [3, 5, 5, 5, 'Celebrated my birthday here. The staff went above and beyond!',                   7,  4, '9812345670'],
+    [2, 3, 3, 4, 'Reasonable food but the wait was long during lunch peak.',                         7,  7, null],
+    [1, 5, 5, 5, 'Consistently excellent. Our go-to restaurant for special occasions.',              8,  1, '9876543210'],
+    [4, 4, 4, 3, 'Food quality was great but service felt rushed during the busy lunch hour.',       8,  3, null],
+    [5, 2, 3, 2, 'Received wrong order, replacement took 25 minutes. Not impressed.',               8,  5, '9333444555'],
+    [0, 5, 5, 4, 'The chicken biryani is phenomenal — perfectly spiced and aromatic.',              9,  2, null],
+    [2, 4, 4, 5, 'Very friendly and attentive staff. Food was fresh and well-prepared.',             9,  4, '9777888999'],
+    [3, 5, 5, 5, 'Absolutely loved the paneer butter masala. Perfectly balanced flavors.',          9,  6, null],
+    // Days 10–13
+    [1, 4, 5, 4, 'The fresh orange juice was so refreshing. Food was excellent overall.',          10,  1, null],
+    [5, 3, 3, 4, 'Decent food but nothing special. An average experience overall.',                10,  3, null],
+    [4, 5, 4, 5, 'Wonderful experience! The tiramisu was the highlight of the evening.',           10,  5, '9198765432'],
+    [0, 4, 4, 4, 'Clean restaurant, good portions and fair prices. Will definitely return.',       11,  2, null],
+    [2, 5, 5, 5, 'The chocolate lava cake is extraordinary. A must-order every single time!',     11,  4, '9543210987'],
+    [3, 2, 2, 3, 'Very slow kitchen. Food arrived cold. Expected better for the price.',           11,  6, null],
+    [1, 5, 5, 4, 'Great variety on the menu. Dal makhani tasted just like home cooking.',         12,  2, '9123456789'],
+    [5, 4, 4, 4, 'Good value for money. The BBQ chicken pizza is always a solid choice.',         12,  5, null],
+    [0, 5, 5, 5, 'Impeccable quality and service. One of the best restaurants in the city.',      13,  1, '9876543210'],
+    [4, 4, 4, 4, 'Tasty food and cozy atmosphere. Perfect for a relaxed weeknight dinner.',       13,  3, '9777888999'],
+    [2, 3, 4, 2, 'Food was good but the place was understaffed and service really suffered.',      13,  5, null],
   ];
   let reviewCount = 0;
   for (const [tableIdx, overall, food, service, comment, daysAgo, hoursAgo, phone] of SEED_REVIEWS) {
@@ -1095,18 +1392,18 @@ async function main() {
   const diningCount   = ORDER_SCHEDULE.filter(([,,,,,, ch = 'dining']) => ch === 'dining').length;
   const takeawayCount = ORDER_SCHEDULE.filter(([,,,,,, ch]) => ch === 'takeaway').length;
   const deliveryCount = ORDER_SCHEDULE.filter(([,,,,,, ch]) => ch === 'delivery').length;
-  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders (${diningCount} dining, ${takeawayCount} takeaway, ${deliveryCount} delivery) across 7 days`);
+  console.log(`  Orders     : ${ORDER_SCHEDULE.length} paid orders (${diningCount} dining, ${takeawayCount} takeaway, ${deliveryCount} delivery) across 14 days`);
   console.log(`  Ingredients: ${INGREDIENTS.length} (stock reconciled from ledger)`);
   console.log(`  Recipes    : ${RECIPES.length} (${linkedCount} linked to menu items)`);
   console.log(`  Combos     : ${COMBOS.length}`);
   console.log(`  Inv. txns  : ${INGREDIENTS.length} PURCHASE + ${saleTxnCount} SALE + ${WASTE_ENTRIES.length} WASTE`);
   console.log(`  Waste logs : ${WASTE_ENTRIES.length}`);
   console.log(`  Snapshots  : ${snapshotCount}`);
-  console.log(`  Reservations: ${resCount} (2 seated, 2 upcoming)`);
-  console.log(`  Coupons    : ${SEED_COUPONS.length} (WELCOME10, FLAT50, SAVE20, PARTY15)`);
+  console.log(`  Reservations: ${resCount} seeded`);
+  console.log(`  Coupons    : ${SEED_COUPONS.length}`);
   console.log(`  Loyalty tiers  : ${DEFAULT_TIERS.length}`);
   console.log(`  Loyalty rewards: ${DEFAULT_REWARDS.length}`);
-  console.log(`  Loyalty members: ${loyaltyCustomerCount} (3 Bronze, 3 Silver, 2 Gold, 2 Platinum)`);
+  console.log(`  Loyalty members: ${loyaltyCustomerCount}`);
   console.log(`  Loyalty txns   : ${loyaltyTxnCount}`);
   console.log(`  Reviews        : ${reviewCount} across 7 days`);
 }
