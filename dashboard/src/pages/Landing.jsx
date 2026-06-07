@@ -414,8 +414,9 @@ export default function Landing() {
             <span style={SEC}>06 — How we compare</span>
             <h2 style={SEC_H2}>Waste control isn't an add-on here.<br />It's the entire point.</h2>
           </div>
-          <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }} className="cmp-wrap">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }} className="cmp-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
               <thead>
                 <tr>
                   {["Capability", "Generic POS", "CookLyt"].map((h, i) => (
@@ -442,6 +443,7 @@ export default function Landing() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       </section>
@@ -563,10 +565,6 @@ export default function Landing() {
           .stat-cells { grid-template-columns: repeat(2, 1fr) !important; }
           .stat-cells > div:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
           .stat-cells > div:nth-child(even) { border-right: 0 !important; }
-        }
-        @media (max-width: 760px) {
-          .cmp-wrap { overflow-x: auto; }
-          .cmp-wrap table { min-width: 560px; }
         }
         @media (max-width: 700px) {
           .stats-grid { grid-template-columns: 1fr !important; }
