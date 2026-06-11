@@ -1,0 +1,210 @@
+const llm = require('./llm.client');
+const repo = require('./ai.repository');
+const ingredientsService = require('../ingredients/ingredients.service');
+const wasteService = require('../waste/waste.service');
+const { ValidationError } = require('../shared/errors');
+
+const WASTE_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
+const HISTORY_LIMIT = 20;
+
+// ── Tool schemas (OpenAI function format) ───────────────────────────────────
+
+const days  = { type: 'integer', description: 'How many days back to look (default 7)' };
+const limit = { type: 'integer', description: 'Max rows to return' };
+
+const TOOLS = [
+  { type: 'function', function: { name: 'get_waste_summary',      description: 'Waste events and total cost grouped by reason (SPOILAGE, SPILL, OVERPREP, DAMAGED, OTHER) over the last N days.', parameters: { type: 'object', properties: { days }, required: [] } } },
+  { type: 'function', function: { name: 'get_top_wasted_items',   description: 'Most-wasted ingredients by cost over the last N days, with quantities.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
+  { type: 'function', function: { name: 'get_low_stock',          description: 'Ingredients at or below their reorder level right now, with stock on hand and unit cost.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'get_inventory_movements', description: 'Stock movements (purchases, sales deductions, waste, adjustments) per ingredient over the last N days.', parameters: { type: 'object', properties: { days }, required: [] } } },
+  { type: 'function', function: { name: 'get_recipe_costs',       description: 'Every recipe with its ingredient cost, linked menu price, and food-cost percentage (cost ÷ price). High percentages mean thin margins.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'get_sales_velocity',     description: 'Best-selling menu items over the last N days: quantity sold, revenue, average per day.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
+  { type: 'function', function: { name: 'get_recent_orders',      description: 'The most recent orders with status, channel, items, and amount.', parameters: { type: 'object', properties: { limit }, required: [] } } },
+  { type: 'function', function: { name: 'find_ingredient',        description: 'Look up ingredients by (partial) name. Use before update_reorder_level or log_waste to resolve the exact ingredient.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Full or partial ingredient name' } }, required: ['name'] } } },
+  { type: 'function', function: { name: 'update_reorder_level',   description: 'WRITE ACTION (user must confirm): change an ingredient\'s reorder level.', parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, new_level: { type: 'number', description: 'New reorder level in the ingredient\'s unit' } }, required: ['ingredient_name', 'new_level'] } } },
+  { type: 'function', function: { name: 'log_waste',              description: `WRITE ACTION (user must confirm): record wasted stock of an ingredient. reason must be one of ${WASTE_REASONS.join(', ')}.`, parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, quantity: { type: 'number', description: 'Wasted amount in the ingredient\'s unit' }, reason: { type: 'string', enum: WASTE_REASONS }, notes: { type: 'string' } }, required: ['ingredient_name', 'quantity', 'reason'] } } },
+];
+
+const SYSTEM_PROMPT = `You are CookLyt's assistant for restaurant staff. You answer questions about waste, inventory, recipes, sales, and orders using the provided tools.
+
+Rules:
+- Always fetch data through tools — never invent numbers. If a tool returns no rows, say so plainly.
+- Be concise. Staff are mid-shift; lead with the answer, use short lists over prose.
+- Monetary amounts are in the restaurant's local currency.
+- Write actions (changing reorder levels, logging waste) are proposed via tools and the user confirms them in the UI — never claim an action is done unless a tool result says so.
+- If an ingredient name is ambiguous, use find_ingredient and ask the user which one they mean.
+- Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.`;
+
+// ── Tool execution ───────────────────────────────────────────────────────────
+
+const READ_TOOLS = {
+  get_waste_summary:       (rid, a) => repo.getWasteSummary(rid, a.days ?? 7),
+  get_top_wasted_items:    (rid, a) => repo.getTopWastedItems(rid, a.days ?? 7, a.limit ?? 10),
+  get_low_stock:           (rid)    => repo.getLowStock(rid),
+  get_inventory_movements: (rid, a) => repo.getInventoryMovements(rid, a.days ?? 7),
+  get_recipe_costs:        (rid)    => repo.getRecipeCosts(rid),
+  get_sales_velocity:      (rid, a) => repo.getSalesVelocity(rid, a.days ?? 7, a.limit ?? 15),
+  get_recent_orders:       (rid, a) => repo.getRecentOrders(rid, a.limit ?? 10),
+  find_ingredient:         (rid, a) => repo.findIngredientsByName(rid, a.name || ''),
+};
+
+// Resolve a write tool's arguments into a concrete, confirmable action.
+// Returns { confirmRequired, summary, ...resolved } to halt the loop, or a plain
+// object (error / candidates) that goes back to the model as a tool result.
+async function prepareWriteAction(restaurantId, toolName, args) {
+  const matches = await repo.findIngredientsByName(restaurantId, args.ingredient_name || '');
+  if (!matches.length) return { error: `No ingredient found matching "${args.ingredient_name}"` };
+  if (matches.length > 1) {
+    const exact = matches.find((m) => m.name.toLowerCase() === (args.ingredient_name || '').toLowerCase());
+    if (!exact) return { error: 'Multiple ingredients match — ask the user which one they mean', candidates: matches.map((m) => m.name) };
+    matches[0] = exact;
+  }
+  const ing = matches[0];
+
+  if (toolName === 'update_reorder_level') {
+    const newLevel = Number(args.new_level);
+    if (!Number.isFinite(newLevel) || newLevel < 0) return { error: 'new_level must be a non-negative number' };
+    return {
+      confirmRequired: true,
+      summary: `Change reorder level for ${ing.name} from ${ing.reorder_level} to ${newLevel} ${ing.unit}`,
+      ingredientId: ing.id,
+      ingredientName: ing.name,
+      newLevel,
+    };
+  }
+
+  if (toolName === 'log_waste') {
+    const quantity = Number(args.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) return { error: 'quantity must be a positive number' };
+    if (!WASTE_REASONS.includes(args.reason)) return { error: `reason must be one of: ${WASTE_REASONS.join(', ')}` };
+    return {
+      confirmRequired: true,
+      summary: `Log ${quantity} ${ing.unit} of ${ing.name} as ${args.reason} waste`,
+      ingredientId: ing.id,
+      ingredientName: ing.name,
+      quantity,
+      reason: args.reason,
+      notes: args.notes || null,
+    };
+  }
+
+  return { error: `Unknown write tool: ${toolName}` };
+}
+
+async function executeTool(restaurantId, toolName, args) {
+  if (READ_TOOLS[toolName]) return READ_TOOLS[toolName](restaurantId, args || {});
+  return prepareWriteAction(restaurantId, toolName, args || {});
+}
+
+// ── Chat (streaming) ─────────────────────────────────────────────────────────
+
+async function buildMessages(sessionId, restaurantId, userMessage) {
+  const history = await repo.getSessionMessages(sessionId, restaurantId, HISTORY_LIMIT);
+  return [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
+}
+
+/**
+ * One chat turn as an async generator. Yields:
+ *   { type: 'text', delta }
+ *   { type: 'confirm_required', tool, args, summary }
+ *   { type: 'done' }
+ * Handles the tool loop internally; persists the user message and final
+ * assistant text to ai_conversations.
+ */
+async function* streamChat({ sessionId, restaurantId, userId, message }) {
+  if (!sessionId)              throw new ValidationError('sessionId is required');
+  if (!message?.trim())        throw new ValidationError('message is required');
+
+  const messages = await buildMessages(sessionId, restaurantId, message.trim());
+  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'user', content: message.trim() });
+
+  const MAX_ROUNDS = 5;
+  let assistantText = '';
+
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    let roundText = '';
+    let toolCalls = null;
+
+    for await (const ev of llm.chatStream(messages, { tools: TOOLS })) {
+      if (ev.type === 'text') {
+        roundText += ev.delta;
+        yield { type: 'text', delta: ev.delta };
+      }
+      if (ev.type === 'tool_calls') toolCalls = ev.toolCalls;
+    }
+    assistantText += roundText;
+
+    if (!toolCalls) break;
+
+    messages.push({ role: 'assistant', content: roundText, tool_calls: toolCalls });
+
+    for (const call of toolCalls) {
+      const name = call.function?.name;
+      let args = {};
+      try { args = JSON.parse(call.function?.arguments || '{}'); } catch { /* model sent bad JSON — fall through with {} */ }
+
+      const result = await executeTool(restaurantId, name, args);
+
+      if (result?.confirmRequired) {
+        const { confirmRequired, summary, ...resolved } = result;
+        if (assistantText.trim()) {
+          await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: assistantText.trim() });
+        }
+        yield { type: 'confirm_required', tool: name, args: resolved, summary };
+        yield { type: 'done' };
+        return;
+      }
+
+      messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result ?? null) });
+    }
+  }
+
+  if (assistantText.trim()) {
+    await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: assistantText.trim() });
+  }
+  yield { type: 'done' };
+}
+
+// ── Confirmed write execution ────────────────────────────────────────────────
+
+/**
+ * Executes a write action the user confirmed in the UI. The args are the
+ * resolved payload from the confirm_required event (ingredientId already
+ * validated against this restaurant during resolution; services re-check).
+ */
+async function confirmAction({ sessionId, restaurantId, userId, tool, args, confirmed }) {
+  if (!confirmed) {
+    await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: 'Okay, I won\'t make that change.' });
+    return { executed: false, message: 'Action cancelled.' };
+  }
+
+  let result;
+  let summary;
+
+  if (tool === 'update_reorder_level') {
+    result = await ingredientsService.update(args.ingredientId, { reorderLevel: args.newLevel }, restaurantId);
+    summary = `Reorder level for ${result.name} set to ${result.reorder_level} ${result.unit}.`;
+  } else if (tool === 'log_waste') {
+    result = await wasteService.logWaste({
+      restaurantId,
+      ingredientId: args.ingredientId,
+      quantity: args.quantity,
+      reason: args.reason,
+      notes: args.notes,
+      loggedBy: userId,
+    });
+    summary = `Logged ${result.quantity} ${result.unit} of ${args.ingredientName} as ${result.reason} (cost ${result.total_cost}).`;
+  } else {
+    throw new ValidationError(`Unknown write tool: ${tool}`);
+  }
+
+  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'tool', content: summary, toolName: tool });
+  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: summary });
+  return { executed: true, message: summary };
+}
+
+module.exports = { streamChat, confirmAction, TOOLS };

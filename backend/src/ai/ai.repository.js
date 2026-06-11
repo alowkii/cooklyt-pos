@@ -145,6 +145,33 @@ const findIngredientsByName = (restaurantId, search) =>
     )
     .then((r) => r.rows);
 
+// ── Conversation persistence ────────────────────────────────────────────────
+// Only user and assistant text is replayed as LLM history; role='tool' rows are
+// an audit trail of confirmed write actions, not part of the prompt.
+
+const saveMessage = ({ sessionId, restaurantId, userId, role, content, toolName }) =>
+  db
+    .query(
+      `INSERT INTO ai_conversations (session_id, restaurant_id, user_id, role, content, tool_name)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [sessionId, restaurantId, userId || null, role, content, toolName || null],
+    )
+    .then((r) => r.rows[0]);
+
+const getSessionMessages = (sessionId, restaurantId, limit = 20) =>
+  db
+    .query(
+      `SELECT role, content FROM (
+         SELECT role, content, created_at
+         FROM ai_conversations
+         WHERE session_id = $1 AND restaurant_id = $2 AND role IN ('user', 'assistant')
+         ORDER BY created_at DESC
+         LIMIT $3
+       ) recent ORDER BY created_at ASC`,
+      [sessionId, restaurantId, limit],
+    )
+    .then((r) => r.rows);
+
 module.exports = {
   getWasteSummary,
   getTopWastedItems,
@@ -154,4 +181,6 @@ module.exports = {
   getSalesVelocity,
   getRecentOrders,
   findIngredientsByName,
+  saveMessage,
+  getSessionMessages,
 };
