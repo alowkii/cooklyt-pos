@@ -1,5 +1,6 @@
 const llm = require('./llm.client');
 const repo = require('./ai.repository');
+const settingsRepo = require('../settings/settings.repository');
 const ingredientsService = require('../ingredients/ingredients.service');
 const wasteService = require('../waste/waste.service');
 const { ValidationError } = require('../shared/errors');
@@ -103,10 +104,28 @@ async function executeTool(restaurantId, toolName, args) {
 
 // ── Chat (streaming) ─────────────────────────────────────────────────────────
 
+// The model has no clock — without this it hallucinates dates from training data.
+function dateContext(settings) {
+  const timezone = settings.timezone || 'UTC';
+  let line;
+  try {
+    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' }).format(new Date());
+    const isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+    line = `Today is ${weekday}, ${isoDate} (${timezone}).`;
+  } catch {
+    line = `Today is ${new Date().toISOString().slice(0, 10)} (UTC).`;
+  }
+  if (settings.currency) line += ` Amounts are in ${settings.currency}.`;
+  return line;
+}
+
 async function buildMessages(sessionId, restaurantId, userMessage) {
-  const history = await repo.getSessionMessages(sessionId, restaurantId, HISTORY_LIMIT);
+  const [history, settings] = await Promise.all([
+    repo.getSessionMessages(sessionId, restaurantId, HISTORY_LIMIT),
+    settingsRepo.getAll(restaurantId).catch(() => ({})),
+  ]);
   return [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: `${SYSTEM_PROMPT}\n\n${dateContext(settings)}` },
     ...history,
     { role: 'user', content: userMessage },
   ];
