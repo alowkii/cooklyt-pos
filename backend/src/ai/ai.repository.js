@@ -149,6 +149,55 @@ const getMenuItems = (restaurantId, { maxPrice, minPrice, category, nameContains
     )
     .then((r) => r.rows);
 
+const getTables = (restaurantId) =>
+  db
+    .query(
+      `SELECT number, status, seats
+       FROM tables
+       WHERE restaurant_id = $1
+       ORDER BY number`,
+      [restaurantId],
+    )
+    .then((r) => r.rows);
+
+const getTableByNumber = (restaurantId, number) =>
+  db
+    .query(
+      'SELECT id, number, status, seats FROM tables WHERE restaurant_id = $1 AND number = $2',
+      [restaurantId, number],
+    )
+    .then((r) => r.rows[0]);
+
+const getActiveOrders = (restaurantId) =>
+  db
+    .query(
+      `SELECT o.id, o.order_ref, o.status, o.channel, t.number AS table_number,
+              ROUND(SUM(oi.quantity * mi.price)::numeric, 2) AS amount,
+              string_agg(mi.name || ' ×' || oi.quantity, ', ' ORDER BY mi.name) AS items
+       FROM orders o
+       LEFT JOIN tables t ON t.id = o.table_id
+       LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.status != 'cancelled'
+       LEFT JOIN menu_items mi  ON mi.id = oi.menu_item_id
+       WHERE o.restaurant_id = $1 AND o.status NOT IN ('paid', 'cancelled')
+       GROUP BY o.id, t.number
+       ORDER BY o.created_at DESC`,
+      [restaurantId],
+    )
+    .then((r) => r.rows);
+
+// Resolves menu item names from the model to real rows (for order placement)
+const findMenuItemsByName = (restaurantId, search) =>
+  db
+    .query(
+      `SELECT id, name, price, category, available
+       FROM menu_items
+       WHERE restaurant_id = $1 AND name ILIKE '%' || $2 || '%'
+       ORDER BY name
+       LIMIT 5`,
+      [restaurantId, search],
+    )
+    .then((r) => r.rows);
+
 // Resolves the ingredient names the model produces ("paneer", "Tomatoes") to real
 // rows — used by write tools (e.g. update_reorder_level) before asking the user
 // to confirm.
@@ -200,6 +249,10 @@ module.exports = {
   getSalesVelocity,
   getRecentOrders,
   getMenuItems,
+  getTables,
+  getTableByNumber,
+  getActiveOrders,
+  findMenuItemsByName,
   findIngredientsByName,
   saveMessage,
   getSessionMessages,

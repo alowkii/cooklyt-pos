@@ -3,6 +3,7 @@ const repo = require('./ai.repository');
 const settingsRepo = require('../settings/settings.repository');
 const ingredientsService = require('../ingredients/ingredients.service');
 const wasteService = require('../waste/waste.service');
+const ordersService = require('../orders/orders.service');
 const { ValidationError } = require('../shared/errors');
 
 const WASTE_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
@@ -25,6 +26,10 @@ const TOOLS = [
   { type: 'function', function: { name: 'find_ingredient',        description: 'Look up ingredients by (partial) name. Use before update_reorder_level or log_waste to resolve the exact ingredient.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Full or partial ingredient name' } }, required: ['name'] } } },
   { type: 'function', function: { name: 'update_reorder_level',   description: 'WRITE ACTION (user must confirm): change an ingredient\'s reorder level.', parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, new_level: { type: 'number', description: 'New reorder level in the ingredient\'s unit' } }, required: ['ingredient_name', 'new_level'] } } },
   { type: 'function', function: { name: 'log_waste',              description: `WRITE ACTION (user must confirm): record wasted stock of an ingredient. reason must be one of ${WASTE_REASONS.join(', ')}.`, parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, quantity: { type: 'number', description: 'Wasted amount in the ingredient\'s unit' }, reason: { type: 'string', enum: WASTE_REASONS }, notes: { type: 'string' } }, required: ['ingredient_name', 'quantity', 'reason'] } } },
+  { type: 'function', function: { name: 'get_tables',             description: 'All tables with their number, status (available / occupied / reserved / cleaning), and seats. Check this before placing a dining order.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'get_active_orders',      description: 'Orders that are not yet paid or cancelled, with order ref, table, items, and amount. Use to find an order before cancelling it.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'place_order',            description: 'WRITE ACTION (user must confirm): place a dining order on a table. Ask the user for the table number and the items with quantities first if you do not have them.', parameters: { type: 'object', properties: { table_number: { type: 'integer' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string', description: 'Menu item name' }, quantity: { type: 'integer' }, notes: { type: 'string', description: 'Special instructions, e.g. no onions' } }, required: ['name', 'quantity'] } } }, required: ['table_number', 'items'] } } },
+  { type: 'function', function: { name: 'cancel_order',           description: 'WRITE ACTION (user must confirm): cancel an active order. Identify it by order_ref or table_number; if both are missing, use get_active_orders and ask the user which one.', parameters: { type: 'object', properties: { order_ref: { type: 'string', description: 'Order reference like 2606A018' }, table_number: { type: 'integer', description: 'Table the order is on' } }, required: [] } } },
 ];
 
 const SYSTEM_PROMPT = `You are CookLyt's assistant for restaurant staff. You answer questions about waste, inventory, recipes, sales, and orders using the provided tools.
@@ -37,7 +42,9 @@ Rules:
 - If an ingredient name is ambiguous, use find_ingredient and ask the user which one they mean.
 - Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.
 - When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
-- Every data question must be answered from a tool call made in THIS turn. Never reuse lists or numbers from earlier messages, even when the new question looks similar to a previous one — the constraint may have changed.`;
+- Every data question must be answered from a tool call made in THIS turn. Never reuse lists or numbers from earlier messages, even when the new question looks similar to a previous one — the constraint may have changed.
+- You can place dining orders and cancel orders. Before calling place_order, you need the table number and the items with quantities — ask the user for whatever is missing, one question at a time.
+- When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.`;
 
 // ── Tool execution ───────────────────────────────────────────────────────────
 
@@ -50,13 +57,92 @@ const READ_TOOLS = {
   get_sales_velocity:      (rid, a) => repo.getSalesVelocity(rid, a.days ?? 7, a.limit ?? 15),
   get_recent_orders:       (rid, a) => repo.getRecentOrders(rid, a.limit ?? 10),
   get_menu_items:          (rid, a) => repo.getMenuItems(rid, { maxPrice: a.max_price, minPrice: a.min_price, category: a.category, nameContains: a.name_contains }),
+  get_tables:              (rid)    => repo.getTables(rid),
+  get_active_orders:       (rid)    => repo.getActiveOrders(rid),
   find_ingredient:         (rid, a) => repo.findIngredientsByName(rid, a.name || ''),
 };
+
+async function preparePlaceOrder(restaurantId, args) {
+  const tableNumber = Number(args.table_number);
+  if (!Number.isInteger(tableNumber)) return { error: 'table_number must be an integer' };
+  if (!Array.isArray(args.items) || !args.items.length) return { error: 'items must be a non-empty array' };
+
+  const table = await repo.getTableByNumber(restaurantId, tableNumber);
+  if (!table) {
+    const tables = await repo.getTables(restaurantId);
+    return { error: `There is no table ${tableNumber}`, existingTables: tables.map((t) => t.number) };
+  }
+  if (table.status !== 'available') {
+    const tables = await repo.getTables(restaurantId);
+    return {
+      error: `Table ${tableNumber} is ${table.status}`,
+      availableTables: tables.filter((t) => t.status === 'available').map((t) => `Table ${t.number} (${t.seats} seats)`),
+    };
+  }
+
+  const resolved = [];
+  let total = 0;
+  for (const item of args.items) {
+    const qty = Number(item.quantity);
+    if (!Number.isInteger(qty) || qty < 1) return { error: `Quantity for "${item.name}" must be a positive integer` };
+    const matches = await repo.findMenuItemsByName(restaurantId, item.name || '');
+    const exact = matches.find((m) => m.name.toLowerCase() === (item.name || '').toLowerCase());
+    const pick = exact || (matches.length === 1 ? matches[0] : null);
+    if (!pick) {
+      if (!matches.length) return { error: `No menu item matching "${item.name}"` };
+      return { error: `"${item.name}" is ambiguous — ask the user which one`, candidates: matches.map((m) => m.name) };
+    }
+    if (!pick.available) return { error: `${pick.name} is currently unavailable` };
+    resolved.push({ menuItemId: pick.id, name: pick.name, quantity: qty, notes: item.notes || null, price: Number(pick.price) });
+    total += Number(pick.price) * qty;
+  }
+
+  return {
+    confirmRequired: true,
+    summary: `Place order on Table ${tableNumber}: ${resolved.map((i) => `${i.quantity}× ${i.name}`).join(', ')} — total ${total.toFixed(2)}`,
+    tableId: table.id,
+    tableNumber,
+    items: resolved.map(({ menuItemId, name, quantity, notes }) => ({ menuItemId, name, quantity, notes })),
+  };
+}
+
+async function prepareCancelOrder(restaurantId, args) {
+  const active = await repo.getActiveOrders(restaurantId);
+  if (!active.length) return { error: 'There are no active orders to cancel' };
+
+  let candidates = active;
+  if (args.order_ref)    candidates = candidates.filter((o) => o.order_ref?.toLowerCase() === String(args.order_ref).toLowerCase());
+  if (args.table_number) candidates = candidates.filter((o) => o.table_number === Number(args.table_number));
+
+  if (!candidates.length) {
+    return {
+      error: 'No active order matches that',
+      activeOrders: active.map((o) => `${o.order_ref} (${o.table_number ? `Table ${o.table_number}` : o.channel}, ${o.items || 'no items'}, ${o.amount})`),
+    };
+  }
+  if (candidates.length > 1) {
+    return {
+      error: 'Multiple active orders match — ask the user which one',
+      candidates: candidates.map((o) => `${o.order_ref} (${o.table_number ? `Table ${o.table_number}` : o.channel}, ${o.items || 'no items'}, ${o.amount})`),
+    };
+  }
+
+  const order = candidates[0];
+  return {
+    confirmRequired: true,
+    summary: `Cancel order ${order.order_ref}${order.table_number ? ` on Table ${order.table_number}` : ''} (${order.items || 'no items'} — ${order.amount})`,
+    orderId: order.id,
+    orderRef: order.order_ref,
+  };
+}
 
 // Resolve a write tool's arguments into a concrete, confirmable action.
 // Returns { confirmRequired, summary, ...resolved } to halt the loop, or a plain
 // object (error / candidates) that goes back to the model as a tool result.
 async function prepareWriteAction(restaurantId, toolName, args) {
+  if (toolName === 'place_order')  return preparePlaceOrder(restaurantId, args);
+  if (toolName === 'cancel_order') return prepareCancelOrder(restaurantId, args);
+
   const matches = await repo.findIngredientsByName(restaurantId, args.ingredient_name || '');
   if (!matches.length) return { error: `No ingredient found matching "${args.ingredient_name}"` };
   if (matches.length > 1) {
@@ -227,6 +313,18 @@ async function confirmAction({ sessionId, restaurantId, userId, tool, args, conf
       loggedBy: userId,
     });
     summary = `Logged ${result.quantity} ${result.unit} of ${args.ingredientName} as ${result.reason} (cost ${result.total_cost}).`;
+  } else if (tool === 'place_order') {
+    result = await ordersService.createOrder({
+      restaurantId,
+      tableId: args.tableId,
+      createdBy: userId,
+      items: args.items.map(({ menuItemId, quantity, notes }) => ({ menuItemId, quantity, notes })),
+      channel: 'dining',
+    });
+    summary = `Order ${result.order_ref} placed on Table ${args.tableNumber} — sent to the kitchen.`;
+  } else if (tool === 'cancel_order') {
+    await ordersService.updateStatus(args.orderId, 'cancelled', restaurantId);
+    summary = `Order ${args.orderRef} cancelled.`;
   } else {
     throw new ValidationError(`Unknown write tool: ${tool}`);
   }
