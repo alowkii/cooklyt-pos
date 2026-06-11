@@ -97,11 +97,11 @@ const CMP_ROWS = [
 const STATUS_DOT  = { preparing: "var(--warn)", ready: "var(--info)", received: "var(--mute-2)", served: "var(--ok)" };
 const ELAPSED_STY = { warn: { color: "var(--warn)", fontWeight: 600 }, bad: { color: "var(--bad)", fontWeight: 600 }, mute: { color: "var(--mute)" } };
 const ROWS = [
-  { key: "T03",  label: "T03",  status: "preparing", elapsed: "4m",       elStyle: "mute", amount: "$104.00" },
-  { key: "T06",  label: "T06",  status: "ready",     elapsed: "12m",      elStyle: "warn", amount: "$226.00" },
-  { key: "#042", label: null,   status: "received",  elapsed: "just now", elStyle: "mute", amount: "$59.00",  icon: "cart",     sub: "Maya K. · #042" },
-  { key: "T14",  label: "T14",  status: "served",    elapsed: "22m",      elStyle: "bad",  amount: "$71.00" },
-  { key: "dlv",  label: null,   status: "preparing", elapsed: "8m",       elStyle: "mute", amount: "$49.00",  icon: "delivery", sub: "#DLV-7741", last: true },
+  { key: "T03",  label: "T03",  status: "preparing", elapsed: "4m",       elStyle: "mute", amount: "₹1,040" },
+  { key: "T06",  label: "T06",  status: "ready",     elapsed: "12m",      elStyle: "warn", amount: "₹2,260" },
+  { key: "#042", label: null,   status: "received",  elapsed: "just now", elStyle: "mute", amount: "₹590",  icon: "cart",     sub: "Maya K. · #042" },
+  { key: "T14",  label: "T14",  status: "served",    elapsed: "22m",      elStyle: "bad",  amount: "₹710" },
+  { key: "dlv",  label: null,   status: "preparing", elapsed: "8m",       elStyle: "mute", amount: "₹490",  icon: "delivery", sub: "#DLV-7741", last: true },
 ];
 
 function DevicePreview() {
@@ -182,8 +182,13 @@ const SEC = { fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", 
 const SEC_H2 = { fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-.025em", lineHeight: 1.05, margin: "8px 0 12px", fontWeight: 600 };
 const SEC_P  = { color: "var(--mute)", margin: 0, fontSize: 15, lineHeight: 1.55, maxWidth: 520 };
 
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem("pos_user") || "null"); } catch { return null; }
+}
+
 export default function Landing() {
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   const nlBase = {
     height: 32, padding: "0 12px", borderRadius: 6, fontSize: 13, color: "var(--mute)",
@@ -210,7 +215,7 @@ export default function Landing() {
             {[{ href: "#problem", label: "The problem" }, { href: "#waste", label: "Waste intelligence" }, { href: "#features", label: "Features" }, { href: "#how", label: "Access" }].map(({ href, label }) => (
               <a key={href} href={href} className="nav-text-link" style={nlBase} onMouseEnter={nlHover} onMouseLeave={nlLeave}>{label}</a>
             ))}
-            <button onClick={() => navigate("/login")} className="nav-text-link" style={nlBase} onMouseEnter={nlHover} onMouseLeave={nlLeave}>Sign in</button>
+            <button onClick={() => navigate(user ? "/overview" : "/login")} className="nav-text-link" style={nlBase} onMouseEnter={nlHover} onMouseLeave={nlLeave}>{user ? "Dashboard" : "Sign in"}</button>
             <a href="#cta" style={{ ...nlBase, background: "var(--ink)", color: "var(--accent-on)", padding: "0 14px", height: 34, gap: 6 }}
               onMouseEnter={e => { e.currentTarget.style.background = "var(--ink-2)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "var(--ink)"; }}>
@@ -336,7 +341,7 @@ export default function Landing() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="stat-cells">
             {STATS.map(({ num, unit, desc, src, accent }, i) => (
               <div key={i} style={{ padding: "30px 28px", borderRight: (i + 1) % 3 !== 0 ? "1px solid var(--line)" : 0, borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
-                <div className="mono" style={{ fontSize: 40, fontWeight: 500, letterSpacing: "-.02em", lineHeight: 1, color: accent ? "var(--accent)" : "var(--ink)" }}>
+                <div className="mono" style={{ fontSize: 40, fontWeight: 500, letterSpacing: "-.02em", lineHeight: 1, color: accent ? "var(--copper)" : "var(--ink)" }}>
                   {num}{unit && <span style={{ fontSize: 16, letterSpacing: 0, color: "var(--mute)", marginLeft: 4 }}>{unit}</span>}
                 </div>
                 <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.55, marginTop: 14, flex: 1 }}>{desc}</div>
@@ -365,7 +370,7 @@ export default function Landing() {
           <div style={{ marginBottom: 48, maxWidth: 680 }}>
             <span style={SEC}>04 — Waste intelligence</span>
             <h2 style={SEC_H2}>Every tool built around one goal:<br />less waste, more margin.</h2>
-            <p style={SEC_P}>Waste control isn't an add-on bolted onto a generic POS. For CookLyt, it's the entire point.</p>
+            <p style={SEC_P}>Most systems treat waste as a month-end report. CookLyt treats it as a live number you can act on mid-shift.</p>
           </div>
         </div>
         <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
@@ -420,7 +425,7 @@ export default function Landing() {
               <thead>
                 <tr>
                   {["Capability", "Generic POS", "CookLyt"].map((h, i) => (
-                    <th key={h} style={{ textAlign: "left", padding: "16px 22px", fontFamily: '"Geist Mono", monospace', fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: i === 2 ? "var(--accent)" : "var(--mute)", background: "var(--paper-2)", borderBottom: "1px solid var(--line)" }}>{h}</th>
+                    <th key={h} style={{ textAlign: "left", padding: "16px 22px", fontFamily: '"Geist Mono", monospace', fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: i === 2 ? "var(--copper)" : "var(--mute)", background: "var(--paper-2)", borderBottom: "1px solid var(--line)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -435,7 +440,7 @@ export default function Landing() {
                       }
                     </td>
                     <td style={{ padding: "15px 22px", fontSize: 14, borderBottom: "1px solid var(--line)", color: "var(--ink)", background: "rgba(176,106,59,0.06)", verticalAlign: "middle" }}>
-                      <span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 8, color: "var(--accent)" }}><Check size={14} /></span>
+                      <span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 8, color: "var(--copper)" }}><Check size={14} /></span>
                       {cooklyt}
                       {soon && <span className="mono" style={{ fontSize: 10, color: "var(--mute)", marginLeft: 6 }}>soon</span>}
                     </td>
@@ -460,7 +465,7 @@ export default function Landing() {
               India's food-service sector generates <strong style={{ color: "var(--ink)" }}>11.9 million tonnes of food waste every year</strong>. And most of it doesn't happen at the dinner table — it happens in the back of a restaurant, on an overloaded shelf, in a fridge nobody checked before placing the morning order.
             </p>
             <span style={{ display: "block", fontFamily: '"Geist Mono", monospace', fontSize: 11, color: "var(--mute-2)", marginBottom: 24, lineHeight: 1.5 }}>Source: UNEP Food Waste Index Report 2021 — unep.org</span>
-            <div style={{ margin: "0 0 24px", padding: "22px 26px", background: "var(--paper)", border: "1px solid var(--line)", borderLeft: "3px solid var(--accent)", borderRadius: "0 10px 10px 0" }}>
+            <div style={{ margin: "0 0 24px", padding: "22px 26px", background: "var(--paper)", border: "1px solid var(--line)", borderLeft: "3px solid var(--copper)", borderRadius: "0 10px 10px 0" }}>
               <p style={{ fontSize: 15, color: "var(--ink-2)", margin: 0, lineHeight: 1.7 }}>
                 While urban restaurants discard excess inventory from overstocking, <strong style={{ color: "var(--ink)" }}>over 20 crore Indians go hungry daily</strong>. India wastes enough food annually — valued at <strong style={{ color: "var(--ink)" }}>₹1.52 lakh crore</strong> — to represent 3.7% of the entire agriculture sector's output.
               </p>
@@ -538,10 +543,10 @@ export default function Landing() {
             <span style={{ color: "var(--mute)" }}>by Krilok</span>
           </span>
           <span className="mono" style={{ color: "var(--mute)" }}>© {new Date().getFullYear()} Krilok. All rights reserved.</span>
-          <button onClick={() => navigate("/login")} style={{ marginLeft: "auto", color: "var(--mute)", background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, whiteSpace: "nowrap" }}
+          <button onClick={() => navigate(user ? "/overview" : "/login")} style={{ marginLeft: "auto", color: "var(--mute)", background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, whiteSpace: "nowrap" }}
             onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>
-            Client sign in →
+            {user ? "Go to dashboard →" : "Client sign in →"}
           </button>
         </div>
       </footer>

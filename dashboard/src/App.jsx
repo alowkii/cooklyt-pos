@@ -1,38 +1,40 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useSync } from './hooks/useSync';
 import { useSettings } from './hooks/useSettings';
 import { useTimezone } from './context/TimezoneContext';
 import { useCurrency } from './context/CurrencyContext';
-import Layout   from './components/Layout';
-import Login          from './pages/Login';
-import ChangePassword from './pages/ChangePassword';
-import VerifyEmail    from './pages/VerifyEmail';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword  from './pages/ResetPassword';
-import SetPassword    from './pages/SetPassword';
-import OAuthCallback  from './pages/OAuthCallback';
-import Landing  from './pages/Landing';
-import Overview from './pages/Overview';
-import Menu           from './pages/Menu';
-import Tables          from './pages/Tables';
-import Orders          from './pages/Orders';
-import Reports         from './pages/Reports';
-import Users           from './pages/Users';
-import Settings        from './pages/Settings';
-import OrderHistory    from './pages/OrderHistory';
-import ShiftCount      from './pages/ShiftCount';
-import ShiftHistory    from './pages/ShiftHistory';
-import Ingredients      from './pages/Ingredients';
-import Recipes          from './pages/Recipes';
-import Combos           from './pages/Combos';
-import WasteLog         from './pages/WasteLog';
-import CostingReports   from './pages/CostingReports';
-import InventoryLedger  from './pages/InventoryLedger';
-import Reservations     from './pages/Reservations';
-import Coupons          from './pages/Coupons';
-import Loyalty          from './pages/Loyalty';
-import Reviews          from './pages/Reviews';
+import Landing from './pages/Landing';
+import Login   from './pages/Login';
+
+// Everything behind auth is code-split so visitors landing on "/" only download the landing page
+const Layout          = lazy(() => import('./components/Layout'));
+const ChangePassword  = lazy(() => import('./pages/ChangePassword'));
+const VerifyEmail     = lazy(() => import('./pages/VerifyEmail'));
+const ForgotPassword  = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword   = lazy(() => import('./pages/ResetPassword'));
+const SetPassword     = lazy(() => import('./pages/SetPassword'));
+const OAuthCallback   = lazy(() => import('./pages/OAuthCallback'));
+const Overview        = lazy(() => import('./pages/Overview'));
+const Menu            = lazy(() => import('./pages/Menu'));
+const Tables          = lazy(() => import('./pages/Tables'));
+const Orders          = lazy(() => import('./pages/Orders'));
+const Reports         = lazy(() => import('./pages/Reports'));
+const Users           = lazy(() => import('./pages/Users'));
+const Settings        = lazy(() => import('./pages/Settings'));
+const OrderHistory    = lazy(() => import('./pages/OrderHistory'));
+const ShiftCount      = lazy(() => import('./pages/ShiftCount'));
+const ShiftHistory    = lazy(() => import('./pages/ShiftHistory'));
+const Ingredients     = lazy(() => import('./pages/Ingredients'));
+const Recipes         = lazy(() => import('./pages/Recipes'));
+const Combos          = lazy(() => import('./pages/Combos'));
+const WasteLog        = lazy(() => import('./pages/WasteLog'));
+const CostingReports  = lazy(() => import('./pages/CostingReports'));
+const InventoryLedger = lazy(() => import('./pages/InventoryLedger'));
+const Reservations    = lazy(() => import('./pages/Reservations'));
+const Coupons         = lazy(() => import('./pages/Coupons'));
+const Loyalty         = lazy(() => import('./pages/Loyalty'));
+const Reviews         = lazy(() => import('./pages/Reviews'));
 
 function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch { return null; }
@@ -88,51 +90,53 @@ export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SyncWatcher />
-      <Routes>
-        <Route path="/"               element={<RequireGuest><Landing /></RequireGuest>} />
-        <Route path="/login"           element={<RequireGuest><Login /></RequireGuest>} />
-        <Route path="/change-password" element={<ChangePassword />} />
-        <Route path="/verify-email"    element={<VerifyEmail />} />
-        <Route path="/forgot-password" element={<RequireGuest><ForgotPassword /></RequireGuest>} />
-        <Route path="/reset-password"  element={<RequireGuest><ResetPassword /></RequireGuest>} />
-        <Route path="/set-password"    element={<SetPassword />} />
-        <Route path="/oauth/callback"  element={<OAuthCallback />} />
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--paper)' }} />}>
+        <Routes>
+          <Route path="/"               element={<Landing />} />
+          <Route path="/login"           element={<RequireGuest><Login /></RequireGuest>} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/verify-email"    element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<RequireGuest><ForgotPassword /></RequireGuest>} />
+          <Route path="/reset-password"  element={<RequireGuest><ResetPassword /></RequireGuest>} />
+          <Route path="/set-password"    element={<SetPassword />} />
+          <Route path="/oauth/callback"  element={<OAuthCallback />} />
 
-        {/* Pathless layout route — wraps all authenticated pages */}
-        <Route
-          element={
-            <RequireAuth>
-              <RequirePasswordSet>
-                <SettingsSync />
-                <Layout />
-              </RequirePasswordSet>
-            </RequireAuth>
-          }
-        >
-          <Route path="/overview" element={<Overview />} />
-          <Route path="/menu"     element={<Menu />} />
-          <Route path="/tables"            element={<Tables />} />
-          <Route path="/tables/reservations" element={<RequireAdmin><Reservations /></RequireAdmin>} />
-          <Route path="/orders"   element={<Orders />} />
-          <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
-          <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
-          <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
-          <Route path="/history"  element={<RequireNotKitchen><OrderHistory /></RequireNotKitchen>} />
-          <Route path="/shift"         element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
-          <Route path="/shift/history" element={<RequireAdmin><ShiftHistory /></RequireAdmin>} />
-          <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
-          <Route path="/inventory"   element={<RequireAdmin><InventoryLedger /></RequireAdmin>} />
-          <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />
-          <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
-          <Route path="/waste"       element={<RequireAdmin><WasteLog /></RequireAdmin>} />
-          <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
-          <Route path="/coupons"     element={<RequireAdmin><Coupons /></RequireAdmin>} />
-          <Route path="/loyalty"     element={<RequireAdmin><Loyalty /></RequireAdmin>} />
-          <Route path="/reviews"     element={<RequireAdmin><Reviews /></RequireAdmin>} />
-        </Route>
+          {/* Pathless layout route — wraps all authenticated pages */}
+          <Route
+            element={
+              <RequireAuth>
+                <RequirePasswordSet>
+                  <SettingsSync />
+                  <Layout />
+                </RequirePasswordSet>
+              </RequireAuth>
+            }
+          >
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/menu"     element={<Menu />} />
+            <Route path="/tables"            element={<Tables />} />
+            <Route path="/tables/reservations" element={<RequireAdmin><Reservations /></RequireAdmin>} />
+            <Route path="/orders"   element={<Orders />} />
+            <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
+            <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />
+            <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+            <Route path="/history"  element={<RequireNotKitchen><OrderHistory /></RequireNotKitchen>} />
+            <Route path="/shift"         element={<RequireNotKitchen><ShiftCount /></RequireNotKitchen>} />
+            <Route path="/shift/history" element={<RequireAdmin><ShiftHistory /></RequireAdmin>} />
+            <Route path="/ingredients" element={<RequireAdmin><Ingredients /></RequireAdmin>} />
+            <Route path="/inventory"   element={<RequireAdmin><InventoryLedger /></RequireAdmin>} />
+            <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />
+            <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
+            <Route path="/waste"       element={<RequireAdmin><WasteLog /></RequireAdmin>} />
+            <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
+            <Route path="/coupons"     element={<RequireAdmin><Coupons /></RequireAdmin>} />
+            <Route path="/loyalty"     element={<RequireAdmin><Loyalty /></RequireAdmin>} />
+            <Route path="/reviews"     element={<RequireAdmin><Reviews /></RequireAdmin>} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
