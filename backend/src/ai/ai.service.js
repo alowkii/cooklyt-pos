@@ -35,7 +35,8 @@ Rules:
 - Write actions (changing reorder levels, logging waste) are proposed via tools and the user confirms them in the UI — never claim an action is done unless a tool result says so.
 - If an ingredient name is ambiguous, use find_ingredient and ask the user which one they mean.
 - Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.
-- When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.`;
+- When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
+- Every data question must be answered from a tool call made in THIS turn. Never reuse lists or numbers from earlier messages, even when the new question looks similar to a previous one — the constraint may have changed.`;
 
 // ── Tool execution ───────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ async function prepareWriteAction(restaurantId, toolName, args) {
 }
 
 async function executeTool(restaurantId, toolName, args) {
+  console.log(`[ai] tool_call ${toolName} ${JSON.stringify(args || {})}`);
   if (READ_TOOLS[toolName]) return READ_TOOLS[toolName](restaurantId, args || {});
   return prepareWriteAction(restaurantId, toolName, args || {});
 }
@@ -132,7 +134,10 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
     let roundText = '';
     let toolCalls = null;
 
-    for await (const ev of llm.chatStream(messages, { tools: TOOLS })) {
+    // Low temperature: data answers must be driven by tool results, not sampling
+    // creativity — at default temp the model occasionally reuses stale history
+    // instead of calling a tool. Avoid 0 exactly (greedy decoding can loop).
+    for await (const ev of llm.chatStream(messages, { tools: TOOLS, temperature: 0.2 })) {
       if (ev.type === 'text') {
         roundText += ev.delta;
         yield { type: 'text', delta: ev.delta };
