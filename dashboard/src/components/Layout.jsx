@@ -32,6 +32,7 @@ import {
   Maximize2,
   Minimize2,
   Plus,
+  Sparkles,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -43,6 +44,7 @@ import ToastContainer from './ToastNotification';
 import DeliveryAlertContainer from './DeliveryAlert';
 import Modal from './Modal';
 import NewOrderModal from './NewOrderModal';
+import ChatBubble from './AIChat/ChatBubble';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -88,6 +90,7 @@ const ALL_NAV = [
   { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                    adminOnly: false },
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,              adminOnly: false },
   { to: '/shift',    label: 'Shift',    Icon: Wallet,                     adminOnly: false, staffOnly: true },
+  { to: '/ai-chat',  label: 'AI Assistant', Icon: Sparkles,               adminOnly: false, staffOnly: true },
   {
     type: 'group', key: 'analytics', label: 'Analytics', Icon: BarChart2, adminOnly: true,
     children: [
@@ -732,6 +735,7 @@ export default function Layout() {
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <DeliveryAlertContainer alerts={deliveryAlerts} onDismiss={dismissDeliveryAlert} onAccept={acceptDeliveryAlert} />
+      <ChatBubble />
 
       {/* Restaurant open/close confirmation */}
       {confirmOpen && createPortal(

@@ -4,6 +4,7 @@ import { useSync } from './hooks/useSync';
 import { useSettings } from './hooks/useSettings';
 import { useTimezone } from './context/TimezoneContext';
 import { useCurrency } from './context/CurrencyContext';
+import { AIProvider } from './context/AIContext';
 import Landing from './pages/Landing';
 import Login   from './pages/Login';
 
@@ -35,6 +36,7 @@ const Reservations    = lazy(() => import('./pages/Reservations'));
 const Coupons         = lazy(() => import('./pages/Coupons'));
 const Loyalty         = lazy(() => import('./pages/Loyalty'));
 const Reviews         = lazy(() => import('./pages/Reviews'));
+const AIChat          = lazy(() => import('./pages/AIChat'));
 
 function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('pos_user') || 'null'); } catch { return null; }
@@ -107,7 +109,9 @@ export default function App() {
               <RequireAuth>
                 <RequirePasswordSet>
                   <SettingsSync />
-                  <Layout />
+                  <AIProvider>
+                    <Layout />
+                  </AIProvider>
                 </RequirePasswordSet>
               </RequireAuth>
             }
@@ -132,6 +136,7 @@ export default function App() {
             <Route path="/coupons"     element={<RequireAdmin><Coupons /></RequireAdmin>} />
             <Route path="/loyalty"     element={<RequireAdmin><Loyalty /></RequireAdmin>} />
             <Route path="/reviews"     element={<RequireAdmin><Reviews /></RequireAdmin>} />
+            <Route path="/ai-chat"     element={<RequireNotKitchen><AIChat /></RequireNotKitchen>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
