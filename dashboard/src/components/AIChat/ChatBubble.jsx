@@ -1,13 +1,13 @@
-import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, X, Maximize2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAIStatus } from '../../hooks/useAI';
+import { useAIChat } from '../../context/AIContext';
 import Conversation from './Conversation';
 
 export default function ChatBubble() {
-  const [open, setOpen] = useState(false);
+  const { panelOpen: open, setPanelOpen: setOpen } = useAIChat();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ export default function ChatBubble() {
             </span>
             <span className="flex items-center gap-1">
               <button
-                onClick={() => { setOpen(false); navigate('/ai-chat'); }}
+                onClick={() => { setOpen(false); navigate('/ai-chat', { state: { from: location.pathname } }); }}
                 title="Open full page"
                 className="rounded-md p-1.5 cursor-pointer transition-colors"
                 style={{ color: 'var(--mute)', background: 'transparent', border: 0 }}

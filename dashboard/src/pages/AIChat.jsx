@@ -1,11 +1,19 @@
-import { Sparkles, RotateCcw } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Sparkles, RotateCcw, Minimize2 } from 'lucide-react';
 import { useAIChat } from '../context/AIContext';
 import { useAIStatus } from '../hooks/useAI';
 import Conversation from '../components/AIChat/Conversation';
 
 export default function AIChat() {
-  const { reset, messages } = useAIChat();
+  const { reset, messages, setPanelOpen } = useAIChat();
   const { data: status, isLoading } = useAIStatus();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const minimize = () => {
+    setPanelOpen(true);
+    navigate(location.state?.from || '/overview');
+  };
 
   return (
     <div className="mx-auto flex h-full min-h-0 max-w-3xl flex-col">
@@ -19,12 +27,18 @@ export default function AIChat() {
             Answers from your live waste, inventory, recipe, and sales data. Changes always ask for confirmation.
           </p>
         </div>
-        {messages.length > 0 && (
-          <button onClick={reset} className="btn-secondary btn-sm" title="Start a new conversation">
-            <RotateCcw size={12} />
-            New chat
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button onClick={reset} className="btn-secondary btn-sm" title="Start a new conversation">
+              <RotateCcw size={12} />
+              New chat
+            </button>
+          )}
+          <button onClick={minimize} className="btn-secondary btn-sm" title="Collapse to floating panel">
+            <Minimize2 size={12} />
+            Minimize
           </button>
-        )}
+        </div>
       </div>
 
       {!isLoading && status?.ok === false ? (
