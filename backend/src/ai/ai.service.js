@@ -20,6 +20,7 @@ const TOOLS = [
   { type: 'function', function: { name: 'get_recipe_costs',       description: 'Every recipe with its ingredient cost, linked menu price, and food-cost percentage (cost ÷ price). High percentages mean thin margins.', parameters: { type: 'object', properties: {}, required: [] } } },
   { type: 'function', function: { name: 'get_sales_velocity',     description: 'Best-selling menu items over the last N days: quantity sold, revenue, average per day.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
   { type: 'function', function: { name: 'get_recent_orders',      description: 'The most recent orders with status, channel, items, and amount.', parameters: { type: 'object', properties: { limit }, required: [] } } },
+  { type: 'function', function: { name: 'get_menu_items',         description: 'Browse the menu. ALWAYS pass the user\'s constraints as filters (e.g. "under 200" → max_price: 200) instead of filtering the results yourself.', parameters: { type: 'object', properties: { max_price: { type: 'number', description: 'Only items priced at or below this' }, min_price: { type: 'number', description: 'Only items priced at or above this' }, category: { type: 'string', description: 'Exact category name' }, name_contains: { type: 'string', description: 'Partial item name' } }, required: [] } } },
   { type: 'function', function: { name: 'find_ingredient',        description: 'Look up ingredients by (partial) name. Use before update_reorder_level or log_waste to resolve the exact ingredient.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Full or partial ingredient name' } }, required: ['name'] } } },
   { type: 'function', function: { name: 'update_reorder_level',   description: 'WRITE ACTION (user must confirm): change an ingredient\'s reorder level.', parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, new_level: { type: 'number', description: 'New reorder level in the ingredient\'s unit' } }, required: ['ingredient_name', 'new_level'] } } },
   { type: 'function', function: { name: 'log_waste',              description: `WRITE ACTION (user must confirm): record wasted stock of an ingredient. reason must be one of ${WASTE_REASONS.join(', ')}.`, parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, quantity: { type: 'number', description: 'Wasted amount in the ingredient\'s unit' }, reason: { type: 'string', enum: WASTE_REASONS }, notes: { type: 'string' } }, required: ['ingredient_name', 'quantity', 'reason'] } } },
@@ -33,7 +34,8 @@ Rules:
 - Monetary amounts are in the restaurant's local currency.
 - Write actions (changing reorder levels, logging waste) are proposed via tools and the user confirms them in the UI — never claim an action is done unless a tool result says so.
 - If an ingredient name is ambiguous, use find_ingredient and ask the user which one they mean.
-- Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.`;
+- Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.
+- When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.`;
 
 // ── Tool execution ───────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ const READ_TOOLS = {
   get_recipe_costs:        (rid)    => repo.getRecipeCosts(rid),
   get_sales_velocity:      (rid, a) => repo.getSalesVelocity(rid, a.days ?? 7, a.limit ?? 15),
   get_recent_orders:       (rid, a) => repo.getRecentOrders(rid, a.limit ?? 10),
+  get_menu_items:          (rid, a) => repo.getMenuItems(rid, { maxPrice: a.max_price, minPrice: a.min_price, category: a.category, nameContains: a.name_contains }),
   find_ingredient:         (rid, a) => repo.findIngredientsByName(rid, a.name || ''),
 };
 

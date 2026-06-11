@@ -130,6 +130,25 @@ const getRecentOrders = (restaurantId, limit = 10) =>
     )
     .then((r) => r.rows);
 
+// Menu browsing with filters applied in SQL — small local models are unreliable
+// at filtering rows themselves, so price/category constraints must not be left
+// to the model.
+const getMenuItems = (restaurantId, { maxPrice, minPrice, category, nameContains } = {}) =>
+  db
+    .query(
+      `SELECT name, category, price, available
+       FROM menu_items
+       WHERE restaurant_id = $1
+         AND ($2::numeric IS NULL OR price <= $2::numeric)
+         AND ($3::numeric IS NULL OR price >= $3::numeric)
+         AND ($4::text IS NULL OR category ILIKE $4)
+         AND ($5::text IS NULL OR name ILIKE '%' || $5 || '%')
+       ORDER BY category, price
+       LIMIT 100`,
+      [restaurantId, maxPrice ?? null, minPrice ?? null, category ?? null, nameContains ?? null],
+    )
+    .then((r) => r.rows);
+
 // Resolves the ingredient names the model produces ("paneer", "Tomatoes") to real
 // rows — used by write tools (e.g. update_reorder_level) before asking the user
 // to confirm.
@@ -180,6 +199,7 @@ module.exports = {
   getRecipeCosts,
   getSalesVelocity,
   getRecentOrders,
+  getMenuItems,
   findIngredientsByName,
   saveMessage,
   getSessionMessages,
