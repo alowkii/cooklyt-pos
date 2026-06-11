@@ -1,6 +1,17 @@
-# Cooklyt POS — Restaurant Point of Sale Backend
+# CookLyt POS — Restaurant Management Platform
 
-A RESTful API backend for a restaurant point-of-sale system. Built with Node.js and Express, backed by PostgreSQL, with real-time kitchen/order updates via WebSocket.
+A full restaurant management monorepo: a point-of-sale dashboard (which also serves the public landing page), a super-admin panel, a customer QR-menu ordering app, and a Node.js/Express + PostgreSQL backend with real-time updates over WebSocket.
+
+## Monorepo Layout
+
+| Package | Description |
+|---|---|
+| `dashboard/` | Main POS web app (React + Vite + Tailwind) — orders, tables, kitchen, inventory, waste tracking, loyalty, reports. Serves the public landing page at `/`. Dev port 5173. |
+| `admin/` | Super-admin panel — restaurant provisioning, users, audit logs. Dev port 5174. |
+| `menu/` | Customer-facing QR menu & ordering app. |
+| `backend/` | Express API + PostgreSQL + WebSocket server. |
+
+> **Note:** The reference below documents the original backend core (auth, menu, tables, orders, payments, kitchen, reports). The backend has since grown to ~26 modules — inventory, recipes, waste, loyalty, coupons, reservations, reviews, scheduler, and more — each following the same router → service → repository pattern. See `backend/src/` for the full list.
 
 ---
 
