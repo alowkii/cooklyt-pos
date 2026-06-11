@@ -109,11 +109,13 @@ function dateContext(settings) {
   const timezone = settings.timezone || 'UTC';
   let line;
   try {
-    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' }).format(new Date());
-    const isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
-    line = `Today is ${weekday}, ${isoDate} (${timezone}).`;
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' }).format(now);
+    const isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
+    const time    = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+    line = `It is currently ${weekday}, ${isoDate}, ${time} (${timezone}).`;
   } catch {
-    line = `Today is ${new Date().toISOString().slice(0, 10)} (UTC).`;
+    line = `It is currently ${new Date().toISOString().slice(0, 16).replace('T', ' ')} (UTC).`;
   }
   if (settings.currency) line += ` Amounts are in ${settings.currency}.`;
   return line;
