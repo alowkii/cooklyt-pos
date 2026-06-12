@@ -8,7 +8,6 @@ const settingsService = require('../settings/settings.service');
 const { ValidationError } = require('../shared/errors');
 
 const WASTE_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
-const HISTORY_LIMIT = 20;
 
 // Settings changeable from chat. timezone/currency/cash_denominations are
 // excluded deliberately — format-heavy and rarely a conversational request.
@@ -364,14 +363,68 @@ function dateContext(settings) {
   return line;
 }
 
-async function buildMessages(sessionId, restaurantId, userMessage) {
-  const [history, settings] = await Promise.all([
-    repo.getSessionMessages(sessionId, restaurantId, HISTORY_LIMIT),
+// ── History compaction ───────────────────────────────────────────────────────
+// qwen3's context is small and the system prompt + 15 tool schemas already eat
+// a third of it. When the replayed tail outgrows the budget, fold the older
+// messages into a model-written summary (kept per session in ai_conversations)
+// and replay summary + recent tail — same idea as auto-compaction.
+
+const KEEP_TAIL = 6;                 // most recent messages stay verbatim
+const COMPACT_CHAR_BUDGET = 3000;    // ~750 tokens of tail triggers a fold
+const COMPACT_MSG_BUDGET = 16;       // or this many tail messages
+const FETCH_LIMIT = 60;              // how deep we look past the summary boundary
+
+const tailChars = (msgs) => msgs.reduce((n, m) => n + (m.content?.length || 0), 0);
+
+async function compactHistory(sessionId, restaurantId, userId, oldSummary, toFold) {
+  try {
+    const result = await llm.chat(
+      [
+        { role: 'system', content: 'You compact a restaurant POS assistant conversation into a brief memory note (max 120 words, plain text, no preamble). Keep: facts and figures established, actions taken or declined, user preferences, and unresolved threads. Drop pleasantries and repetition.' },
+        { role: 'user', content: `${oldSummary ? `Existing summary:\n${oldSummary}\n\n` : ''}Conversation to fold in:\n${toFold.map((m) => `${m.role}: ${m.content}`).join('\n')}` },
+      ],
+      { maxTokens: 250, temperature: 0.2 },
+    );
+    const summary = result.content?.trim();
+    if (!summary) return null;
+    await repo.saveMessage({
+      sessionId,
+      restaurantId,
+      userId,
+      role: 'summary',
+      content: summary,
+      coversUntil: toFold[toFold.length - 1].created_at,
+    });
+    console.log(`[ai] compacted ${toFold.length} messages for session ${sessionId}`);
+    return summary;
+  } catch (err) {
+    console.error('[ai] compaction failed:', err.message);
+    return null;
+  }
+}
+
+async function buildMessages(sessionId, restaurantId, userId, userMessage) {
+  const [summaryRow, settings] = await Promise.all([
+    repo.getLatestSummary(sessionId, restaurantId),
     settingsRepo.getAll(restaurantId).catch(() => ({})),
   ]);
+  let summary = summaryRow?.content || null;
+  let tail = await repo.getMessagesSince(sessionId, restaurantId, summaryRow?.covers_until, FETCH_LIMIT);
+
+  if (tail.length > KEEP_TAIL && (tailChars(tail) > COMPACT_CHAR_BUDGET || tail.length > COMPACT_MSG_BUDGET)) {
+    const folded = await compactHistory(sessionId, restaurantId, userId, summary, tail.slice(0, tail.length - KEEP_TAIL));
+    if (folded) {
+      summary = folded;
+      tail = tail.slice(tail.length - KEEP_TAIL);
+    }
+  }
+
+  const system = `${SYSTEM_PROMPT}\n\n${capabilities()}\n\n${dateContext(settings)}` +
+    (summary ? `\n\nCompacted summary of this conversation so far (older turns):\n${summary}` : '');
+
   return [
-    { role: 'system', content: `${SYSTEM_PROMPT}\n\n${capabilities()}\n\n${dateContext(settings)}` },
-    ...history,
+    { role: 'system', content: system },
+    ...tail.map(({ role, content }) => ({ role, content })),
     { role: 'user', content: userMessage },
   ];
 }
@@ -388,7 +441,7 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
   if (!sessionId)              throw new ValidationError('sessionId is required');
   if (!message?.trim())        throw new ValidationError('message is required');
 
-  const messages = await buildMessages(sessionId, restaurantId, message.trim());
+  const messages = await buildMessages(sessionId, restaurantId, userId, message.trim());
   await repo.saveMessage({ sessionId, restaurantId, userId, role: 'user', content: message.trim() });
 
   const MAX_ROUNDS = 5;

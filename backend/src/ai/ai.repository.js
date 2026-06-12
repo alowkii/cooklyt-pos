@@ -231,26 +231,42 @@ const findIngredientsByName = (restaurantId, search) =>
 // Only user and assistant text is replayed as LLM history; role='tool' rows are
 // an audit trail of confirmed write actions, not part of the prompt.
 
-const saveMessage = ({ sessionId, restaurantId, userId, role, content, toolName }) =>
+const saveMessage = ({ sessionId, restaurantId, userId, role, content, toolName, coversUntil }) =>
   db
     .query(
-      `INSERT INTO ai_conversations (session_id, restaurant_id, user_id, role, content, tool_name)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [sessionId, restaurantId, userId || null, role, content, toolName || null],
+      `INSERT INTO ai_conversations (session_id, restaurant_id, user_id, role, content, tool_name, covers_until)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [sessionId, restaurantId, userId || null, role, content, toolName || null, coversUntil || null],
     )
     .then((r) => r.rows[0]);
 
-const getSessionMessages = (sessionId, restaurantId, limit = 20) =>
+// Latest compacted summary for the session (if any)
+const getLatestSummary = (sessionId, restaurantId) =>
   db
     .query(
-      `SELECT role, content FROM (
+      `SELECT content, covers_until
+       FROM ai_conversations
+       WHERE session_id = $1 AND restaurant_id = $2 AND role = 'summary'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [sessionId, restaurantId],
+    )
+    .then((r) => r.rows[0]);
+
+// Chat tail: user/assistant messages after the summary boundary (or all, when
+// the session has never been compacted)
+const getMessagesSince = (sessionId, restaurantId, since, limit = 30) =>
+  db
+    .query(
+      `SELECT role, content, created_at FROM (
          SELECT role, content, created_at
          FROM ai_conversations
          WHERE session_id = $1 AND restaurant_id = $2 AND role IN ('user', 'assistant')
+           AND ($3::timestamptz IS NULL OR created_at > $3::timestamptz)
          ORDER BY created_at DESC
-         LIMIT $3
+         LIMIT $4
        ) recent ORDER BY created_at ASC`,
-      [sessionId, restaurantId, limit],
+      [sessionId, restaurantId, since || null, limit],
     )
     .then((r) => r.rows);
 
@@ -270,5 +286,6 @@ module.exports = {
   findMenuItemsByName,
   findIngredientsByName,
   saveMessage,
-  getSessionMessages,
+  getLatestSummary,
+  getMessagesSince,
 };
