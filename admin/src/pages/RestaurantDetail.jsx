@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { HexColorPicker } from 'react-colorful';
 import settingsOptions from '@shared/settings-options.json';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Check, X, Trash2, UserPlus, ImagePlus, RotateCcw, PowerOff, Power, Palette, Download, Upload, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Pencil, Check, X, Trash2, UserPlus, ImagePlus, RotateCcw, PowerOff, Power, Palette, Download, Upload, ChevronDown, Sparkles } from 'lucide-react';
 import {
   useRestaurant,
   useUpdateRestaurant,
@@ -13,6 +13,7 @@ import {
   useUploadLogo,
   useDeleteLogo,
   useSetRestaurantStatus,
+  useSetRestaurantAi,
 } from '../hooks/useAdmin';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -1204,6 +1205,46 @@ function SettingsCard({ restaurantId, settings }) {
   );
 }
 
+function AiAssistantCard({ restaurantId, enabled }) {
+  const setAi = useSetRestaurantAi();
+
+  return (
+    <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', padding: 20 }}>
+      <div className="flex items-center justify-between gap-3">
+        <div style={{ minWidth: 0 }}>
+          <p className="flex items-center gap-1.5" style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+            <Sparkles size={13} /> AI Assistant
+          </p>
+          <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--mute)', lineHeight: 1.45 }}>
+            {enabled
+              ? 'Chat assistant is available to this restaurant’s staff.'
+              : 'Hidden from this restaurant — chat requests are rejected.'}
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={enabled}
+          title={enabled ? 'Disable AI assistant' : 'Enable AI assistant'}
+          onClick={() => setAi.mutate({ id: restaurantId, ai_enabled: !enabled })}
+          disabled={setAi.isPending}
+          style={{
+            width: 36, height: 20, borderRadius: 999, border: 0, padding: 0, flexShrink: 0,
+            background: enabled ? 'var(--ok)' : 'var(--line-2)',
+            position: 'relative', cursor: 'pointer', transition: 'background .15s',
+            opacity: setAi.isPending ? 0.6 : 1,
+          }}
+        >
+          <span style={{
+            position: 'absolute', top: 2, left: enabled ? 18 : 2,
+            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+            boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s',
+          }} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AddUserForm({ restaurantId, onClose }) {
   const createUser = useCreateUser(restaurantId);
   const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
@@ -1319,6 +1360,7 @@ export default function RestaurantDetail() {
         {/* Settings + Branding button */}
         <div className="lg:col-span-1 space-y-5">
           <SettingsCard restaurantId={id} settings={data.settings} />
+          <AiAssistantCard restaurantId={id} enabled={data.ai_enabled !== false} />
           <BrandingButton settings={data.settings} onOpen={() => setShowBranding(true)} />
         </div>
 

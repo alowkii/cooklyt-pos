@@ -42,7 +42,11 @@ export default function AIChat() {
         </div>
       </div>
 
-      {!isLoading && status?.ok === false ? (
+      {!isLoading && status?.enabled === false ? (
+        <div className="rounded-[8px] p-4" style={{ background: 'var(--warn-soft)', fontSize: 13, color: 'var(--ink-2)' }}>
+          The AI assistant is not enabled for this restaurant. Contact your platform operator to turn it on.
+        </div>
+      ) : !isLoading && status?.ok === false ? (
         <div className="rounded-[8px] p-4" style={{ background: 'var(--warn-soft)', fontSize: 13, color: 'var(--ink-2)' }}>
           {ASSISTANT.name} is offline right now. Everything else in the dashboard keeps working — try again in a bit.
         </div>

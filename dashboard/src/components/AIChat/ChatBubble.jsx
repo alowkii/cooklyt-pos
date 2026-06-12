@@ -18,10 +18,11 @@ export default function ChatBubble() {
   const allowed = user?.role === 'admin' || user?.role === 'staff';
   const { data: status } = useAIStatus(allowed);
 
-  // Hidden only for roles without API access or on the full-page chat itself.
-  // When the model is offline the bubble stays visible and the panel explains —
-  // silently disappearing reads as a bug.
-  if (!allowed || location.pathname === '/ai-chat') return null;
+  // Hidden only for roles without API access, on the full-page chat itself, or
+  // when the operator disabled the assistant for this restaurant (feature off,
+  // not a fault state). When the model is merely offline the bubble stays
+  // visible and the panel explains — silently disappearing reads as a bug.
+  if (!allowed || location.pathname === '/ai-chat' || status?.enabled === false) return null;
   const offline = status?.ok === false;
 
   // Optional proactive nudge from /ai/status ({ id, text }) — dismissable per session
