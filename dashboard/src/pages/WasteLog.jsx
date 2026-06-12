@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Plus, AlertTriangle, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, RotateCcw, Trash2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck } from 'lucide-react';
 import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview } from '../hooks/useWaste';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
@@ -487,8 +488,10 @@ function PendingReviews({ format, isAdmin }) {
 
 export default function WasteLog() {
   const { isAdmin } = useAuth();
-  const [from, setFrom] = useState(today());
-  const [to,   setTo]   = useState(today());
+  // Deep links (e.g. Yumzy's "Open in Waste Log") can preset the date range
+  const [searchParams] = useSearchParams();
+  const [from, setFrom] = useState(() => searchParams.get('from') || today());
+  const [to,   setTo]   = useState(() => searchParams.get('to') || today());
   const [modal, setModal] = useState(false);
   const [tab,   setTab]   = useState('item'); // 'item' | 'ingredient'
   const [ingForm,  setIngForm]  = useState(EMPTY_ING_FORM);

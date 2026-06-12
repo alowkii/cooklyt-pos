@@ -1,98 +1,50 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import {
-  Grid3X3,
-  UtensilsCrossed,
-  Wifi,
-  BarChart2,
-  BarChart3,
-  Gift,
-  Package,
-  Mail,
-  Check,
-  X,
-  ArrowRight,
-  LayoutDashboard,
-  ReceiptText,
-  LayoutGrid,
-  AlignLeft,
-  ShoppingCart,
-  Truck,
-  Trash2,
-  ClipboardList,
-  Cloud,
-  Sparkles,
-  FileText,
+  LayoutDashboard, ReceiptText, LayoutGrid, AlignLeft, BarChart2,
+  ShoppingCart, Truck, Check, Mail, ArrowRight,
+  Trash2, Grid3X3, BarChart3, Package, ChevronDown, MessageCircle,
 } from "lucide-react";
 
-const DEMO_EMAIL = "krishensazawal@cooklyt.in";
-const MAILTO_HREF = `mailto:${DEMO_EMAIL}?subject=${encodeURIComponent("CookLyt POS – Demo Request")}&body=${encodeURIComponent("Hi,\n\nI'm interested in a live demo of CookLyt POS for my restaurant.\n\nName:\nRestaurant name:\nNumber of locations:\nBest time to reach me:\n\nThanks,")}`;
-
-const FEATURES = [
-  { Icon: Grid3X3,       title: "Tables & floor",       body: "Your floor, always in sync. No confusion about what's open, what's occupied, or what's been ordered." },
-  { Icon: UtensilsCrossed, title: "Menu & kitchen",     body: "Make a change — it's live everywhere before you look up." },
-  { Icon: Wifi,          title: "Real-time sync",        body: "Orders don't wait for a connection. When signal drops, CookLyt queues and catches up silently." },
-  { Icon: Gift,          title: "Loyalty & coupons",     body: "Give regulars a reason to return. Give first-timers a reason to come back." },
-  { Icon: BarChart2,     title: "Reports & shifts",      body: "Close the day knowing exactly where every rupee went." },
-  { Icon: Package,       title: "Inventory & costing",   body: "Know your margins before service, not after." },
+const SECONDARY_NAV = [
+  { href: "/problem",  label: "The problem" },
+  { href: "/compare",  label: "How we compare" },
+  { href: "/mission",  label: "Our mission" },
 ];
 
-const WASTE_FEATURES = [
-  {
-    Icon: Trash2,
-    title: "Waste tracking that speaks in rupees",
-    body: "Log every waste event by ingredient, shift, and reason — which dish, which prep stage, which shift, and exactly how much it cost you.",
-    soon: false,
-  },
-  {
-    Icon: ClipboardList,
-    title: "Stop ordering by habit",
-    body: "See real-time stock levels before you place a single order. CookLyt surfaces what you already have so you stop over-purchasing the same items week after week.",
-    soon: false,
-  },
-  {
-    Icon: BarChart3,
-    title: "Recipe-linked cost impact",
-    body: "Every ingredient is tied to your recipes and purchase prices. The waste dashboard shows kilograms and rupees together — so the cost of every discard is impossible to ignore.",
-    soon: false,
-  },
-  {
-    Icon: Cloud,
-    title: "Waste root-cause analysis",
-    body: "Rain on Thursday? Your pasta waste spikes 180%. CookLyt correlates waste with weather, day of week, and shift to surface the patterns costing you money — and what to prep less of.",
-    soon: true,
-  },
-  {
-    Icon: Sparkles,
-    title: "AI-powered demand forecasting",
-    body: "Predict tomorrow's covers, auto-calculate ingredient needs from your recipe BOMs, and generate a smart reorder list — before you over-buy. Works from just 7 days of data.",
-    soon: true,
-  },
-  {
-    Icon: FileText,
-    title: "Invoice scanner + live margin alerts",
-    body: "Photograph a supplier invoice. CookLyt extracts every line item and instantly recalculates food-cost % across affected recipes — alerting you the moment a dish crosses your margin threshold.",
-    soon: true,
-  },
+const PRIMARY_NAV = [
+  { href: "/waste",    label: "Waste intelligence" },
+  { href: "/features", label: "Features" },
+  { href: "/access",   label: "Get access" },
 ];
 
-const STATS = [
-  { num: "11.9M", unit: "t",       desc: "Food wasted annually by India's food-service sector — restaurants, hotels, caterers, canteens.",                                  src: "UNEP Food Waste Index Report, 2021", accent: false },
-  { num: "₹1.52", unit: "L cr",    desc: "India's total annual economic loss from food waste — 3.7% of the agriculture sector's gross value added.",                       src: "NABCONS / Ministry of Food Processing Industries, 2022", accent: false },
-  { num: "1 in 3", unit: "",       desc: "Food items in India are wasted or spoilt before being eaten — a direct result of overstocking and poor inventory turnover.",     src: "FSSAI, Govt. of India", accent: false },
-  { num: "6–15",  unit: "%",       desc: "Of fruits & vegetables stocked by food businesses spoil due to short shelf life, overstocking, and poor rotation.",             src: "NABCONS Post-Harvest Loss Study, 2022 (ICAR-CIPHET baseline)", accent: false },
-  { num: "28",    unit: "%",       desc: "Of all global food waste originates from the food-service sector — restaurants, cafés, canteens. More than retail.",             src: "UNEP Food Waste Index Report, 2024", accent: false },
-  { num: "₹5.69", unit: "L cr",    desc: "India's food-services industry size in FY24 — growing at 8.1% CAGR. The waste problem is scaling with it.",                     src: "NRAI India Food Services Report, 2024", accent: true },
-];
+function NavDropdown({ nlBase, nlHover, nlLeave }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button className="nav-text-link" style={{ ...nlBase, gap: 3 }} onClick={() => setOpen(o => !o)} onMouseEnter={nlHover} onMouseLeave={nlLeave}>
+        Learn more
+        <ChevronDown size={12} style={{ transition: "transform .15s", transform: open ? "rotate(180deg)" : "rotate(0deg)", opacity: 0.6 }} />
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.08)", padding: "4px", minWidth: 170, zIndex: 50 }}>
+          {SECONDARY_NAV.map(({ href, label }) => (
+            <a key={href} href={href} style={{ ...nlBase, display: "flex", width: "100%", borderRadius: 5, padding: "0 10px", boxSizing: "border-box" }} onMouseEnter={nlHover} onMouseLeave={nlLeave} onClick={() => setOpen(false)}>{label}</a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+import { DEMO_EMAIL, MAILTO_HREF, WHATSAPP_HREF, LOGO_SVG, WORDMARK_SVG } from "../shared";
 
-const CMP_ROWS = [
-  { cap: "Waste logging by ingredient & shift",  generic: "Not available",      cooklyt: "Full breakdown",        soon: false },
-  { cap: "Waste cost in rupees (not just kg)",   generic: "Not available",      cooklyt: "Recipe-linked",         soon: false },
-  { cap: "Inventory check before ordering",      generic: "Manual only",        cooklyt: "Real-time stock view",  soon: false },
-  { cap: "Weather-correlated waste analysis",    generic: "Not available",      cooklyt: "AI-driven",             soon: true  },
-  { cap: "AI demand forecasting",               generic: "Not available",      cooklyt: "Zero-shot",             soon: true  },
-  { cap: "Live margin alerts on price change",   generic: "Not available",      cooklyt: "Invoice-triggered",     soon: true  },
-  { cap: "Billing, floor & kitchen management",  generic: "Standard",           cooklyt: "Full POS suite",        soon: false, genericHas: true },
-];
 
 const STATUS_DOT  = { preparing: "var(--warn)", ready: "var(--info)", received: "var(--mute-2)", served: "var(--ok)" };
 const ELAPSED_STY = { warn: { color: "var(--warn)", fontWeight: 600 }, bad: { color: "var(--bad)", fontWeight: 600 }, mute: { color: "var(--mute)" } };
@@ -163,32 +115,19 @@ function DevicePreview() {
   );
 }
 
-const LOGO_SVG = (w, h) => (
-  <svg width={w} height={h} viewBox="0 0 200 200" fill="none" aria-hidden="true">
-    <path d="M 154.194 25.409 A 92.2 92.2 0 1 0 154.194 174.591" fill="none" stroke="#0d0c0b" strokeWidth="15.6" strokeLinecap="round" />
-    <circle cx="100" cy="100" r="10.8" fill="#b06a3b" />
-  </svg>
-);
-const WORDMARK_SVG = (w, h) => (
-  <svg width={w} height={h} viewBox="0 0 360 64" role="img" aria-label="CookLyt">
-    <title>CookLyt</title>
-    <text x="0" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: "10.08px" }}>COOKLY</text>
-    <circle cx="294.2" cy="29.43" r="5.03" fill="#b06a3b" />
-    <text x="309.33" y="49" fill="#0d0c0b" style={{ fontFamily: "'Marcellus', serif", fontSize: 56, letterSpacing: "10.08px" }}>T</text>
-  </svg>
-);
 
-const SEC = { fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--mute)", fontFamily: '"Geist Mono", monospace' };
-const SEC_H2 = { fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-.025em", lineHeight: 1.05, margin: "8px 0 12px", fontWeight: 600 };
-const SEC_P  = { color: "var(--mute)", margin: 0, fontSize: 15, lineHeight: 1.55, maxWidth: 520 };
-
-function getStoredUser() {
-  try { return JSON.parse(localStorage.getItem("pos_user") || "null"); } catch { return null; }
-}
+const SECTION_CARDS = [
+  { href: "/problem",  Icon: Trash2,    label: "The problem",        sub: "Why kitchens bleed ₹3–6L a year" },
+  { href: "/waste",    Icon: BarChart3,  label: "Waste intelligence", sub: "Tools that surface waste mid-shift" },
+  { href: "/features", Icon: Grid3X3,   label: "Features",           sub: "The full POS suite, nothing extra" },
+  { href: "/compare",  Icon: Check,     label: "How we compare",     sub: "CookLyt vs generic POS" },
+  { href: "/mission",  Icon: Package,   label: "Our mission",        sub: "Why we built this" },
+  { href: "/access",   Icon: Mail,      label: "Get access",         sub: "Working demo in 24 hours" },
+];
 
 export default function Landing() {
   const navigate = useNavigate();
-  const user = getStoredUser();
+  const user = JSON.parse(localStorage.getItem("pos_user") || "null");
 
   const nlBase = {
     height: 32, padding: "0 12px", borderRadius: 6, fontSize: 13, color: "var(--mute)",
@@ -201,22 +140,30 @@ export default function Landing() {
 
   return (
     <div style={{ background: "var(--paper)", color: "var(--ink)", minHeight: "100vh" }}>
+      <Helmet>
+        <title>CookLyt — Restaurant POS built for waste-aware margins</title>
+        <meta name="description" content="A POS for Indian restaurants that tracks every part of service — orders, tables, KDS — and shows you exactly what you're wasting, in rupees." />
+        <meta property="og:title" content="CookLyt — Restaurant POS built for waste-aware margins" />
+        <meta property="og:description" content="One quiet system that runs every part of service and watches every rupee of waste." />
+        <meta property="og:image" content="https://cooklyt.in/og/landing.png" />
+      </Helmet>
 
       {/* ── Nav ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(250,250,248,.78)", backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)", borderBottom: "1px solid var(--line)" }}>
         <div className="nav-inner" style={{ maxWidth: 1180, margin: "0 auto", padding: "0 28px", height: 56, display: "flex", alignItems: "center", gap: 18 }}>
-          <a href="#top" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)", flexShrink: 0 }}>
+          <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)", flexShrink: 0 }}>
             {LOGO_SVG(20, 20)}
             {WORDMARK_SVG(100, 18)}
             <span style={{ display: "inline-block", width: 1, height: 13, background: "var(--line-2)", margin: "0 2px" }} />
             <span style={{ color: "var(--mute)", fontWeight: 400, fontSize: 12 }}>by Krilok</span>
           </a>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-            {[{ href: "#problem", label: "The problem" }, { href: "#waste", label: "Waste intelligence" }, { href: "#features", label: "Features" }, { href: "#how", label: "Access" }].map(({ href, label }) => (
+            {PRIMARY_NAV.map(({ href, label }) => (
               <a key={href} href={href} className="nav-text-link" style={nlBase} onMouseEnter={nlHover} onMouseLeave={nlLeave}>{label}</a>
             ))}
+            <NavDropdown nlBase={nlBase} nlHover={nlHover} nlLeave={nlLeave} />
             <button onClick={() => navigate(user ? "/overview" : "/login")} className="nav-text-link" style={nlBase} onMouseEnter={nlHover} onMouseLeave={nlLeave}>{user ? "Dashboard" : "Sign in"}</button>
-            <a href="#cta" style={{ ...nlBase, background: "var(--ink)", color: "var(--accent-on)", padding: "0 14px", height: 34, gap: 6 }}
+            <a href="/access" style={{ ...nlBase, background: "var(--ink)", color: "var(--accent-on)", padding: "0 14px", height: 34, gap: 6 }}
               onMouseEnter={e => { e.currentTarget.style.background = "var(--ink-2)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "var(--ink)"; }}>
               <Mail size={13} /><span className="nav-demo-label">Request a demo</span>
@@ -226,7 +173,7 @@ export default function Landing() {
       </header>
 
       {/* ── Hero ── */}
-      <section id="top" className="hero-section">
+      <section className="hero-section">
         <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 64, alignItems: "center" }} className="hero-grid">
             <div>
@@ -249,7 +196,7 @@ export default function Landing() {
                   onMouseLeave={e => { e.currentTarget.style.background = "var(--ink)"; }}>
                   <Mail size={14} />Request a demo
                 </a>
-                <a href="#problem" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 42, padding: "0 18px", borderRadius: 6, fontSize: 13.5, fontWeight: 500, border: "1px solid var(--line-2)", color: "var(--ink)", background: "transparent", textDecoration: "none", transition: "background .08s", whiteSpace: "nowrap" }}
+                <a href="/problem" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 42, padding: "0 18px", borderRadius: 6, fontSize: 13.5, fontWeight: 500, border: "1px solid var(--line-2)", color: "var(--ink)", background: "transparent", textDecoration: "none", transition: "background .08s", whiteSpace: "nowrap" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--hover)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                   See the waste it catches<ArrowRight size={14} />
@@ -282,248 +229,57 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ── The Problem ── */}
-      <section id="problem" style={{ padding: "80px 0", borderTop: "1px solid var(--line)" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 56, alignItems: "start" }} className="problem-grid">
-            <div>
-              <span style={SEC}>02 — The problem</span>
-              <h2 style={{ fontSize: "clamp(26px, 3.4vw, 40px)", letterSpacing: "-.025em", lineHeight: 1.08, fontWeight: 600, margin: "10px 0 18px" }}>
-                Your kitchen is bleeding ₹3–6 lakh a year. You just can't see it yet.
-              </h2>
-              <p style={{ color: "var(--ink-2)", fontSize: 15.5, lineHeight: 1.7, marginBottom: 16, maxWidth: 520 }}>
-                Most Indian kitchens reorder the same quantities every morning — same call, same numbers — without checking what's already lying unused in the fridge. Vegetables spoil. Half-used packets get forgotten. Items expire quietly.
-              </p>
-              <p style={{ color: "var(--ink-2)", fontSize: 15.5, lineHeight: 1.7, marginBottom: 4, maxWidth: 520 }}>
-                Cafés running at <strong style={{ color: "var(--ink)" }}>40–45% food cost</strong> quietly discard <strong style={{ color: "var(--ink)" }}>6–12% of every purchase</strong>. On ₹50 lakh annual revenue, that's up to <strong style={{ color: "var(--ink)" }}>₹6 lakh in the bin</strong> — plate by plate, shelf by shelf.
-              </p>
-              <span style={{ display: "block", fontFamily: '"Geist Mono", monospace', fontSize: 11, color: "var(--mute-2)", marginTop: 4, lineHeight: 1.5 }}>Source: India food cost benchmarking, Feedo.in (2024)</span>
-              <p style={{ color: "var(--ink-2)", fontSize: 15.5, lineHeight: 1.7, marginTop: 18, maxWidth: 520 }}>
-                The problem isn't that owners don't care. It's that they've never had a system that makes waste <strong style={{ color: "var(--ink)" }}>visible</strong> — in real time, in rupees, per shift.
-              </p>
-            </div>
-            <div style={{ border: "1px solid var(--line-2)", borderRadius: 12, background: "var(--paper)", overflow: "hidden" }}>
-              <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--line)", fontFamily: '"Geist Mono", monospace', fontSize: 11, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mute)" }}>
-                What over-ordering costs you
-              </div>
-              {[
-                { label: "Fruits & vegetables spoiled",     val: "6–15%",     style: { color: "var(--bad)", fontWeight: 600 } },
-                { label: "Perishables lost in transit",     val: "~30%",      style: { color: "var(--warn)", fontWeight: 600 } },
-                { label: "FSSAI: food spoilt before eaten", val: "1 in 3",    style: { color: "var(--bad)", fontWeight: 600 } },
-                { label: "Restaurants' purchase waste rate",val: "6–12%",     style: { color: "var(--warn)", fontWeight: 600 } },
-                { label: "With CookLyt's waste controls",   val: "↓ Sharply", style: { color: "var(--ok)",  fontWeight: 600 } },
-              ].map(({ label, val, style }) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "15px 22px", borderBottom: "1px solid var(--line)" }}>
-                  <span style={{ fontSize: 14, color: "var(--ink-2)" }}>{label}</span>
-                  <span className="mono" style={{ fontSize: 16, whiteSpace: "nowrap", ...style }}>{val}</span>
-                </div>
-              ))}
-              <div style={{ padding: "16px 22px" }}>
-                <span style={{ display: "block", fontFamily: '"Geist Mono", monospace', fontSize: 11, color: "var(--mute-2)", lineHeight: 1.5 }}>
-                  Sources: NABCONS / MoFPI Post-Harvest Loss Study 2022; Solwearth 2024; FSSAI, Govt. of India; Feedo.in 2024.
+      {/* ── Section nav cards ── */}
+      <section style={{ borderTop: "1px solid var(--line)", padding: "64px 0" }}>
+        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto", marginBottom: 36 }}>
+          <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--mute)", fontFamily: '"Geist Mono", monospace' }}>
+            Explore CookLyt
+          </span>
+        </div>
+        <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="section-cards">
+            {SECTION_CARDS.map(({ href, Icon, label, sub }, i) => (
+              <a
+                key={href}
+                href={href}
+                style={{
+                  display: "block",
+                  padding: "28px 28px 32px",
+                  borderRight: (i + 1) % 3 !== 0 ? "1px solid var(--line)" : 0,
+                  borderBottom: "1px solid var(--line)",
+                  textDecoration: "none",
+                  color: "var(--ink)",
+                  transition: "background .08s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ display: "inline-grid", placeItems: "center", width: 26, height: 26, color: "var(--ink)", marginBottom: 12 }}>
+                  <Icon size={20} strokeWidth={1.4} />
                 </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── The Numbers ── */}
-      <section id="numbers" style={{ borderTop: "1px solid var(--line)", background: "var(--paper-2)", padding: "80px 0" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ marginBottom: 48, maxWidth: 680 }}>
-            <span style={SEC}>03 — The numbers</span>
-            <h2 style={SEC_H2}>India's food-waste crisis starts in the back of a restaurant.</h2>
-            <p style={SEC_P}>Every figure below is from a government body, UN agency, or peer-reviewed source.</p>
-          </div>
-        </div>
-        <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="stat-cells">
-            {STATS.map(({ num, unit, desc, src, accent }, i) => (
-              <div key={i} style={{ padding: "30px 28px", borderRight: (i + 1) % 3 !== 0 ? "1px solid var(--line)" : 0, borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
-                <div className="mono" style={{ fontSize: 40, fontWeight: 500, letterSpacing: "-.02em", lineHeight: 1, color: accent ? "var(--copper)" : "var(--ink)" }}>
-                  {num}{unit && <span style={{ fontSize: 16, letterSpacing: 0, color: "var(--mute)", marginLeft: 4 }}>{unit}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.005em", margin: 0 }}>{label}</h3>
+                  <ArrowRight size={13} style={{ color: "var(--mute)", flexShrink: 0 }} />
                 </div>
-                <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.55, marginTop: 14, flex: 1 }}>{desc}</div>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--mute-2)", borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 16, lineHeight: 1.5 }}>{src}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Quote ── */}
-      <div style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", padding: "72px 0", background: "var(--paper)" }}>
-        <div className="lp-container" style={{ maxWidth: 860, margin: "0 auto" }}>
-          <blockquote style={{ fontSize: "clamp(24px, 3.6vw, 40px)", lineHeight: 1.25, letterSpacing: "-.02em", fontWeight: 600, color: "var(--ink)" }}>
-            Most POS systems tell you what you sold.{" "}
-            <span style={{ color: "var(--mute-2)" }}>CookLyt tells you</span>{" "}
-            <em style={{ fontStyle: "italic", fontWeight: 500 }}>what you shouldn't have bought.</em>
-          </blockquote>
-          <div className="mono" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".14em", color: "var(--mute)", marginTop: 24 }}>The CookLyt difference</div>
-        </div>
-      </div>
-
-      {/* ── Waste Intelligence ── */}
-      <section id="waste" style={{ borderTop: "1px solid var(--line)", padding: "80px 0" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ marginBottom: 48, maxWidth: 680 }}>
-            <span style={SEC}>04 — Waste intelligence</span>
-            <h2 style={SEC_H2}>Every tool built around one goal:<br />less waste, more margin.</h2>
-            <p style={SEC_P}>Most systems treat waste as a month-end report. CookLyt treats it as a live number you can act on mid-shift.</p>
-          </div>
-        </div>
-        <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="features-grid">
-            {WASTE_FEATURES.map(({ Icon, title, body, soon }, i) => (
-              <div key={title} style={{ padding: "28px 28px 32px", borderRight: (i + 1) % 3 !== 0 ? "1px solid var(--line)" : 0, borderBottom: "1px solid var(--line)", minHeight: 180 }}>
-                <span style={{ display: "inline-grid", placeItems: "center", width: 28, height: 28, color: "var(--ink)", marginBottom: 14 }}><Icon size={22} strokeWidth={1.4} /></span>
-                <h4 style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.005em", margin: "0 0 6px" }}>{title}</h4>
-                <p style={{ color: "var(--mute)", margin: 0, fontSize: 13.5, lineHeight: 1.55 }}>{body}</p>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, fontFamily: '"Geist Mono", monospace', fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 999, border: "1px solid var(--line-2)", color: soon ? "var(--mute)" : "var(--ink-2)" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: soon ? "var(--warn)" : "var(--ok)" }} />
-                  {soon ? "Coming soon" : "Live now"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Product Features ── */}
-      <section id="features" style={{ borderTop: "1px solid var(--line)", background: "var(--paper-2)", padding: "80px 0" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ marginBottom: 48, maxWidth: 680 }}>
-            <span style={SEC}>05 — The product</span>
-            <h2 style={SEC_H2}>Everything included.<br />Nothing extra.</h2>
-            <p style={SEC_P}>Every demo is the full product. No feature limits, no upgrade prompts, no per-station pricing surprise.</p>
-          </div>
-        </div>
-        <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="features-grid">
-            {FEATURES.map(({ Icon, title, body }, i) => (
-              <div key={title} style={{ padding: "28px 28px 32px", borderRight: (i + 1) % 3 !== 0 ? "1px solid var(--line)" : 0, borderBottom: "1px solid var(--line)", minHeight: 180 }}>
-                <span style={{ display: "inline-grid", placeItems: "center", width: 28, height: 28, color: "var(--ink)", marginBottom: 14 }}><Icon size={22} strokeWidth={1.4} /></span>
-                <h4 style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.005em", margin: "0 0 6px" }}>{title}</h4>
-                <p style={{ color: "var(--mute)", margin: 0, fontSize: 13.5, lineHeight: 1.55 }}>{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Comparison ── */}
-      <section id="compare" style={{ borderTop: "1px solid var(--line)", padding: "80px 0" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ marginBottom: 48, maxWidth: 680 }}>
-            <span style={SEC}>06 — How we compare</span>
-            <h2 style={SEC_H2}>Waste control isn't an add-on here.<br />It's the entire point.</h2>
-          </div>
-          <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }} className="cmp-wrap">
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-              <thead>
-                <tr>
-                  {["Capability", "Generic POS", "CookLyt"].map((h, i) => (
-                    <th key={h} style={{ textAlign: "left", padding: "16px 22px", fontFamily: '"Geist Mono", monospace', fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: i === 2 ? "var(--copper)" : "var(--mute)", background: "var(--paper-2)", borderBottom: "1px solid var(--line)" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {CMP_ROWS.map(({ cap, generic, cooklyt, soon, genericHas }) => (
-                  <tr key={cap}>
-                    <td style={{ padding: "15px 22px", fontSize: 14, borderBottom: "1px solid var(--line)", color: "var(--ink)", fontWeight: 500, verticalAlign: "middle" }}>{cap}</td>
-                    <td style={{ padding: "15px 22px", fontSize: 14, borderBottom: "1px solid var(--line)", color: genericHas ? "var(--ink)" : "var(--mute-2)", verticalAlign: "middle" }}>
-                      {genericHas
-                        ? <><span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 8, color: "var(--mute-2)" }}><Check size={14} /></span>{generic}</>
-                        : <><span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 8, color: "var(--mute-2)" }}><X size={14} /></span>{generic}</>
-                      }
-                    </td>
-                    <td style={{ padding: "15px 22px", fontSize: 14, borderBottom: "1px solid var(--line)", color: "var(--ink)", background: "rgba(176,106,59,0.06)", verticalAlign: "middle" }}>
-                      <span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 8, color: "var(--copper)" }}><Check size={14} /></span>
-                      {cooklyt}
-                      {soon && <span className="mono" style={{ fontSize: 10, color: "var(--mute)", marginLeft: 6 }}>soon</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Mission ── */}
-      <section id="mission" style={{ borderTop: "1px solid var(--line)", background: "var(--paper-2)", padding: "80px 0" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ maxWidth: 760 }}>
-            <span style={SEC}>07 — Why we built CookLyt</span>
-            <h2 style={{ ...SEC_H2, fontSize: "clamp(28px, 4vw, 46px)" }}>
-              India wastes food that could feed 377 million people.<br />Most of it starts in a restaurant fridge.
-            </h2>
-            <p style={{ fontSize: 16, color: "var(--ink-2)", lineHeight: 1.75, marginBottom: 18 }}>
-              India's food-service sector generates <strong style={{ color: "var(--ink)" }}>11.9 million tonnes of food waste every year</strong>. And most of it doesn't happen at the dinner table — it happens in the back of a restaurant, on an overloaded shelf, in a fridge nobody checked before placing the morning order.
-            </p>
-            <span style={{ display: "block", fontFamily: '"Geist Mono", monospace', fontSize: 11, color: "var(--mute-2)", marginBottom: 24, lineHeight: 1.5 }}>Source: UNEP Food Waste Index Report 2021 — unep.org</span>
-            <div style={{ margin: "0 0 24px", padding: "22px 26px", background: "var(--paper)", border: "1px solid var(--line)", borderLeft: "3px solid var(--copper)", borderRadius: "0 10px 10px 0" }}>
-              <p style={{ fontSize: 15, color: "var(--ink-2)", margin: 0, lineHeight: 1.7 }}>
-                While urban restaurants discard excess inventory from overstocking, <strong style={{ color: "var(--ink)" }}>over 20 crore Indians go hungry daily</strong>. India wastes enough food annually — valued at <strong style={{ color: "var(--ink)" }}>₹1.52 lakh crore</strong> — to represent 3.7% of the entire agriculture sector's output.
-              </p>
-              <span style={{ display: "block", fontFamily: '"Geist Mono", monospace', fontSize: 11, color: "var(--mute-2)", marginTop: 10, lineHeight: 1.5 }}>Sources: NABCONS / MoFPI 2022 (economic loss); UNEP 2024 (hunger figure)</span>
-            </div>
-            <p style={{ fontSize: 16, color: "var(--ink-2)", lineHeight: 1.75 }}>
-              We built CookLyt because the problem isn't that restaurant owners don't care. It's that they've never had a system that makes waste <strong style={{ color: "var(--ink)" }}>visible, measurable, and preventable</strong> — in real time, in rupees, per shift. That's exactly what we built.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Onboarding ── */}
-      <section id="how" className="lp-section" style={{ borderTop: "1px solid var(--line)" }}>
-        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
-          <div style={{ marginBottom: 48, maxWidth: 680 }}>
-            <span style={SEC}>08 — Onboarding</span>
-            <h2 style={SEC_H2}>How to get access.</h2>
-            <p style={SEC_P}>CookLyt is invite-only. Every demo is a real working environment, seeded with a real menu and a real day's worth of orders. No slideshow.</p>
-          </div>
-        </div>
-        <div style={{ maxWidth: 1180, margin: "0 auto", borderTop: "1px solid var(--line)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }} className="process-grid">
-            {[
-              { n: "01", title: "Send an email",          body: "Tell us your restaurant name and a couple of details. We'll take it from there.", cta: true },
-              { n: "02", title: "We provision your demo", body: "Our team spins up a live instance — your menu, your tables, a believable order history.", cta: false },
-              { n: "03", title: "Log in & explore",       body: "Place orders, fire the kitchen, pull reports, log waste — exactly as it works in production.", cta: false },
-            ].map(({ n, title, body, cta }, i) => (
-              <div key={n} style={{ padding: "32px 28px 36px", borderRight: i < 2 ? "1px solid var(--line)" : 0, borderBottom: "1px solid var(--line)" }}>
-                <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: ".14em" }}>{n}</div>
-                <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.01em", margin: "14px 0 8px" }}>{title}</h3>
-                <p style={{ color: "var(--mute)", margin: 0, fontSize: 14, lineHeight: 1.55 }}>{body}</p>
-                {cta && (
-                  <a href={MAILTO_HREF} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontSize: 13, color: "var(--ink)", borderBottom: "1px solid var(--line-2)", paddingBottom: 1, textDecoration: "none", transition: "border-color .08s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--ink)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--line-2)"; }}>
-                    Open email <ArrowRight size={12} />
-                  </a>
-                )}
-              </div>
+                <p style={{ color: "var(--mute)", margin: 0, fontSize: 13, lineHeight: 1.5 }}>{sub}</p>
+              </a>
             ))}
           </div>
         </div>
       </section>
 
       {/* ── Final CTA ── */}
-      <section id="cta" className="cta-section" style={{ textAlign: "center", background: "var(--paper-2)", borderTop: "1px solid var(--line)" }}>
+      <section style={{ textAlign: "center", background: "var(--paper-2)", borderTop: "1px solid var(--line)", padding: "120px 0" }}>
         <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 36 }}>
             {LOGO_SVG(44, 44)}
             {WORDMARK_SVG(136, 24)}
           </div>
-          <span style={SEC}>09 — Get in touch</span>
           <h2 style={{ fontSize: "clamp(32px, 5.5vw, 64px)", letterSpacing: "-.03em", lineHeight: 1.05, margin: "8px 0 16px", fontWeight: 600 }}>
             Find out how much your<br />kitchen is wasting.
           </h2>
           <p style={{ color: "var(--mute)", fontSize: 15, maxWidth: 480, margin: "0 auto 32px" }}>
-            No sales call. No slideshow. Just a working demo of your restaurant running on CookLyt — and a clear view of the waste you're currently invisible to.
+            No sales call. No slideshow. Just a working demo of your restaurant running on CookLyt.
           </p>
           <a href={MAILTO_HREF} className="cta-email" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "16px 22px", background: "var(--ink)", color: "var(--accent-on)", fontFamily: '"Geist Mono", monospace', fontSize: 14, borderRadius: 8, textDecoration: "none", transition: "transform .12s ease, background .12s ease", wordBreak: "break-all" }}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--ink-2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -535,41 +291,89 @@ export default function Landing() {
       </section>
 
       {/* ── Footer ── */}
-      <footer style={{ padding: "36px 0", borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--mute)" }}>
-        <div className="lp-container footer-inner" style={{ maxWidth: 1180, margin: "0 auto", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            {LOGO_SVG(16, 16)}
-            <span style={{ fontWeight: 400, color: "var(--ink-2)", fontFamily: "'Marcellus', serif", letterSpacing: ".04em" }}>CookLyt</span>
-            <span style={{ color: "var(--mute)" }}>by Krilok</span>
-          </span>
-          <span className="mono" style={{ color: "var(--mute)" }}>© {new Date().getFullYear()} Krilok. All rights reserved.</span>
-          <button onClick={() => navigate(user ? "/overview" : "/login")} style={{ marginLeft: "auto", color: "var(--mute)", background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, whiteSpace: "nowrap" }}
-            onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>
-            {user ? "Go to dashboard →" : "Client sign in →"}
-          </button>
+      <footer style={{ background: "var(--paper-2)", borderTop: "1px solid var(--line)", paddingTop: 56, paddingBottom: 32 }}>
+        <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
+          {/* Top: brand + columns */}
+          <div style={{ display: "flex", gap: 48, flexWrap: "wrap", marginBottom: 48 }}>
+            {/* Brand block */}
+            <div style={{ flex: "1 1 220px", minWidth: 200, maxWidth: 280 }}>
+              <a href="/" style={{ display: "inline-flex", alignItems: "center", gap: 9, textDecoration: "none", marginBottom: 14 }}>
+                {LOGO_SVG(22, 22)}
+                <span style={{ fontFamily: "'Marcellus', serif", fontSize: 17, letterSpacing: ".04em", color: "var(--ink)" }}>CookLyt</span>
+              </a>
+              <p style={{ fontSize: 13, color: "var(--mute)", lineHeight: 1.6, margin: "0 0 20px" }}>
+                AI-native POS &amp; demand intelligence for India's specialty cafés and QSRs.
+              </p>
+              <a href={WHATSAPP_HREF} target="_blank" rel="noreferrer"
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 34, padding: "0 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 500, background: "var(--ink)", color: "var(--accent-on)", textDecoration: "none", transition: "background .08s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--ink-2)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "var(--ink)"; }}
+              >
+                <MessageCircle size={12} />
+                Request a demo
+              </a>
+            </div>
+
+            <div style={{ flex: "1 1 0" }} />
+
+            {/* Product */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 130 }}>
+              <span style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--mute-2)", fontFamily: '"Geist Mono", monospace', marginBottom: 8 }}>Product</span>
+              {[{ href: "/features", label: "Features" }, { href: "/waste", label: "Waste intelligence" }, { href: "/compare", label: "How we compare" }, { href: "/access", label: "Get access" }].map(({ href, label }) => (
+                <a key={href} href={href} style={{ fontSize: 13, color: "var(--mute)", textDecoration: "none", padding: "5px 0", lineHeight: 1, transition: "color .1s" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>{label}</a>
+              ))}
+            </div>
+
+            {/* Company */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 130 }}>
+              <span style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--mute-2)", fontFamily: '"Geist Mono", monospace', marginBottom: 8 }}>Company</span>
+              {[{ href: "/problem", label: "The problem" }, { href: "/mission", label: "Our mission" }, { href: MAILTO_HREF, label: "Contact us" }].map(({ href, label }) => (
+                <a key={label} href={href} style={{ fontSize: 13, color: "var(--mute)", textDecoration: "none", padding: "5px 0", lineHeight: 1, transition: "color .1s" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>{label}</a>
+              ))}
+            </div>
+
+            {/* Account */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 130 }}>
+              <span style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--mute-2)", fontFamily: '"Geist Mono", monospace', marginBottom: 8 }}>Account</span>
+              <button onClick={() => navigate(user ? "/overview" : "/login")}
+                style={{ fontSize: 13, color: "var(--mute)", background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit", padding: "5px 0", textAlign: "left", lineHeight: 1, transition: "color .1s" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>
+                {user ? "Dashboard" : "Sign in"}
+              </button>
+              {!user && (
+                <a href="/access" style={{ fontSize: 13, color: "var(--mute)", textDecoration: "none", padding: "5px 0", lineHeight: 1, transition: "color .1s" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "var(--ink)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "var(--mute)"; }}>Request access</a>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div style={{ borderTop: "1px solid var(--line)", paddingTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <span style={{ fontSize: 11.5, color: "var(--mute-2)", fontFamily: '"Geist Mono", monospace' }}>
+              © {new Date().getFullYear()} Krilok Pvt. Ltd. · Bengaluru, India
+            </span>
+
+          </div>
         </div>
       </footer>
 
       <style>{`
         .lp-container { padding-left: 28px; padding-right: 28px; }
         .hero-section  { padding: 80px 0 110px; }
-        .lp-section    { padding: 80px 0; }
-        .cta-section   { padding: 120px 0; }
 
         @media (max-width: 980px) {
-          .hero-grid    { grid-template-columns: 1fr !important; gap: 48px !important; }
-          .problem-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
-          .process-grid { grid-template-columns: 1fr !important; }
-          .process-grid > div { border-right: 0 !important; }
+          .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; }
         }
         @media (max-width: 860px) {
-          .features-grid  { grid-template-columns: repeat(2, 1fr) !important; }
-          .features-grid > div:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
-          .features-grid > div:nth-child(even) { border-right: 0 !important; }
-          .stat-cells { grid-template-columns: repeat(2, 1fr) !important; }
-          .stat-cells > div:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
-          .stat-cells > div:nth-child(even) { border-right: 0 !important; }
+          .section-cards { grid-template-columns: repeat(2, 1fr) !important; }
+          .section-cards > a:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
+          .section-cards > a:nth-child(even) { border-right: 0 !important; }
         }
         @media (max-width: 700px) {
           .stats-grid { grid-template-columns: 1fr !important; }
@@ -587,22 +391,16 @@ export default function Landing() {
           .footer-inner button { margin-left: 0 !important; }
         }
         @media (max-width: 520px) {
-          .features-grid { grid-template-columns: 1fr !important; }
-          .features-grid > div { border-right: 0 !important; }
-          .stat-cells { grid-template-columns: 1fr !important; }
-          .stat-cells > div { border-right: 0 !important; }
+          .section-cards { grid-template-columns: 1fr !important; }
+          .section-cards > a { border-right: 0 !important; }
         }
         @media (max-width: 480px) {
           .lp-container { padding-left: 18px !important; padding-right: 18px !important; }
           .hero-section { padding: 40px 0 52px !important; }
-          .lp-section   { padding: 48px 0 !important; }
-          .cta-section  { padding: 60px 0 !important; }
           .cta-email    { font-size: 12px !important; padding: 14px 16px !important; }
         }
         @media (max-width: 768px) {
           .hero-section { padding: 52px 0 68px !important; }
-          .lp-section   { padding: 60px 0 !important; }
-          .cta-section  { padding: 80px 0 !important; }
         }
       `}</style>
     </div>

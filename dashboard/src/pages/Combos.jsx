@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, X, GripVertical } from 'lucide-react';
+import { Plus, Pencil, X } from 'lucide-react';
 import { useCombos, useCreateCombo, useUpdateCombo } from '../hooks/useCombos';
 import { useMenuItems } from '../hooks/useMenu';
 import Modal from '../components/Modal';

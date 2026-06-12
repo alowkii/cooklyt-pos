@@ -6,25 +6,9 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import api from '../api/client';
 import { printReceipt, printKOT, printAllKOTs } from '../utils/printReceipt';
+import { escCsv, shiftDate, startOfMonth, startOfWeek } from '../utils/dateUtils';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
-
-function shiftDate(dateStr, days) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function startOfWeek(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const day = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1));
-  return d.toISOString().slice(0, 10);
-}
-
-function startOfMonth(dateStr) {
-  return dateStr.slice(0, 7) + '-01';
-}
 
 const PRESETS = [
   { id: 'today',     label: 'Today' },
@@ -502,11 +486,6 @@ function OrderRow({ order, format, formatTime, currency }) {
 }
 
 // ── CSV export ───────────────────────────────────────────────────────────────
-
-function escCsv(v) {
-  const s = String(v ?? '');
-  return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 const ORDER_CSV_COLS = [
   { label: 'Date',           get: (o) => new Date(o.created_at).toLocaleDateString() },

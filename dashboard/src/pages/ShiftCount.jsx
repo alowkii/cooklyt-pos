@@ -9,6 +9,7 @@ import {
 import { useCurrency } from '../context/CurrencyContext';
 import { useAuth } from '../hooks/useAuth';
 import { useShiftSummary, useShiftHistory, useRecordShiftCount } from '../hooks/useShift';
+import { formatDate } from '../utils/dateUtils';
 
 function InfoTip({ text }) {
   const [bubble, setBubble] = useState(null);
@@ -103,14 +104,6 @@ function greedyFill(total, denoms) {
     }
   }
   return result;
-}
-
-function formatDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
 }
 
 function StatTile({ label, value, tone, info }) {

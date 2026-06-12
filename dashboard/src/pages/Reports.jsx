@@ -1341,7 +1341,7 @@ export default function Reports() {
         {/* Action links — left on mobile, pushed right on sm+ */}
         <div className="flex items-center gap-2 sm:ml-auto">
           <button
-            onClick={() => navigate('/waste')}
+            onClick={() => navigate('/waste-log')}
             className="flex items-center gap-1.5 rounded-[6px] px-3 text-[12px] font-medium transition-colors duration-75"
             style={{ height: 32, border: '1px solid var(--line-2)', background: 'var(--paper)', color: 'var(--mute)', whiteSpace: 'nowrap' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; }}

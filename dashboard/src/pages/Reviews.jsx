@@ -3,25 +3,9 @@ import { Star, UtensilsCrossed } from 'lucide-react';
 import SelectField from '../components/SelectField';
 import { useReviews } from '../hooks/useReviews';
 import { useTimezone } from '../context/TimezoneContext';
+import { shiftDate, startOfMonth, startOfWeek } from '../utils/dateUtils';
 
 // ── Date helpers (same pattern as OrderHistory) ──────────────────────────────
-
-function shiftDate(dateStr, days) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function startOfWeek(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const day = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1));
-  return d.toISOString().slice(0, 10);
-}
-
-function startOfMonth(dateStr) {
-  return dateStr.slice(0, 7) + '-01';
-}
 
 const PRESETS = [
   { id: 'today',     label: 'Today'      },

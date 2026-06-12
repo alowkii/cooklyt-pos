@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { navigate } from '../lib/navigate';
 
 const api = axios.create({
   baseURL: '/api',
@@ -12,7 +13,10 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('pos_user');
       localStorage.removeItem('pos_restaurant');
-      window.location.href = '/login';
+      // SPA navigation when the router is mounted; hard redirect as fallback
+      if (window.location.pathname !== '/login') {
+        if (!navigate('/login')) window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   },
