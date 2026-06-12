@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, AlertTriangle, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, RotateCcw, Trash2, X } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck } from 'lucide-react';
 import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview } from '../hooks/useWaste';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';

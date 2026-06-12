@@ -13,7 +13,7 @@ export function greeting(firstName = '') {
 // Per-card-kind chrome: where "Open in …" navigates and which follow-up
 // prompts appear under the card. Follow-ups must map to real capabilities.
 export const CARD_META = {
-  waste:   { metric: 'Total cost',  link: { label: 'Open in Waste Log',   to: '/waste' },       follows: [{ short: 'Which reason costs most?', full: 'Which waste reason is costing us the most?' }, { short: 'Log waste', full: 'I want to log some waste' }] },
+  waste:   { metric: 'Total cost',  link: { label: 'Open in Waste Log',   to: '/waste-log' },       follows: [{ short: 'Which reason costs most?', full: 'Which waste reason is costing us the most?' }, { short: 'Log waste', full: 'I want to log some waste' }] },
   stock:   { metric: 'Low on stock', link: { label: 'Open in Ingredients', to: '/ingredients' }, follows: [{ short: 'Update a reorder level', full: 'I want to update a reorder level' }] },
   sales:   { metric: 'Top sellers',  link: { label: 'Open in Reports',     to: '/reports' },     follows: [{ short: 'Best margins', full: 'Which menu items have the best margins?' }] },
   recipes: { metric: 'Food cost %',  link: { label: 'Open in Costing',     to: '/costing' },     follows: [{ short: 'Most wasted ingredients', full: 'Which ingredients are we wasting the most of?' }] },
