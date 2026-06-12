@@ -35,9 +35,24 @@ function MessageBody({ content }) {
 // with the model's narration in a separate bubble.
 function DataCard({ kind, payload, send, streaming, lastQuestion }) {
   const { format } = useCurrency();
+  const { setPanelOpen } = useAIChat();
   const navigate = useNavigate();
   const meta = CARD_META[kind];
   if (!meta) return null;
+
+  // Carry the card's context into the target page (e.g. its date window) and
+  // get the floating panel out of the way
+  const openTarget = () => {
+    let to = meta.link.to;
+    if (kind === 'waste' && payload.days) {
+      const fmt = (d) => d.toISOString().slice(0, 10);
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - payload.days);
+      to = `${to}?from=${fmt(fromDate)}&to=${fmt(new Date())}`;
+    }
+    setPanelOpen(false);
+    navigate(to);
+  };
 
   // Don't offer the question this card just answered as a follow-up
   const follows = meta.follows.filter(
@@ -93,7 +108,7 @@ function DataCard({ kind, payload, send, streaming, lastQuestion }) {
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button
-            onClick={() => navigate(meta.link.to)}
+            onClick={openTarget}
             className="mr-1 inline-flex cursor-pointer items-center gap-1"
             style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--copper)', background: 'none', border: 0, padding: 0 }}
           >
