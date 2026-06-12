@@ -18,9 +18,11 @@ export default function ChatBubble() {
   const allowed = user?.role === 'admin' || user?.role === 'staff';
   const { data: status } = useAIStatus(allowed);
 
-  // Hidden for roles without API access, when the model is down, or on the
-  // full-page chat itself
-  if (!allowed || status?.ok === false || location.pathname === '/ai-chat') return null;
+  // Hidden only for roles without API access or on the full-page chat itself.
+  // When the model is offline the bubble stays visible and the panel explains —
+  // silently disappearing reads as a bug.
+  if (!allowed || location.pathname === '/ai-chat') return null;
+  const offline = status?.ok === false;
 
   // Optional proactive nudge from /ai/status ({ id, text }) — dismissable per session
   const nudge = status?.nudge;
@@ -52,7 +54,9 @@ export default function ChatBubble() {
               <span className="flex flex-col" style={{ lineHeight: 1.15 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{ASSISTANT.name}</span>
                 <span className="flex items-center gap-1.5" style={{ fontSize: 10.5, color: 'var(--mute)' }}>
-                  <span className="pulse-dot" style={{ width: 6, height: 6 }} /> {ASSISTANT.status}
+                  {offline
+                    ? <><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--mute-2)', display: 'inline-block' }} /> Offline</>
+                    : <><span className="pulse-dot" style={{ width: 6, height: 6 }} /> {ASSISTANT.status}</>}
                 </span>
               </span>
             </span>
@@ -70,7 +74,15 @@ export default function ChatBubble() {
               </button>
             </span>
           </div>
-          <Conversation />
+          {offline ? (
+            <div className="flex flex-1 items-center justify-center p-6">
+              <p className="m-0 text-center" style={{ fontSize: 12.5, color: 'var(--mute)', lineHeight: 1.6, maxWidth: 240 }}>
+                {ASSISTANT.name} is offline right now. The rest of the dashboard keeps working — try again in a bit.
+              </p>
+            </div>
+          ) : (
+            <Conversation />
+          )}
         </div>
       )}
 
