@@ -328,6 +328,25 @@ async function buildDataCard(restaurantId, toolName, args, result) {
 
 // ── Chat (streaming) ─────────────────────────────────────────────────────────
 
+// Explicit capability manifest, derived from the live TOOLS list so it can't
+// drift. Small models improvise around vague boundaries; an enumerated
+// can/can't list makes refusals reliable.
+let capabilityNote = null;
+function capabilities() {
+  if (!capabilityNote) {
+    const names = TOOLS.map((t) => t.function.name);
+    const reads  = names.filter((n) => READ_TOOLS[n]).map((n) => n.replace(/^get_/, '').replace(/^find_/, 'look up ').replace(/_/g, ' '));
+    const writes = names.filter((n) => !READ_TOOLS[n]).map((n) => n.replace(/_/g, ' '));
+    capabilityNote =
+      `YOUR COMPLETE CAPABILITIES — this list is exhaustive:\n` +
+      `- Look up: ${reads.join(', ')}.\n` +
+      `- Actions (each shown to the user for confirmation first): ${writes.join(', ')}.\n` +
+      `- Settings you can change: ${SETTABLE_KEYS.join(', ')}.\n` +
+      `Everything else is IMPOSSIBLE for you — including (but not limited to): creating or editing menu items and prices, recipes, combos, or coupons; processing payments or refunds; managing reservations; adding or managing staff accounts, shifts, or payroll; sending emails or messages; printers, wifi, or other devices; anything outside this restaurant's POS data. When asked for any of these, say plainly that you cannot do it and name the closest thing you CAN do. Never improvise with a different tool.`;
+  }
+  return capabilityNote;
+}
+
 // The model has no clock — without this it hallucinates dates from training data.
 function dateContext(settings) {
   const timezone = settings.timezone || 'UTC';
@@ -351,7 +370,7 @@ async function buildMessages(sessionId, restaurantId, userMessage) {
     settingsRepo.getAll(restaurantId).catch(() => ({})),
   ]);
   return [
-    { role: 'system', content: `${SYSTEM_PROMPT}\n\n${dateContext(settings)}` },
+    { role: 'system', content: `${SYSTEM_PROMPT}\n\n${capabilities()}\n\n${dateContext(settings)}` },
     ...history,
     { role: 'user', content: userMessage },
   ];
