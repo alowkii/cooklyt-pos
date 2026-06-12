@@ -4,10 +4,19 @@ const settingsRepo = require('../settings/settings.repository');
 const ingredientsService = require('../ingredients/ingredients.service');
 const wasteService = require('../waste/waste.service');
 const ordersService = require('../orders/orders.service');
+const settingsService = require('../settings/settings.service');
 const { ValidationError } = require('../shared/errors');
 
 const WASTE_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
 const HISTORY_LIMIT = 20;
+
+// Settings changeable from chat. timezone/currency/cash_denominations are
+// excluded deliberately — format-heavy and rarely a conversational request.
+const SETTABLE_KEYS = [
+  'tax_rate', 'service_charge', 'packaging_fee', 'daily_revenue_target',
+  'restaurant_open', 'reservations_enabled', 'loyalty_enabled',
+  'staff_assignment_enabled', 'loyalty_points_per_unit', 'loyalty_points_value',
+];
 
 // ── Tool schemas (OpenAI function format) ───────────────────────────────────
 
@@ -19,7 +28,7 @@ const TOOLS = [
   { type: 'function', function: { name: 'get_top_wasted_items',   description: 'Most-wasted ingredients by cost over the last N days, with quantities.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
   { type: 'function', function: { name: 'get_low_stock',          description: 'Ingredients at or below their reorder level right now, with stock on hand and unit cost.', parameters: { type: 'object', properties: {}, required: [] } } },
   { type: 'function', function: { name: 'get_inventory_movements', description: 'Stock movements (purchases, sales deductions, waste, adjustments) per ingredient over the last N days.', parameters: { type: 'object', properties: { days }, required: [] } } },
-  { type: 'function', function: { name: 'get_recipe_costs',       description: 'Every recipe with its ingredient cost, linked menu price, and food-cost percentage (cost ÷ price). High percentages mean thin margins.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'get_recipe_costs',       description: 'Every recipe with its ingredient cost, linked menu price, and food-cost percentage (cost ÷ price). Pass order=worst for thin margins (highest food-cost % first) or order=best for the most profitable items (lowest % first).', parameters: { type: 'object', properties: { order: { type: 'string', enum: ['worst', 'best'], description: 'worst = thin margins first; best = most profitable first' } }, required: [] } } },
   { type: 'function', function: { name: 'get_sales_velocity',     description: 'Best-selling menu items over the last N days: quantity sold, revenue, average per day.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
   { type: 'function', function: { name: 'get_recent_orders',      description: 'The most recent orders with status, channel, items, and amount.', parameters: { type: 'object', properties: { limit }, required: [] } } },
   { type: 'function', function: { name: 'get_menu_items',         description: 'Browse the menu. ALWAYS pass the user\'s stated constraints as filters (e.g. "under 200" → max_price: 200) instead of filtering the results yourself. Only use filter values the user explicitly gave — for open-ended requests call with no filters and see the whole menu.', parameters: { type: 'object', properties: { max_price: { type: 'number', description: 'Only items priced at or below this' }, min_price: { type: 'number', description: 'Only items priced at or above this' }, category: { type: 'string', description: 'Exact category name' }, name_contains: { type: 'string', description: 'Partial item name' } }, required: [] } } },
@@ -30,6 +39,9 @@ const TOOLS = [
   { type: 'function', function: { name: 'get_active_orders',      description: 'Orders that are not yet paid or cancelled, with order ref, table, items, and amount. Use to find an order before cancelling it.', parameters: { type: 'object', properties: {}, required: [] } } },
   { type: 'function', function: { name: 'place_order',            description: 'WRITE ACTION (user must confirm): place a dining order on a table. Ask the user for the table number and the items with quantities first if you do not have them.', parameters: { type: 'object', properties: { table_number: { type: 'integer' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string', description: 'Menu item name' }, quantity: { type: 'integer' }, notes: { type: 'string', description: 'Special instructions, e.g. no onions' } }, required: ['name', 'quantity'] } } }, required: ['table_number', 'items'] } } },
   { type: 'function', function: { name: 'cancel_order',           description: 'WRITE ACTION (user must confirm): cancel an active order. Identify it by order_ref or table_number; if both are missing, use get_active_orders and ask the user which one.', parameters: { type: 'object', properties: { order_ref: { type: 'string', description: 'Order reference like 2606A018' }, table_number: { type: 'integer', description: 'Table the order is on' } }, required: [] } } },
+  { type: 'function', function: { name: 'record_purchase',        description: 'WRITE ACTION (user must confirm): record that stock of an ingredient was purchased/arrived — increases stock on hand. Use when the user says they ordered, bought, or received an ingredient.', parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, quantity: { type: 'number', description: 'Amount received, in the ingredient\'s unit' }, unit_cost: { type: 'number', description: 'Price paid per unit (optional — keeps the current cost if omitted)' } }, required: ['ingredient_name', 'quantity'] } } },
+  { type: 'function', function: { name: 'get_settings',           description: 'Current restaurant settings: tax rate, service charge, daily revenue target, loyalty configuration, open/closed state, and more.', parameters: { type: 'object', properties: {}, required: [] } } },
+  { type: 'function', function: { name: 'update_setting',         description: `WRITE ACTION (user must confirm): change a restaurant setting. key must be one of: ${SETTABLE_KEYS.join(', ')}. Booleans as 'true'/'false', numbers as plain numbers (e.g. daily_revenue_target: 20000).`, parameters: { type: 'object', properties: { key: { type: 'string', enum: SETTABLE_KEYS }, value: { type: 'string', description: 'The new value, as a string' } }, required: ['key', 'value'] } } },
 ];
 
 const SYSTEM_PROMPT = `You are CookLyt's assistant for restaurant staff. You answer questions about waste, inventory, recipes, sales, and orders using the provided tools.
@@ -46,6 +58,7 @@ Rules:
 - When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
 - When a tool result says the data is already displayed to the user as a card, reply with at most ONE short sentence containing no numbers from that data. Never list or recite the rows — the user is looking at them. A takeaway that just restates the question ("the worst ones are the ones with the highest percentages") is worse than saying nothing.
 - You can place dining orders and cancel orders. Before calling place_order, you need the table number and the items with quantities — ask the user for whatever is missing, one question at a time.
+- If the user asks for an action none of your tools can do, say so plainly and mention the closest thing you CAN do. NEVER substitute a different tool or invent arguments to approximate an unsupported request.
 - When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.
 - Never pass filter values the user did not state. For subjective or open-ended requests ("suggest something", "what's good for a rainy day"), fetch the menu UNFILTERED and pick 3-5 fitting items yourself, with a short reason each.
 - If the user shares how they feel, acknowledge it warmly in one sentence, then help with what they need. Don't probe into personal matters — you're a work assistant, not a counselor.`;
@@ -57,7 +70,8 @@ const READ_TOOLS = {
   get_top_wasted_items:    (rid, a) => repo.getTopWastedItems(rid, a.days ?? 7, a.limit ?? 10),
   get_low_stock:           (rid)    => repo.getLowStock(rid),
   get_inventory_movements: (rid, a) => repo.getInventoryMovements(rid, a.days ?? 7),
-  get_recipe_costs:        (rid)    => repo.getRecipeCosts(rid),
+  get_recipe_costs:        (rid, a) => repo.getRecipeCosts(rid, a.order === 'best' ? 'best' : 'worst'),
+  get_settings:            (rid)    => settingsRepo.getAll(rid),
   get_sales_velocity:      (rid, a) => repo.getSalesVelocity(rid, a.days ?? 7, a.limit ?? 15),
   get_recent_orders:       (rid, a) => repo.getRecentOrders(rid, a.limit ?? 10),
   // Small models routinely invent filter values for vague requests, hit zero
@@ -161,9 +175,27 @@ async function prepareCancelOrder(restaurantId, args) {
 // Resolve a write tool's arguments into a concrete, confirmable action.
 // Returns { confirmRequired, summary, ...resolved } to halt the loop, or a plain
 // object (error / candidates) that goes back to the model as a tool result.
+async function prepareUpdateSetting(restaurantId, args) {
+  const key = String(args.key || '').toLowerCase();
+  if (!SETTABLE_KEYS.includes(key)) {
+    return { error: `"${args.key}" cannot be changed from chat. Settable keys: ${SETTABLE_KEYS.join(', ')}` };
+  }
+  const value = String(args.value ?? '').trim();
+  if (!value) return { error: 'value is required' };
+  const settings = await settingsRepo.getAll(restaurantId);
+  const current = settings[key];
+  return {
+    confirmRequired: true,
+    summary: `Set ${key.replace(/_/g, ' ')} to ${value}${current !== undefined && current !== '' ? ` (currently ${current})` : ''}`,
+    key,
+    value,
+  };
+}
+
 async function prepareWriteAction(restaurantId, toolName, args) {
-  if (toolName === 'place_order')  return preparePlaceOrder(restaurantId, args);
-  if (toolName === 'cancel_order') return prepareCancelOrder(restaurantId, args);
+  if (toolName === 'place_order')    return preparePlaceOrder(restaurantId, args);
+  if (toolName === 'cancel_order')   return prepareCancelOrder(restaurantId, args);
+  if (toolName === 'update_setting') return prepareUpdateSetting(restaurantId, args);
 
   const matches = await repo.findIngredientsByName(restaurantId, args.ingredient_name || '');
   if (!matches.length) return { error: `No ingredient found matching "${args.ingredient_name}"` };
@@ -183,6 +215,21 @@ async function prepareWriteAction(restaurantId, toolName, args) {
       ingredientId: ing.id,
       ingredientName: ing.name,
       newLevel,
+    };
+  }
+
+  if (toolName === 'record_purchase') {
+    const quantity = Number(args.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) return { error: 'quantity must be a positive number' };
+    const unitCost = args.unit_cost !== undefined ? Number(args.unit_cost) : null;
+    if (unitCost !== null && (!Number.isFinite(unitCost) || unitCost < 0)) return { error: 'unit_cost must be a non-negative number' };
+    return {
+      confirmRequired: true,
+      summary: `Record purchase of ${quantity} ${ing.unit} of ${ing.name}${unitCost != null ? ` at ${unitCost}/${ing.unit}` : ''} — stock ${ing.stock_on_hand} → ${(Number(ing.stock_on_hand) + quantity).toFixed(2)}`,
+      ingredientId: ing.id,
+      ingredientName: ing.name,
+      quantity,
+      unitCost,
     };
   }
 
@@ -233,6 +280,14 @@ function rememberCalls(sessionId, keys) {
 const REPEAT_STUB = {
   already_shown: true,
   note: 'You fetched this exact data earlier in this conversation and the user already saw it. Do not repeat or mention it. Answer only the current question — and if the current question is asking for this same data again, just say it is unchanged from what is shown above.',
+};
+
+// Config writes the model tends to re-propose with echoed arguments when it has
+// no tool for the actual request. Repeating an order or a waste log is a
+// legitimate thing to do; repeating an identical setting change is not.
+const WRITE_STUB_TOOLS = ['update_setting', 'update_reorder_level'];
+const WRITE_REPEAT_STUB = {
+  error: 'You already proposed this exact change moments ago. Re-read the user\'s CURRENT message: if it asks for something different and none of your tools can do it, tell the user plainly that you cannot. Do not repeat this proposal.',
 };
 
 // Structured payloads for the frontend's data cards. Built from the tool's raw
@@ -347,10 +402,13 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
       try { args = JSON.parse(call.function?.arguments || '{}'); } catch { /* model sent bad JSON — fall through with {} */ }
 
       const callKey = `${name}|${JSON.stringify(args)}`;
-      const isRepeat = !!READ_TOOLS[name] && isRepeatCall(sessionId, callKey);
-      if (READ_TOOLS[name] && !isRepeat) turnCallKeys.push(callKey);
+      const stubbable = !!READ_TOOLS[name] || WRITE_STUB_TOOLS.includes(name);
+      const isRepeat = stubbable && isRepeatCall(sessionId, callKey);
+      if (stubbable && !isRepeat) turnCallKeys.push(callKey);
 
-      const result = isRepeat ? REPEAT_STUB : await executeTool(restaurantId, name, args);
+      const result = isRepeat
+        ? (READ_TOOLS[name] ? REPEAT_STUB : WRITE_REPEAT_STUB)
+        : await executeTool(restaurantId, name, args);
 
       const card = isRepeat ? null : await buildDataCard(restaurantId, name, args, result);
       if (card) {
@@ -381,6 +439,8 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
         if (assistantText.trim()) {
           await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: assistantText.trim() });
         }
+        // Record the pending proposal so later turns know it was offered, not done
+        await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: `(Proposed, awaiting the user's confirmation: ${summary})` });
         yield { type: 'confirm_required', tool: name, args: resolved, summary };
         yield { type: 'done' };
         return;
@@ -407,18 +467,19 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
  * resolved payload from the confirm_required event (ingredientId already
  * validated against this restaurant during resolution; services re-check).
  */
-async function confirmAction({ sessionId, restaurantId, userId, tool, args, confirmed }) {
+async function confirmAction({ sessionId, restaurantId, userId, tool, args, confirmed, summary }) {
   if (!confirmed) {
-    await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: 'Okay, I won\'t make that change.' });
-    return { executed: false, message: 'Action cancelled.' };
+    const message = summary ? `Cancelled: ${summary}` : 'Action cancelled.';
+    await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: message });
+    return { executed: false, message };
   }
 
   let result;
-  let summary;
+  let outcome;
 
   if (tool === 'update_reorder_level') {
     result = await ingredientsService.update(args.ingredientId, { reorderLevel: args.newLevel }, restaurantId);
-    summary = `Reorder level for ${result.name} set to ${result.reorder_level} ${result.unit}.`;
+    outcome = `Reorder level for ${result.name} set to ${result.reorder_level} ${result.unit}.`;
   } else if (tool === 'log_waste') {
     result = await wasteService.logWaste({
       restaurantId,
@@ -428,7 +489,7 @@ async function confirmAction({ sessionId, restaurantId, userId, tool, args, conf
       notes: args.notes,
       loggedBy: userId,
     });
-    summary = `Logged ${result.quantity} ${result.unit} of ${args.ingredientName} as ${result.reason} (cost ${result.total_cost}).`;
+    outcome = `Logged ${result.quantity} ${result.unit} of ${args.ingredientName} as ${result.reason} (cost ${result.total_cost}).`;
   } else if (tool === 'place_order') {
     result = await ordersService.createOrder({
       restaurantId,
@@ -437,17 +498,27 @@ async function confirmAction({ sessionId, restaurantId, userId, tool, args, conf
       items: args.items.map(({ menuItemId, quantity, notes }) => ({ menuItemId, quantity, notes })),
       channel: 'dining',
     });
-    summary = `Order ${result.order_ref} placed on Table ${args.tableNumber} — sent to the kitchen.`;
+    outcome = `Order ${result.order_ref} placed on Table ${args.tableNumber} — sent to the kitchen.`;
   } else if (tool === 'cancel_order') {
     await ordersService.updateStatus(args.orderId, 'cancelled', restaurantId);
-    summary = `Order ${args.orderRef} cancelled.`;
+    outcome = `Order ${args.orderRef} cancelled.`;
+  } else if (tool === 'record_purchase') {
+    result = await ingredientsService.recordPurchase(
+      args.ingredientId,
+      { quantity: args.quantity, unitCost: args.unitCost ?? undefined, performedBy: userId },
+      restaurantId,
+    );
+    outcome = `Purchase recorded — ${args.ingredientName} stock is now ${result.stock_on_hand} ${result.unit}.`;
+  } else if (tool === 'update_setting') {
+    await settingsService.update(args.key, args.value, restaurantId);
+    outcome = `Setting updated: ${args.key.replace(/_/g, ' ')} is now ${args.value}.`;
   } else {
     throw new ValidationError(`Unknown write tool: ${tool}`);
   }
 
-  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'tool', content: summary, toolName: tool });
-  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: summary });
-  return { executed: true, message: summary };
+  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'tool', content: outcome, toolName: tool });
+  await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: outcome });
+  return { executed: true, message: outcome };
 }
 
 module.exports = { streamChat, confirmAction, TOOLS };

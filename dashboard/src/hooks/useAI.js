@@ -124,6 +124,7 @@ export function useAIChatInternal() {
         tool: pendingConfirm.tool,
         args: pendingConfirm.args,
         confirmed,
+        summary: pendingConfirm.summary,
       });
       setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
       setPendingConfirm(null);

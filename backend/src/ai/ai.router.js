@@ -66,6 +66,7 @@ router.post('/confirm', async (req, res, next) => {
         tool:         req.body.tool,
         args:         req.body.args,
         confirmed:    req.body.confirmed === true,
+        summary:      req.body.summary,
       }),
     );
   } catch (e) {

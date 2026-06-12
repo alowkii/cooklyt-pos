@@ -67,7 +67,7 @@ const getInventoryMovements = (restaurantId, days = 7) =>
     )
     .then((r) => r.rows);
 
-const getRecipeCosts = (restaurantId) =>
+const getRecipeCosts = (restaurantId, order = 'worst') =>
   db
     .query(
       `SELECT r.name                                   AS recipe,
@@ -82,7 +82,7 @@ const getRecipeCosts = (restaurantId) =>
        LEFT JOIN menu_items mi ON mi.recipe_id = r.id AND mi.restaurant_id = r.restaurant_id
        WHERE r.restaurant_id = $1
        GROUP BY r.id, r.name, mi.name, mi.price
-       ORDER BY food_cost_pct DESC NULLS LAST`,
+       ORDER BY food_cost_pct ${order === 'best' ? 'ASC' : 'DESC'} NULLS LAST`,
       [restaurantId],
     )
     .then((r) => r.rows);
