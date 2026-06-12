@@ -276,10 +276,11 @@ function rememberCalls(sessionId, keys) {
   for (const key of keys) calls.set(key, Date.now());
 }
 
-const REPEAT_STUB = {
-  already_shown: true,
-  note: 'You fetched this exact data earlier in this conversation and the user already saw it. Do not repeat or mention it. Answer only the current question — and if the current question is asking for this same data again, just say it is unchanged from what is shown above.',
-};
+// Repeated read calls still execute (the query is cheap) — the point is to
+// suppress the duplicate card and recitation, not to starve follow-up
+// questions of the data they need.
+const REPEAT_READ_NOTE =
+  'You already fetched this exact data in this conversation and the user has seen its card. Do NOT re-show or recite it. Use it to answer the CURRENT question in one short sentence.';
 
 // Config writes the model tends to re-propose with echoed arguments when it has
 // no tool for the actual request. Repeating an order or a waste log is a
@@ -479,7 +480,9 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
       if (stubbable && !isRepeat) turnCallKeys.push(callKey);
 
       const result = isRepeat
-        ? (READ_TOOLS[name] ? REPEAT_STUB : WRITE_REPEAT_STUB)
+        ? (READ_TOOLS[name]
+            ? { note: REPEAT_READ_NOTE, data: await executeTool(restaurantId, name, args) }
+            : WRITE_REPEAT_STUB)
         : await executeTool(restaurantId, name, args);
 
       const card = isRepeat ? null : await buildDataCard(restaurantId, name, args, result);

@@ -42,7 +42,7 @@ export function useAIChatInternal() {
       return next;
     });
 
-  const finishStreaming = () =>
+  const finishStreaming = (sawVisible) =>
     setMessages((prev) => {
       const done = prev
         .filter((m) => !(m.streaming && !m.content.trim()))
@@ -52,7 +52,12 @@ export function useAIChatInternal() {
       const last = done[done.length - 1];
       if (last?.role === 'assistant') {
         const prevAssistant = done.slice(0, -1).filter((m) => m.role === 'assistant').pop();
-        if (prevAssistant && prevAssistant.content.trim() === last.content.trim()) return done.slice(0, -1);
+        if (prevAssistant && prevAssistant.content.trim() === last.content.trim()) done.pop();
+      }
+      // A turn must never end in silence: if nothing visible survived (empty
+      // model reply or dropped duplicate), say so instead of leaving a void
+      if (!sawVisible && done[done.length - 1]?.role === 'user') {
+        done.push({ role: 'assistant', content: 'Nothing new to add — the answer above still covers this.' });
       }
       return done;
     });
@@ -64,6 +69,7 @@ export function useAIChatInternal() {
     setMessages((prev) => [...prev, { role: 'user', content: message }]);
     setPendingConfirm(null);
     setStreaming(true);
+    let sawVisible = false; // card, confirm, or error shown this turn
 
     try {
       const res = await fetch('/api/ai/chat', {
@@ -102,15 +108,16 @@ export function useAIChatInternal() {
           try { ev = JSON.parse(data); } catch { continue; }
 
           if (ev.type === 'text')             appendDelta(ev.delta);
-          if (ev.type === 'data')             setMessages((prev) => [...prev, { role: 'data', kind: ev.kind, payload: ev.payload }]);
-          if (ev.type === 'confirm_required') setPendingConfirm({ tool: ev.tool, args: ev.args, summary: ev.summary });
-          if (ev.type === 'error')            setMessages((prev) => [...prev, { role: 'error', content: ev.message }]);
+          if (ev.type === 'data')             { sawVisible = true; setMessages((prev) => [...prev, { role: 'data', kind: ev.kind, payload: ev.payload }]); }
+          if (ev.type === 'confirm_required') { sawVisible = true; setPendingConfirm({ tool: ev.tool, args: ev.args, summary: ev.summary }); }
+          if (ev.type === 'error')            { sawVisible = true; setMessages((prev) => [...prev, { role: 'error', content: ev.message }]); }
         }
       }
     } catch (err) {
+      sawVisible = true;
       setMessages((prev) => [...prev, { role: 'error', content: err.message || 'Could not reach the AI service.' }]);
     } finally {
-      finishStreaming();
+      finishStreaming(sawVisible);
       setStreaming(false);
     }
   }, [streaming]);
