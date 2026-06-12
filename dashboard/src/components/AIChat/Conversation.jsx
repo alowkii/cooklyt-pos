@@ -80,6 +80,11 @@ function DataCard({ kind, payload, send, streaming }) {
               </div>
             );
           })}
+          {payload.count > payload.rows.length && (
+            <div className="px-3.5 py-2" style={{ borderTop: '1px solid var(--line)', fontSize: 11.5, color: 'var(--mute)' }}>
+              + {payload.count - payload.rows.length} more in {CARD_META[kind].link.label.replace('Open in ', '')}
+            </div>
+          )}
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button

@@ -40,9 +40,11 @@ Rules:
 - Monetary amounts are in the restaurant's local currency.
 - Write actions (changing reorder levels, logging waste) are proposed via tools and the user confirms them in the UI — never claim an action is done unless a tool result says so.
 - If an ingredient name is ambiguous, use find_ingredient and ask the user which one they mean.
-- Conversation history contains only text, not the underlying data. If a follow-up needs a field you no longer have (e.g. perishability, cost), call the tool again — never answer from general knowledge.
+- Respond to the user's MOST RECENT message only. Earlier questions are settled: never re-fetch their data and never restate their answers.
+- For the current question, always fetch fresh data with tools — never answer from memory, general knowledge, or numbers in earlier messages, even if the question looks similar to a previous one.
+- Call only the tool(s) the current question needs. One question almost always needs exactly one tool.
 - When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
-- Every data question must be answered from a tool call made in THIS turn. Never reuse lists or numbers from earlier messages, even when the new question looks similar to a previous one — the constraint may have changed.
+- When a tool result says the data is already displayed to the user as a card, reply with at most ONE short sentence. Never list or recite the rows — the user is looking at them.
 - You can place dining orders and cancel orders. Before calling place_order, you need the table number and the items with quantities — ask the user for whatever is missing, one question at a time.
 - When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.
 - Never pass filter values the user did not state. For subjective or open-ended requests ("suggest something", "what's good for a rainy day"), fetch the menu UNFILTERED and pick 3-5 fitting items yourself, with a short reason each.
@@ -208,6 +210,31 @@ async function executeTool(restaurantId, toolName, args) {
   return prepareWriteAction(restaurantId, toolName, args || {});
 }
 
+// The 8B model tends to re-run the previous turn's tool call and re-narrate its
+// answer before addressing the new question (prompt rules don't stop it). Track
+// read-tool calls per session; exact repeats within the window get a stub and
+// no data card, so settled topics stay settled.
+const DUP_WINDOW_MS = 10 * 60 * 1000;
+const recentToolCalls = new Map(); // sessionId -> Map(callKey -> timestamp)
+
+function isRepeatCall(sessionId, key) {
+  const calls = recentToolCalls.get(sessionId);
+  return !!(calls && calls.get(key) && Date.now() - calls.get(key) < DUP_WINDOW_MS);
+}
+
+function rememberCalls(sessionId, keys) {
+  if (!keys.length) return;
+  if (recentToolCalls.size > 500) recentToolCalls.clear(); // crude memory bound
+  let calls = recentToolCalls.get(sessionId);
+  if (!calls) { calls = new Map(); recentToolCalls.set(sessionId, calls); }
+  for (const key of keys) calls.set(key, Date.now());
+}
+
+const REPEAT_STUB = {
+  already_shown: true,
+  note: 'You fetched this exact data earlier in this conversation and the user already saw it. Do not repeat or mention it. Answer only the current question — and if the current question is asking for this same data again, just say it is unchanged from what is shown above.',
+};
+
 // Structured payloads for the frontend's data cards. Built from the tool's raw
 // rows — exact SQL numbers, independent of how the model narrates them.
 async function buildDataCard(restaurantId, toolName, args, result) {
@@ -287,6 +314,7 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
 
   const MAX_ROUNDS = 5;
   let assistantText = '';
+  const turnCallKeys = [];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     let roundText = '';
@@ -313,10 +341,23 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
       let args = {};
       try { args = JSON.parse(call.function?.arguments || '{}'); } catch { /* model sent bad JSON — fall through with {} */ }
 
-      const result = await executeTool(restaurantId, name, args);
+      const callKey = `${name}|${JSON.stringify(args)}`;
+      const isRepeat = !!READ_TOOLS[name] && isRepeatCall(sessionId, callKey);
+      if (READ_TOOLS[name] && !isRepeat) turnCallKeys.push(callKey);
 
-      const card = await buildDataCard(restaurantId, name, args, result);
+      const result = isRepeat ? REPEAT_STUB : await executeTool(restaurantId, name, args);
+
+      const card = isRepeat ? null : await buildDataCard(restaurantId, name, args, result);
       if (card) yield { type: 'data', kind: card.kind, payload: card.payload };
+
+      // When a card is shown, the model must not recite the same rows as text —
+      // wrap the tool result so it comments instead of repeating.
+      const toolContent = card
+        ? JSON.stringify({
+            note: 'This data is ALREADY displayed to the user as a visual card. Do not repeat the numbers or list the items. Reply with at most one short sentence — a takeaway, anomaly, or suggested next step. If there is nothing useful to add, reply with an empty string.',
+            data: result,
+          })
+        : JSON.stringify(result ?? null);
 
       if (result?.confirmRequired) {
         const { confirmRequired, summary, ...resolved } = result;
@@ -328,10 +369,11 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
         return;
       }
 
-      messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result ?? null) });
+      messages.push({ role: 'tool', tool_call_id: call.id, content: toolContent });
     }
   }
 
+  rememberCalls(sessionId, turnCallKeys);
   if (assistantText.trim()) {
     await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: assistantText.trim() });
   }
