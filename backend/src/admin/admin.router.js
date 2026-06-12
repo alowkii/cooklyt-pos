@@ -314,6 +314,23 @@ router.patch('/restaurants/:id/status', authV, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.patch('/restaurants/:id/ai', authV, async (req, res, next) => {
+  try {
+    const { ai_enabled } = req.body;
+    if (typeof ai_enabled !== 'boolean') return res.status(400).json({ error: 'ai_enabled must be a boolean' });
+    const restaurant = await service.setRestaurantAiEnabled(req.params.id, ai_enabled);
+    audit.log({
+      ...sa(req),
+      restaurantId: req.params.id,
+      action: 'update',
+      resourceType: 'restaurant',
+      resourceId: req.params.id,
+      description: `${ai_enabled ? 'Enabled' : 'Disabled'} AI assistant for "${restaurant.name}"`,
+    });
+    res.json(restaurant);
+  } catch (e) { next(e); }
+});
+
 router.delete('/restaurants/:id', authV, async (req, res, next) => {
   try {
     const deleted = await service.deleteRestaurant(req.params.id);

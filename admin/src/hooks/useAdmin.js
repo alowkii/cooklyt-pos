@@ -65,6 +65,19 @@ export function useSetRestaurantStatus() {
   });
 }
 
+export function useSetRestaurantAi() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ai_enabled }) =>
+      api.patch(`/restaurants/${id}/ai`, { ai_enabled }).then((r) => r.data),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['restaurants'] });
+      qc.invalidateQueries({ queryKey: ['restaurants', id] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export function useCreateUser(restaurantId) {
