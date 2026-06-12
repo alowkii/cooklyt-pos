@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowUp, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useAIChat } from '../../context/AIContext';
 import { useAuth } from '../../hooks/useAuth';
-import { ASSISTANT, greeting, PROMPT_GROUPS } from './assistant';
+import { useCurrency } from '../../context/CurrencyContext';
+import { ASSISTANT, greeting, PROMPT_GROUPS, CARD_META } from './assistant';
 
 // Minimal markdown: **bold** and bullet/numbered lines. The model is prompted
 // to answer in short lists, so this covers what it actually produces.
@@ -27,6 +29,83 @@ function MessageBody({ content }) {
     if (!line.trim()) return <div key={i} style={{ height: 6 }} />;
     return <div key={i}><Inline text={line} /></div>;
   });
+}
+
+// Structured result card — rendered from the tool's raw rows (exact SQL data),
+// with the model's narration in a separate bubble.
+function DataCard({ kind, payload, send, streaming }) {
+  const { format } = useCurrency();
+  const navigate = useNavigate();
+  const meta = CARD_META[kind];
+  if (!meta) return null;
+
+  const rowView = (r) => {
+    if (kind === 'waste')   return { value: format(r.cost), color: 'var(--bad)' };
+    if (kind === 'stock')   return { value: `${r.stock} ${r.unit} left`, color: 'var(--bad)' };
+    if (kind === 'sales')   return { value: `${r.qty} sold · ${format(r.revenue)}`, color: 'var(--ink-2)' };
+    if (kind === 'recipes') return { value: `${r.pct}%`, color: r.pct >= 35 ? 'var(--bad)' : 'var(--ink-2)' };
+    return { value: '', color: 'var(--ink-2)' };
+  };
+
+  return (
+    <div className="flex justify-start">
+      <div className="p-3" style={{ maxWidth: '92%', minWidth: 250, background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: '12px 12px 12px 4px', animation: 'ai-rise .25s ease both' }}>
+        <div className="overflow-hidden" style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 10 }}>
+          {kind === 'waste' && (
+            <>
+              <div className="flex items-end justify-between px-3.5 pb-2.5 pt-3">
+                <div>
+                  <p className="m-0" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--label)' }}>
+                    {meta.metric} · {payload.days}d
+                  </p>
+                  <p className="m-0 mt-1 mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-.02em', color: 'var(--ink)' }}>
+                    {format(payload.totalCost)}
+                  </p>
+                </div>
+                {payload.deltaPct != null && (
+                  <span className="rounded-full px-2 py-0.5" style={{ fontSize: 11, fontWeight: 500, ...(payload.deltaPct >= 0 ? { color: 'var(--bad)', background: 'var(--bad-soft)' } : { color: 'var(--ok)', background: 'var(--ok-soft)' }) }}>
+                    {payload.deltaPct >= 0 ? '▲' : '▼'} {Math.abs(payload.deltaPct)}% vs prev {payload.days}d
+                  </span>
+                )}
+              </div>
+              <div style={{ height: 1, background: 'var(--line)' }} />
+            </>
+          )}
+          {payload.rows.map((r, i) => {
+            const { value, color } = rowView(r);
+            return (
+              <div key={i} className="flex items-center justify-between gap-3 px-3.5 py-2" style={{ borderBottom: i < payload.rows.length - 1 ? '1px solid var(--line)' : 0, fontSize: 12.5 }}>
+                <span style={{ color: 'var(--ink-2)' }}>{r.label}</span>
+                <span className="mono" style={{ fontSize: 12, color, whiteSpace: 'nowrap' }}>{value}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => navigate(meta.link.to)}
+            className="mr-1 inline-flex cursor-pointer items-center gap-1"
+            style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--copper)', background: 'none', border: 0, padding: 0 }}
+          >
+            {meta.link.label} <ArrowRight size={12} />
+          </button>
+          {meta.follows.map((f) => (
+            <button
+              key={f.short}
+              onClick={() => send(f.full)}
+              disabled={streaming}
+              className="cursor-pointer transition-colors disabled:opacity-50"
+              style={{ fontSize: 11.5, color: 'var(--mute)', background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 999, padding: '5px 10px' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              {f.short}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Conversation({ showPrompts = true, layout = 'panel' }) {
@@ -91,6 +170,9 @@ export default function Conversation({ showPrompts = true, layout = 'panel' }) {
 
         <div className="flex flex-col gap-3">
           {messages.map((m, i) => {
+            if (m.role === 'data') {
+              return <DataCard key={i} kind={m.kind} payload={m.payload} send={send} streaming={streaming} />;
+            }
             if (m.role === 'error') {
               return (
                 <div key={i} className="flex items-start gap-2 rounded-[10px] px-3 py-2" style={{ background: 'var(--bad-soft)', fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.45, animation: 'ai-rise .25s ease both' }}>

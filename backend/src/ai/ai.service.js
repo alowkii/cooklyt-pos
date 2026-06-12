@@ -22,7 +22,7 @@ const TOOLS = [
   { type: 'function', function: { name: 'get_recipe_costs',       description: 'Every recipe with its ingredient cost, linked menu price, and food-cost percentage (cost ÷ price). High percentages mean thin margins.', parameters: { type: 'object', properties: {}, required: [] } } },
   { type: 'function', function: { name: 'get_sales_velocity',     description: 'Best-selling menu items over the last N days: quantity sold, revenue, average per day.', parameters: { type: 'object', properties: { days, limit }, required: [] } } },
   { type: 'function', function: { name: 'get_recent_orders',      description: 'The most recent orders with status, channel, items, and amount.', parameters: { type: 'object', properties: { limit }, required: [] } } },
-  { type: 'function', function: { name: 'get_menu_items',         description: 'Browse the menu. ALWAYS pass the user\'s constraints as filters (e.g. "under 200" → max_price: 200) instead of filtering the results yourself.', parameters: { type: 'object', properties: { max_price: { type: 'number', description: 'Only items priced at or below this' }, min_price: { type: 'number', description: 'Only items priced at or above this' }, category: { type: 'string', description: 'Exact category name' }, name_contains: { type: 'string', description: 'Partial item name' } }, required: [] } } },
+  { type: 'function', function: { name: 'get_menu_items',         description: 'Browse the menu. ALWAYS pass the user\'s stated constraints as filters (e.g. "under 200" → max_price: 200) instead of filtering the results yourself. Only use filter values the user explicitly gave — for open-ended requests call with no filters and see the whole menu.', parameters: { type: 'object', properties: { max_price: { type: 'number', description: 'Only items priced at or below this' }, min_price: { type: 'number', description: 'Only items priced at or above this' }, category: { type: 'string', description: 'Exact category name' }, name_contains: { type: 'string', description: 'Partial item name' } }, required: [] } } },
   { type: 'function', function: { name: 'find_ingredient',        description: 'Look up ingredients by (partial) name. Use before update_reorder_level or log_waste to resolve the exact ingredient.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Full or partial ingredient name' } }, required: ['name'] } } },
   { type: 'function', function: { name: 'update_reorder_level',   description: 'WRITE ACTION (user must confirm): change an ingredient\'s reorder level.', parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, new_level: { type: 'number', description: 'New reorder level in the ingredient\'s unit' } }, required: ['ingredient_name', 'new_level'] } } },
   { type: 'function', function: { name: 'log_waste',              description: `WRITE ACTION (user must confirm): record wasted stock of an ingredient. reason must be one of ${WASTE_REASONS.join(', ')}.`, parameters: { type: 'object', properties: { ingredient_name: { type: 'string' }, quantity: { type: 'number', description: 'Wasted amount in the ingredient\'s unit' }, reason: { type: 'string', enum: WASTE_REASONS }, notes: { type: 'string' } }, required: ['ingredient_name', 'quantity', 'reason'] } } },
@@ -44,7 +44,9 @@ Rules:
 - When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
 - Every data question must be answered from a tool call made in THIS turn. Never reuse lists or numbers from earlier messages, even when the new question looks similar to a previous one — the constraint may have changed.
 - You can place dining orders and cancel orders. Before calling place_order, you need the table number and the items with quantities — ask the user for whatever is missing, one question at a time.
-- When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.`;
+- When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.
+- Never pass filter values the user did not state. For subjective or open-ended requests ("suggest something", "what's good for a rainy day"), fetch the menu UNFILTERED and pick 3-5 fitting items yourself, with a short reason each.
+- If the user shares how they feel, acknowledge it warmly in one sentence, then help with what they need. Don't probe into personal matters — you're a work assistant, not a counselor.`;
 
 // ── Tool execution ───────────────────────────────────────────────────────────
 
@@ -56,7 +58,25 @@ const READ_TOOLS = {
   get_recipe_costs:        (rid)    => repo.getRecipeCosts(rid),
   get_sales_velocity:      (rid, a) => repo.getSalesVelocity(rid, a.days ?? 7, a.limit ?? 15),
   get_recent_orders:       (rid, a) => repo.getRecentOrders(rid, a.limit ?? 10),
-  get_menu_items:          (rid, a) => repo.getMenuItems(rid, { maxPrice: a.max_price, minPrice: a.min_price, category: a.category, nameContains: a.name_contains }),
+  // Small models routinely invent filter values for vague requests, hit zero
+  // rows, and then either report a dead end or fabricate menu items from
+  // training data. Asking the model to retry is unreliable — when filters match
+  // nothing, hand it the full menu in the same tool result instead.
+  get_menu_items: async (rid, a) => {
+    const items = await repo.getMenuItems(rid, { maxPrice: a.max_price, minPrice: a.min_price, category: a.category, nameContains: a.name_contains });
+    const filters = Object.fromEntries(
+      Object.entries({ max_price: a.max_price, min_price: a.min_price, category: a.category, name_contains: a.name_contains })
+        .filter(([, v]) => v !== undefined && v !== null),
+    );
+    if (!items.length && Object.keys(filters).length) {
+      const fullMenu = await repo.getMenuItems(rid, {});
+      return {
+        note: `No menu items matched ${JSON.stringify(filters)}. Below is the FULL menu instead. Suggest only items from this list — these are the only items that exist.`,
+        items: fullMenu,
+      };
+    }
+    return items;
+  },
   get_tables:              (rid)    => repo.getTables(rid),
   get_active_orders:       (rid)    => repo.getActiveOrders(rid),
   find_ingredient:         (rid, a) => repo.findIngredientsByName(rid, a.name || ''),
@@ -188,6 +208,37 @@ async function executeTool(restaurantId, toolName, args) {
   return prepareWriteAction(restaurantId, toolName, args || {});
 }
 
+// Structured payloads for the frontend's data cards. Built from the tool's raw
+// rows — exact SQL numbers, independent of how the model narrates them.
+async function buildDataCard(restaurantId, toolName, args, result) {
+  if (!Array.isArray(result) || !result.length) return null;
+
+  if (toolName === 'get_top_wasted_items' || toolName === 'get_waste_summary') {
+    const days = args.days ?? 7;
+    const [totalCost, prevCost] = await Promise.all([
+      repo.getWasteTotal(restaurantId, days, 0),
+      repo.getWasteTotal(restaurantId, days, days),
+    ]);
+    const deltaPct = prevCost > 0 ? Math.round(((totalCost - prevCost) / prevCost) * 100) : null;
+    const rows = toolName === 'get_top_wasted_items'
+      ? result.slice(0, 5).map((r) => ({ label: r.ingredient, cost: Number(r.total_cost) }))
+      : result.slice(0, 5).map((r) => ({ label: r.reason.charAt(0) + r.reason.slice(1).toLowerCase(), cost: Number(r.total_cost) }));
+    return { kind: 'waste', payload: { days, totalCost, deltaPct, rows } };
+  }
+  if (toolName === 'get_low_stock') {
+    return { kind: 'stock', payload: { count: result.length, rows: result.slice(0, 6).map((r) => ({ label: r.name, stock: Number(r.stock_on_hand), unit: r.unit })) } };
+  }
+  if (toolName === 'get_sales_velocity') {
+    return { kind: 'sales', payload: { days: args.days ?? 7, rows: result.slice(0, 5).map((r) => ({ label: r.name, qty: r.qty_sold, revenue: Number(r.revenue) })) } };
+  }
+  if (toolName === 'get_recipe_costs') {
+    const rows = result.filter((r) => r.food_cost_pct != null).slice(0, 5);
+    if (!rows.length) return null;
+    return { kind: 'recipes', payload: { rows: rows.map((r) => ({ label: r.menu_item || r.recipe, pct: Number(r.food_cost_pct) })) } };
+  }
+  return null;
+}
+
 // ── Chat (streaming) ─────────────────────────────────────────────────────────
 
 // The model has no clock — without this it hallucinates dates from training data.
@@ -263,6 +314,9 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
       try { args = JSON.parse(call.function?.arguments || '{}'); } catch { /* model sent bad JSON — fall through with {} */ }
 
       const result = await executeTool(restaurantId, name, args);
+
+      const card = await buildDataCard(restaurantId, name, args, result);
+      if (card) yield { type: 'data', kind: card.kind, payload: card.payload };
 
       if (result?.confirmRequired) {
         const { confirmRequired, summary, ...resolved } = result;

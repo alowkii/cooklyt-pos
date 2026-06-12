@@ -94,6 +94,7 @@ export function useAIChatInternal() {
           try { ev = JSON.parse(data); } catch { continue; }
 
           if (ev.type === 'text')             appendDelta(ev.delta);
+          if (ev.type === 'data')             setMessages((prev) => [...prev, { role: 'data', kind: ev.kind, payload: ev.payload }]);
           if (ev.type === 'confirm_required') setPendingConfirm({ tool: ev.tool, args: ev.args, summary: ev.summary });
           if (ev.type === 'error')            setMessages((prev) => [...prev, { role: 'error', content: ev.message }]);
         }

@@ -149,6 +149,20 @@ const getMenuItems = (restaurantId, { maxPrice, minPrice, category, nameContains
     )
     .then((r) => r.rows);
 
+// Waste cost over a window ending `offsetDays` ago — call twice to compare
+// this period against the previous one (delta badge on the waste card)
+const getWasteTotal = (restaurantId, days = 7, offsetDays = 0) =>
+  db
+    .query(
+      `SELECT COALESCE(SUM(total_cost), 0) AS total
+       FROM waste_logs
+       WHERE restaurant_id = $1
+         AND logged_at >= NOW() - make_interval(days => ($2::int + $3::int))
+         AND logged_at <  NOW() - make_interval(days => $3::int)`,
+      [restaurantId, days, offsetDays],
+    )
+    .then((r) => Number(r.rows[0].total));
+
 const getTables = (restaurantId) =>
   db
     .query(
@@ -249,6 +263,7 @@ module.exports = {
   getSalesVelocity,
   getRecentOrders,
   getMenuItems,
+  getWasteTotal,
   getTables,
   getTableByNumber,
   getActiveOrders,
