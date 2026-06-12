@@ -4,6 +4,12 @@ const db = require('../shared/db');
 // compact aggregates with only the columns the model needs, never SELECT * dumps —
 // every returned row is paid for in prompt tokens on each chat turn.
 
+// Per-restaurant kill switch, controlled from the operator admin panel
+const getAiEnabled = (restaurantId) =>
+  db
+    .query('SELECT ai_enabled FROM restaurants WHERE id = $1', [restaurantId])
+    .then((r) => r.rows[0]?.ai_enabled !== false);
+
 const getWasteSummary = (restaurantId, days = 7) =>
   db
     .query(
@@ -271,6 +277,7 @@ const getMessagesSince = (sessionId, restaurantId, since, limit = 30) =>
     .then((r) => r.rows);
 
 module.exports = {
+  getAiEnabled,
   getWasteSummary,
   getTopWastedItems,
   getLowStock,

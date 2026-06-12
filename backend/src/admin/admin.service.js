@@ -112,6 +112,12 @@ async function setRestaurantStatus(id, isActive) {
   return result;
 }
 
+async function setRestaurantAiEnabled(id, enabled) {
+  const result = await repo.setRestaurantAiEnabled(id, enabled);
+  if (!result) throw new NotFoundError('Restaurant');
+  return result;
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 async function createUser({ email, password, role, restaurantId }) {
@@ -297,6 +303,7 @@ module.exports = {
   updateRestaurant,
   deleteRestaurant,
   setRestaurantStatus,
+  setRestaurantAiEnabled,
   createUser,
   deleteUser,
   getAllSuperAdmins,

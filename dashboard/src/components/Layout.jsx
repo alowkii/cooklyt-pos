@@ -51,6 +51,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 import { useMeProfile, useSetUserPresent } from '../hooks/useUsers';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
+import { useAIStatus } from '../hooks/useAI';
 
 // ── Theme helpers ──────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ export default function Layout() {
     setToasts((prev) => prev.filter((t) => t.orderId !== orderId));
   }
   const { user, restaurant, isAdmin, isCashier } = useAuth();
+  const { data: aiStatus } = useAIStatus(user?.role === 'admin' || user?.role === 'staff');
   const { data: meProfile } = useMeProfile();
   const { data: settings } = useSettings();
   const updateSetting = useUpdateSetting();
@@ -370,7 +372,11 @@ export default function Layout() {
   }, [location.pathname]);
 
   const isKitchen = user?.role === 'kitchen';
-  const nav = ALL_NAV.filter((n) => (!n.adminOnly || isAdmin) && (!n.staffOnly || !isKitchen));
+  // Drop the AI Assistant nav item when the operator disabled it for this restaurant
+  const aiDisabled = aiStatus?.enabled === false;
+  const nav = ALL_NAV.filter(
+    (n) => (!n.adminOnly || isAdmin) && (!n.staffOnly || !isKitchen) && !(n.to === '/ai-chat' && aiDisabled),
+  );
 
   const pageLabel = (() => {
     for (const n of nav) {
