@@ -150,7 +150,7 @@ export default function Access() {
               We don't believe in demos that show you half the product. Every feature is live — waste tracking, inventory, reports, loyalty, everything.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="included-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {INCLUDED.map(item => (
               <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 16px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--paper)", fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.4 }}>
                 <Check size={14} style={{ color: "var(--ok)", flexShrink: 0, marginTop: 1 }} />
@@ -198,6 +198,7 @@ export default function Access() {
         }
         @media (max-width: 480px) {
           .cta-email { font-size: 12px !important; padding: 14px 16px !important; }
+          .included-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </LandingLayout>

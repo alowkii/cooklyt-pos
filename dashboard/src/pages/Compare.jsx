@@ -166,6 +166,9 @@ export default function Compare() {
         @media (max-width: 600px) {
           .page-hero-preview { display: none !important; }
         }
+        @media (max-width: 520px) {
+          .cmp-wrap th, .cmp-wrap td { padding: 12px 14px !important; font-size: 13px !important; }
+        }
       `}</style>
     </LandingLayout>
   );
