@@ -3,14 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useShiftFullHistory } from '../hooks/useShift';
-
-function formatDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+import { formatDate } from '../utils/dateUtils';
 
 export default function ShiftHistory() {
   const navigate = useNavigate();

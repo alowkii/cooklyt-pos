@@ -10,7 +10,7 @@ const EVENT_CONFIG = {
   STAFF_ASSIGNED:       { label: 'Table assigned',         Icon: UserCheck,     color: 'var(--ok)',   to: '/tables'       },
   RESERVATION_REMINDER: { label: 'Reservation in 15 min', Icon: CalendarClock, color: 'var(--warn)', to: '/reservations' },
   ITEM_VOIDED:          { label: 'Item voided',            Icon: XCircle,       color: 'var(--mute)', to: '/orders'       },
-  ITEM_WASTED:          { label: 'Item wasted',            Icon: Trash2,        color: '#b45309',     to: '/waste'        },
+  ITEM_WASTED:          { label: 'Item wasted',            Icon: Trash2,        color: '#b45309',     to: '/waste-log'    },
 };
 
 const CHANNEL_CONFIG = {

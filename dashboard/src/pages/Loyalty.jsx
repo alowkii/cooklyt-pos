@@ -9,6 +9,7 @@ import {
 import { useLoyaltyCustomers, useCreateLoyaltyCustomer, useLoyaltyTransactions, useAdjustPoints, useDeleteLoyaltyCustomer, useUpdateLoyaltyCustomerName, useLoyaltyTiers, useLoyaltyRewards, useSaveLoyaltyTiers, useSaveLoyaltyRewards } from '../hooks/useLoyalty';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 import Modal from '../components/Modal';
+import { fmtDate } from '../utils/dateUtils';
 
 /* ─────────────────── Constants ─────────────────── */
 
@@ -57,11 +58,6 @@ function getTier(pts, sortedTiers) {
 function initials(name, phone) {
   if (name) return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   return (phone ?? '?')[0].toUpperCase();
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
 }
 
 function fmtSince(iso) {

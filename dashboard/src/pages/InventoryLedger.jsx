@@ -5,6 +5,7 @@ import { useIngredients } from '../hooks/useIngredients';
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
+import { escCsv, firstOfMonth } from '../utils/dateUtils';
 
 const TYPE_CFG = {
   PURCHASE:   { label: 'Purchase',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
@@ -31,11 +32,6 @@ Butter,ADJUSTMENT,-0.500,,
 Milk,WASTE,-1.000,,`;
 
 // ── CSV utilities ─────────────────────────────────────────────────────────────
-
-function escCsv(v) {
-  const s = String(v ?? '');
-  return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 function downloadCsv(filename, cols, rows) {
   const lines = [
@@ -76,10 +72,6 @@ function parseCSV(text) {
 }
 
 function today()        { return new Date().toISOString().slice(0, 10); }
-function firstOfMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-}
 function fmtDateTime(ts) {
   return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }

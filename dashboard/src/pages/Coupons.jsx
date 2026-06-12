@@ -4,15 +4,11 @@ import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon } from '.
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
+import { fmtDate } from '../utils/dateUtils';
 
 const LABEL = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', display: 'block', marginBottom: 5 };
 const INPUT = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' };
 const EMPTY = { code: '', description: '', discount_type: 'percent', discount_value: '', min_order_amount: '', max_uses: '', expires_at: '' };
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
-}
 
 function isExpired(iso) {
   return iso && new Date(iso) < new Date();

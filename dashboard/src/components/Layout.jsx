@@ -32,6 +32,7 @@ import {
   Maximize2,
   Minimize2,
   Plus,
+  Sparkles,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -43,6 +44,8 @@ import ToastContainer from './ToastNotification';
 import DeliveryAlertContainer from './DeliveryAlert';
 import Modal from './Modal';
 import NewOrderModal from './NewOrderModal';
+import ChatBubble from './AIChat/ChatBubble';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -77,7 +80,7 @@ function darkenHex(hex, delta) {
 }
 
 const GROUP_PATHS = {
-  analytics:  ['/reports', '/history', '/waste', '/costing'],
+  analytics:  ['/reports', '/history', '/waste-log', '/costing'],
   rms:        ['/ingredients', '/inventory', '/recipes', '/combos'],
   marketing:  ['/coupons', '/loyalty', '/reviews'],
 };
@@ -88,12 +91,13 @@ const ALL_NAV = [
   { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                    adminOnly: false },
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,              adminOnly: false },
   { to: '/shift',    label: 'Shift',    Icon: Wallet,                     adminOnly: false, staffOnly: true },
+  { to: '/ai-chat',  label: 'AI Assistant', Icon: Sparkles,               adminOnly: false, staffOnly: true },
   {
     type: 'group', key: 'analytics', label: 'Analytics', Icon: BarChart2, adminOnly: true,
     children: [
       { to: '/reports',  label: 'Reports',   Icon: BarChart2  },
       { to: '/history',  label: 'History',   Icon: ScrollText },
-      { to: '/waste',    label: 'Waste Log', Icon: Trash2     },
+      { to: '/waste-log',    label: 'Waste Log', Icon: Trash2     },
       { to: '/costing',  label: 'Costing',   Icon: TrendingUp },
     ],
   },
@@ -716,7 +720,9 @@ export default function Layout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-5 lg:p-6">
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 
@@ -732,6 +738,7 @@ export default function Layout() {
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <DeliveryAlertContainer alerts={deliveryAlerts} onDismiss={dismissDeliveryAlert} onAccept={acceptDeliveryAlert} />
+      <ChatBubble />
 
       {/* Restaurant open/close confirmation */}
       {confirmOpen && createPortal(

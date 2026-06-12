@@ -3,14 +3,10 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { useCostReport } from '../hooks/useRecipes';
 import { useWasteReport } from '../hooks/useInventory';
 import { useCurrency } from '../context/CurrencyContext';
+import { firstOfMonth } from '../utils/dateUtils';
 
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function firstOfMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
 function MarginBadge({ pct }) {
