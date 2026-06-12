@@ -43,11 +43,19 @@ export function useAIChatInternal() {
     });
 
   const finishStreaming = () =>
-    setMessages((prev) =>
-      prev
+    setMessages((prev) => {
+      const done = prev
         .filter((m) => !(m.streaming && !m.content.trim()))
-        .map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-    );
+        .map((m) => (m.streaming ? { ...m, streaming: false } : m));
+      // Drop a reply that's word-for-word the previous assistant reply — a
+      // duplicate takeaway next to a fresh card is pure noise
+      const last = done[done.length - 1];
+      if (last?.role === 'assistant') {
+        const prevAssistant = done.slice(0, -1).filter((m) => m.role === 'assistant').pop();
+        if (prevAssistant && prevAssistant.content.trim() === last.content.trim()) return done.slice(0, -1);
+      }
+      return done;
+    });
 
   const send = useCallback(async (text) => {
     const message = text?.trim();

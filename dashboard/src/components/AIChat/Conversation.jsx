@@ -33,11 +33,16 @@ function MessageBody({ content }) {
 
 // Structured result card — rendered from the tool's raw rows (exact SQL data),
 // with the model's narration in a separate bubble.
-function DataCard({ kind, payload, send, streaming }) {
+function DataCard({ kind, payload, send, streaming, lastQuestion }) {
   const { format } = useCurrency();
   const navigate = useNavigate();
   const meta = CARD_META[kind];
   if (!meta) return null;
+
+  // Don't offer the question this card just answered as a follow-up
+  const follows = meta.follows.filter(
+    (f) => f.full.toLowerCase() !== (lastQuestion || '').toLowerCase(),
+  );
 
   const rowView = (r) => {
     if (kind === 'waste')   return { value: format(r.cost), color: 'var(--bad)' };
@@ -51,12 +56,12 @@ function DataCard({ kind, payload, send, streaming }) {
     <div className="flex justify-start">
       <div className="p-3" style={{ maxWidth: '92%', minWidth: 250, background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: '12px 12px 12px 4px', animation: 'ai-rise .25s ease both' }}>
         <div className="overflow-hidden" style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 10 }}>
-          {kind === 'waste' && (
+          {kind === 'waste' && payload.totalCost != null && (
             <>
               <div className="flex items-end justify-between px-3.5 pb-2.5 pt-3">
                 <div>
                   <p className="m-0" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--label)' }}>
-                    {meta.metric} · {payload.days}d
+                    {payload.title || meta.metric} · {payload.days}d
                   </p>
                   <p className="m-0 mt-1 mono" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-.02em', color: 'var(--ink)' }}>
                     {format(payload.totalCost)}
@@ -94,7 +99,7 @@ function DataCard({ kind, payload, send, streaming }) {
           >
             {meta.link.label} <ArrowRight size={12} />
           </button>
-          {meta.follows.map((f) => (
+          {follows.map((f) => (
             <button
               key={f.short}
               onClick={() => send(f.full)}
@@ -176,7 +181,8 @@ export default function Conversation({ showPrompts = true, layout = 'panel' }) {
         <div className="flex flex-col gap-3">
           {messages.map((m, i) => {
             if (m.role === 'data') {
-              return <DataCard key={i} kind={m.kind} payload={m.payload} send={send} streaming={streaming} />;
+              const lastQuestion = messages.slice(0, i).filter((x) => x.role === 'user').pop()?.content;
+              return <DataCard key={i} kind={m.kind} payload={m.payload} send={send} streaming={streaming} lastQuestion={lastQuestion} />;
             }
             if (m.role === 'error') {
               return (

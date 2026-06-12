@@ -44,7 +44,7 @@ Rules:
 - For the current question, always fetch fresh data with tools — never answer from memory, general knowledge, or numbers in earlier messages, even if the question looks similar to a previous one.
 - Call only the tool(s) the current question needs. One question almost always needs exactly one tool.
 - When the user states a constraint (price limit, category, time range), pass it as a tool parameter so the data comes back pre-filtered. Before answering, check every item you list actually satisfies the user's constraints.
-- When a tool result says the data is already displayed to the user as a card, reply with at most ONE short sentence. Never list or recite the rows — the user is looking at them.
+- When a tool result says the data is already displayed to the user as a card, reply with at most ONE short sentence containing no numbers from that data. Never list or recite the rows — the user is looking at them. A takeaway that just restates the question ("the worst ones are the ones with the highest percentages") is worse than saying nothing.
 - You can place dining orders and cancel orders. Before calling place_order, you need the table number and the items with quantities — ask the user for whatever is missing, one question at a time.
 - When a write tool returns an error with options (occupied table with available alternatives, ambiguous item, multiple matching orders), relay those options to the user and wait for their choice. Do not pick for them.
 - Never pass filter values the user did not state. For subjective or open-ended requests ("suggest something", "what's good for a rainy day"), fetch the menu UNFILTERED and pick 3-5 fitting items yourself, with a short reason each.
@@ -246,11 +246,16 @@ async function buildDataCard(restaurantId, toolName, args, result) {
       repo.getWasteTotal(restaurantId, days, 0),
       repo.getWasteTotal(restaurantId, days, days),
     ]);
-    const deltaPct = prevCost > 0 ? Math.round(((totalCost - prevCost) / prevCost) * 100) : null;
+    // A delta against a near-empty previous period is noise (▲465%) — only show
+    // it when the baseline is at least a quarter of the current total
+    const deltaPct = prevCost >= totalCost * 0.25 && prevCost > 0
+      ? Math.round(((totalCost - prevCost) / prevCost) * 100)
+      : null;
     const rows = toolName === 'get_top_wasted_items'
       ? result.slice(0, 5).map((r) => ({ label: r.ingredient, cost: Number(r.total_cost) }))
       : result.slice(0, 5).map((r) => ({ label: r.reason.charAt(0) + r.reason.slice(1).toLowerCase(), cost: Number(r.total_cost) }));
-    return { kind: 'waste', payload: { days, totalCost, deltaPct, rows } };
+    const title = toolName === 'get_top_wasted_items' ? 'Top wasted' : 'Waste by reason';
+    return { kind: 'waste', payload: { days, title, totalCost, deltaPct, rows } };
   }
   if (toolName === 'get_low_stock') {
     return { kind: 'stock', payload: { count: result.length, rows: result.slice(0, 6).map((r) => ({ label: r.name, stock: Number(r.stock_on_hand), unit: r.unit })) } };
@@ -348,13 +353,25 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
       const result = isRepeat ? REPEAT_STUB : await executeTool(restaurantId, name, args);
 
       const card = isRepeat ? null : await buildDataCard(restaurantId, name, args, result);
-      if (card) yield { type: 'data', kind: card.kind, payload: card.payload };
+      if (card) {
+        // Don't repeat the big waste-total headline on consecutive waste cards —
+        // the second card keeps its rows but drops the duplicate metric header
+        if (card.kind === 'waste') {
+          if (isRepeatCall(sessionId, '__waste_header')) {
+            card.payload.totalCost = null;
+            card.payload.deltaPct = null;
+          } else {
+            turnCallKeys.push('__waste_header');
+          }
+        }
+        yield { type: 'data', kind: card.kind, payload: card.payload };
+      }
 
       // When a card is shown, the model must not recite the same rows as text —
       // wrap the tool result so it comments instead of repeating.
       const toolContent = card
         ? JSON.stringify({
-            note: 'This data is ALREADY displayed to the user as a visual card. Do not repeat the numbers or list the items. Reply with at most one short sentence — a takeaway, anomaly, or suggested next step. If there is nothing useful to add, reply with an empty string.',
+            note: 'This data is ALREADY displayed to the user as a visual card. Reply with at most ONE short sentence: a non-obvious takeaway, anomaly, or next step about THIS data specifically (its top entry is a good anchor). No numbers from this data (the card shows them), no restating the question, no repeating earlier takeaways. If you have nothing genuinely useful to add, reply with an empty string.',
             data: result,
           })
         : JSON.stringify(result ?? null);
@@ -374,7 +391,10 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
   }
 
   rememberCalls(sessionId, turnCallKeys);
-  if (assistantText.trim()) {
+  // Don't persist a takeaway identical to the previous one — duplicates in
+  // history compound the echo on later turns
+  const prevAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !m.tool_calls)?.content?.trim();
+  if (assistantText.trim() && assistantText.trim() !== prevAssistant) {
     await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: assistantText.trim() });
   }
   yield { type: 'done' };
