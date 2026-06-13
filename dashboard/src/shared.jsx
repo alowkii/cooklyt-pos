@@ -84,7 +84,7 @@ export function PageFooter() {
       <div className="lp-container" style={{ maxWidth: 1180, margin: "0 auto" }}>
 
         {/* Top: brand + columns */}
-        <div style={{ display: "flex", gap: 48, flexWrap: "wrap", marginBottom: 48 }}>
+        <div className="footer-cols" style={{ display: "flex", gap: 48, flexWrap: "wrap", marginBottom: 48 }}>
 
           {/* Brand block */}
           <div style={{ flex: "1 1 220px", minWidth: 200, maxWidth: 280 }}>

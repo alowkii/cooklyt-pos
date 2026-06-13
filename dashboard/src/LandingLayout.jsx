@@ -40,15 +40,24 @@ function DropdownMenu({ label, links, nlBase, nlHover, nlLeave }) {
         <ChevronDown size={12} style={{ transition: "transform .15s", transform: open ? "rotate(180deg)" : "rotate(0deg)", opacity: 0.6 }} />
       </button>
       {open && (
+        // Matches the dashboard dropdown chrome (SelectField/Combobox): anchored
+        // to the trigger's left edge, --line-2 border, full-width rows with an
+        // edge-to-edge hover highlight.
         <div style={{
-          position: "absolute", top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
-          background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8,
-          boxShadow: "0 4px 16px rgba(0,0,0,.08)", padding: "4px", minWidth: 170, zIndex: 50,
+          position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 50,
+          minWidth: 180, overflow: "hidden",
+          background: "var(--paper)", border: "1px solid var(--line-2)", borderRadius: 8,
+          boxShadow: "0 4px 16px rgba(0,0,0,.12)", padding: "4px 0",
         }}>
           {links.map(({ href, label }) => (
             <a
               key={href} href={href}
-              style={{ ...nlBase, display: "flex", width: "100%", borderRadius: 5, padding: "0 10px", boxSizing: "border-box" }}
+              style={{
+                display: "block", width: "100%", boxSizing: "border-box", textAlign: "left",
+                padding: "8px 14px", fontSize: 13, color: "var(--mute)",
+                textDecoration: "none", whiteSpace: "nowrap", fontFamily: "inherit",
+                transition: "background .08s, color .08s",
+              }}
               onMouseEnter={nlHover} onMouseLeave={nlLeave}
               onClick={() => setOpen(false)}
             >
@@ -65,19 +74,30 @@ export default function LandingLayout({ children }) {
   const navigate = useNavigate();
   const user = getStoredUser();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileNavRef = useRef(null);
+  const mobileBtnRef = useRef(null);
 
-  // Close the mobile panel if the viewport grows past the breakpoint
+  // Close the mobile menu if the viewport grows past the breakpoint where the
+  // hamburger (and its close button) disappears — otherwise the menu would be
+  // left open with no way to dismiss it. Must match the 900px nav breakpoint.
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 621px)");
+    const mq = window.matchMedia("(min-width: 901px)");
     const handler = (e) => { if (e.matches) setMobileOpen(false); };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // No scrolling behind the open mobile menu
+  // Dismiss the dropdown on an outside tap. It's a compact menu now, not a
+  // full-screen overlay, so the page behind stays scrollable and interactive.
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!mobileOpen) return;
+    const handler = (e) => {
+      if (mobileNavRef.current?.contains(e.target)) return;
+      if (mobileBtnRef.current?.contains(e.target)) return; // the toggle handles itself
+      setMobileOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [mobileOpen]);
 
   const nlBase = {
@@ -91,11 +111,13 @@ export default function LandingLayout({ children }) {
 
   const mobileLink = {
     display: "flex", alignItems: "center", width: "100%", boxSizing: "border-box",
-    height: 46, padding: "0 18px", fontSize: 14.5, color: "var(--ink)",
+    height: 44, padding: "0 16px", fontSize: 14.5, color: "var(--ink)",
     textDecoration: "none", border: 0, background: "transparent",
-    borderBottom: "1px solid var(--line)", fontFamily: "inherit", cursor: "pointer",
-    textAlign: "left",
+    fontFamily: "inherit", cursor: "pointer", textAlign: "left",
+    transition: "background .08s",
   };
+  const mobileEnter = (e) => { e.currentTarget.style.background = "var(--hover)"; };
+  const mobileLeave = (e) => { e.currentTarget.style.background = "transparent"; };
 
   return (
     <div style={{ background: "var(--paper)", color: "var(--ink)", minHeight: "100vh" }}>
@@ -125,6 +147,7 @@ export default function LandingLayout({ children }) {
               <Mail size={13} /><span className="nav-demo-label">Request a demo</span>
             </a>
             <button
+              ref={mobileBtnRef}
               className="nav-mobile-btn"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
@@ -139,41 +162,57 @@ export default function LandingLayout({ children }) {
             </button>
           </nav>
         </div>
+      </header>
 
-        {/* Mobile menu — full-width panel under the sticky header */}
-        {mobileOpen && (
-          <div
-            style={{
-              position: "fixed", top: 56, left: 0, right: 0, bottom: 0, zIndex: 45,
-              background: "var(--paper)", overflowY: "auto",
-              borderTop: "1px solid var(--line)",
-            }}
-          >
+      {/* Mobile menu — a compact dropdown sized to its content, anchored under
+          the hamburger (not a full-screen sheet). Rendered as a SIBLING of
+          <header>, not a child: the header's backdrop-filter establishes a
+          containing block for position:fixed descendants, which would otherwise
+          trap it inside the 56px-tall header box. */}
+      {mobileOpen && (
+        <div
+          ref={mobileNavRef}
+          style={{
+            position: "fixed", top: 60, right: 14, zIndex: 45,
+            width: 244, maxWidth: "calc(100vw - 28px)",
+            maxHeight: "calc(100dvh - 72px)", overflowY: "auto",
+            background: "var(--paper)", border: "1px solid var(--line-2)",
+            borderRadius: 12, boxShadow: "0 10px 34px -8px rgba(10,10,10,.24)",
+          }}
+        >
+          <div style={{ padding: "6px 0" }}>
             {[...PRIMARY_LINKS, ...SECONDARY_LINKS].map(({ href, label }) => (
-              <a key={href} href={href} style={mobileLink} onClick={() => setMobileOpen(false)}>{label}</a>
+              <a
+                key={href} href={href} style={mobileLink}
+                onMouseEnter={mobileEnter} onMouseLeave={mobileLeave}
+                onClick={() => setMobileOpen(false)}
+              >
+                {label}
+              </a>
             ))}
             <button
               style={mobileLink}
+              onMouseEnter={mobileEnter} onMouseLeave={mobileLeave}
               onClick={() => { setMobileOpen(false); navigate(user ? "/overview" : "/login"); }}
             >
               {user ? "Dashboard" : "Sign in"}
             </button>
-            <div style={{ padding: 18 }}>
-              <a
-                href={MAILTO_HREF}
-                onClick={() => setMobileOpen(false)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  height: 44, borderRadius: 8, fontSize: 14, fontWeight: 500,
-                  background: "var(--ink)", color: "var(--accent-on)", textDecoration: "none",
-                }}
-              >
-                <Mail size={15} /> Request a demo
-              </a>
-            </div>
           </div>
-        )}
-      </header>
+          <div style={{ padding: "8px 12px 12px", borderTop: "1px solid var(--line)" }}>
+            <a
+              href={MAILTO_HREF}
+              onClick={() => setMobileOpen(false)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                height: 42, borderRadius: 8, fontSize: 13.5, fontWeight: 500,
+                background: "var(--ink)", color: "var(--accent-on)", textDecoration: "none",
+              }}
+            >
+              <Mail size={15} /> Request a demo
+            </a>
+          </div>
+        </div>
+      )}
 
       <main>{children}</main>
 
@@ -183,11 +222,22 @@ export default function LandingLayout({ children }) {
         .lp-container { padding-left: 28px; padding-right: 28px; }
         .footer-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-        @media (max-width: 620px) {
+        /* Collapse the inline links into the hamburger well before they get
+           cramped. The full nav needs ~810px to fit, so anything narrower
+           (iPad Air 820, iPad Mini 768, etc.) is overcrowded — switch to the
+           menu button below 900px. */
+        @media (max-width: 900px) {
           .nav-text-link  { display: none !important; }
+          .nav-mobile-btn { display: inline-flex !important; }
+        }
+        @media (max-width: 620px) {
           .nav-demo-label { display: none !important; }
           .nav-inner      { padding: 0 18px !important; }
-          .nav-mobile-btn { display: inline-flex !important; }
+          /* Hero previews stay visible on phones (they're the signature visual).
+             The floating badge's 180px min-width dominates a small card, so let
+             it shrink to its content width — it still overhangs into the
+             wrapper's 32px buffer without spilling past the viewport. */
+          .preview-badge  { min-width: 0 !important; padding: 9px 12px !important; }
         }
         @media (max-width: 400px) {
           .nav-byline { display: none !important; }

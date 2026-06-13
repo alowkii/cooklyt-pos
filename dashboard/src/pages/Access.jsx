@@ -59,7 +59,7 @@ function DemoPreview() {
           ))}
         </div>
       </div>
-      <div style={{ position: "absolute", right: -14, bottom: -14, padding: "10px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 170 }}>
+      <div className="preview-badge" style={{ position: "absolute", right: -14, bottom: -14, padding: "10px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 170 }}>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 9.5, letterSpacing: ".12em", opacity: 0.5, textTransform: "uppercase" }}>Demo provisioned</div>
         <div style={{ fontSize: 12.5, marginTop: 5 }}>Your café · 5 tables</div>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10, color: "rgba(250,250,248,.45)", marginTop: 3 }}>Ready to explore →</div>
@@ -193,9 +193,7 @@ export default function Access() {
           .process-grid > div { border-right: 0 !important; }
           .access-included { grid-template-columns: 1fr !important; gap: 36px !important; }
         }
-        @media (max-width: 620px) {
-          .page-hero-preview { display: none !important; }
-        }
+        /* hero preview now stays visible on phones — badge shrunk in LandingLayout */
         @media (max-width: 480px) {
           .cta-email { font-size: 12px !important; padding: 14px 16px !important; }
           .included-grid { grid-template-columns: 1fr !important; }

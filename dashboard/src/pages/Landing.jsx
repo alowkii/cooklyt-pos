@@ -68,7 +68,7 @@ function DevicePreview() {
           </div>
         </div>
       </div>
-      <div className="device-badge" style={{ position: "absolute", right: -16, bottom: -16, padding: "12px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 180 }}>
+      <div className="device-badge preview-badge" style={{ position: "absolute", right: -16, bottom: -16, padding: "12px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 180 }}>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10, letterSpacing: ".12em", opacity: 0.55, textTransform: "uppercase" }}>Kitchen notified</div>
         <div style={{ fontSize: 13, marginTop: 6 }}>Paneer Tikka × 1</div>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10.5, color: "rgba(250,250,248,.5)", marginTop: 4 }}>T03 · 2s ago</div>
@@ -236,9 +236,7 @@ export default function Landing() {
           .stats-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--line) !important; }
           .stats-grid > div:last-child { border-bottom: 0 !important; }
         }
-        @media (max-width: 600px) {
-          .hero-preview { display: none !important; }
-        }
+        /* hero preview now stays visible on phones — badge shrunk in LandingLayout */
         @media (max-width: 520px) {
           .section-cards { grid-template-columns: 1fr !important; }
           .section-cards > a { border-right: 0 !important; }
