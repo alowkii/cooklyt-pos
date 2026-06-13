@@ -7,6 +7,11 @@ const { UnauthorizedError, ValidationError, NotFoundError, ForbiddenError } = re
 
 const SALT_ROUNDS = 12;
 
+// Login compares against this throwaway hash when the email doesn't exist, so a
+// failed login takes the same ~bcrypt time whether or not the account is real —
+// otherwise the faster "no such user" path leaks which emails are registered.
+const DUMMY_HASH = bcrypt.hashSync('cooklyt-timing-guard-not-a-real-password', SALT_ROUNDS);
+
 function createToken(userId, role, restaurantId, extra = {}) {
   return jwt.sign(
     { userId, role, restaurantId, ...extra },
@@ -36,7 +41,11 @@ async function login(email_, password) {
     throw new ValidationError('Email and password are required');
 
   const user = await repo.findUserByEmail(email_);
-  if (!user) throw new UnauthorizedError('Invalid credentials');
+  if (!user) {
+    // Run a comparison anyway so timing matches the real-account path.
+    await bcrypt.compare(password, DUMMY_HASH);
+    throw new UnauthorizedError('Invalid credentials');
+  }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) throw new UnauthorizedError('Invalid credentials');
