@@ -22,30 +22,34 @@ async function deleteGroup(id, restaurantId) {
   return deleted;
 }
 
-async function addOption(groupId, data) {
+async function addOption(groupId, data, restaurantId) {
   if (!data.label) throw new ValidationError('label is required');
-  return repo.createOption({ ...data, groupId });
+  const option = await repo.createOption({ ...data, groupId }, restaurantId);
+  if (!option) throw new NotFoundError('Modifier group');
+  return option;
 }
 
-async function deleteOption(id) {
-  const deleted = await repo.deleteOption(id);
+async function deleteOption(id, restaurantId) {
+  const deleted = await repo.deleteOption(id, restaurantId);
   if (!deleted) throw new NotFoundError('Modifier option');
   return deleted;
 }
 
-async function getOverrides(recipeId) {
-  return repo.getOverrides(recipeId);
+async function getOverrides(recipeId, restaurantId) {
+  return repo.getOverrides(recipeId, restaurantId);
 }
 
-async function upsertOverride(data) {
+async function upsertOverride(data, restaurantId) {
   if (!data.recipeId || !data.optionId || !data.ingredientId) {
     throw new ValidationError('recipeId, optionId, and ingredientId are required');
   }
-  return repo.upsertOverride(data);
+  const saved = await repo.upsertOverride(data, restaurantId);
+  if (!saved) throw new NotFoundError('Recipe, option, or ingredient');
+  return saved;
 }
 
-async function deleteOverride(recipeId, optionId, ingredientId) {
-  return repo.deleteOverride(recipeId, optionId, ingredientId);
+async function deleteOverride(recipeId, optionId, ingredientId, restaurantId) {
+  return repo.deleteOverride(recipeId, optionId, ingredientId, restaurantId);
 }
 
 module.exports = {
