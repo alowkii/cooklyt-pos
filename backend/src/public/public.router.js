@@ -44,16 +44,22 @@ router.use(cors({ origin: '*' }));
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Resolve a table to its restaurant, but only if the restaurant is active.
-// Returns { id, number, restaurant_id, assigned_staff_id } or null. Every
-// public WRITE action goes through this so a deactivated restaurant stops
-// accepting orders, bills, reviews, and staff assignments.
-async function getActiveTable(tableId) {
+// IMPORTANT: the `:tableId` route params and `tableId` body fields below are the
+// table's PUBLIC TOKEN (tables.public_token), NOT its internal primary key. The
+// QR URL only ever carries the token; the internal id is never exposed. Each
+// handler resolves the token to the real table and uses table.id for DB writes,
+// order lookups, and WebSocket payloads (the dashboard keys on the internal id).
+
+// Resolve a table by its public token, but only if the restaurant is active.
+// Returns { id, number, restaurant_id, assigned_staff_id } (id = internal PK)
+// or null. Every public WRITE action goes through this so a deactivated
+// restaurant stops accepting orders, bills, reviews, and staff assignments.
+async function getActiveTable(token) {
   const { rows } = await db.query(
     `SELECT t.id, t.number, t.restaurant_id, t.assigned_staff_id
      FROM tables t JOIN restaurants r ON r.id = t.restaurant_id
-     WHERE t.id = $1 AND r.is_active = true`,
-    [tableId],
+     WHERE t.public_token = $1 AND r.is_active = true`,
+    [token],
   );
   return rows[0] || null;
 }
@@ -66,7 +72,7 @@ router.get('/table/:tableId', async (req, res, next) => {
     if (!UUID_RE.test(tableId)) return res.status(404).json({ error: 'Table not found' });
 
     const { rows } = await db.query(
-      `SELECT t.id, t.number AS table_number, t.status, t.seats,
+      `SELECT t.number AS table_number, t.status, t.seats,
               r.id AS restaurant_id, r.name AS restaurant_name,
               COALESCE(cur.value, 'USD') AS currency_code,
               COALESCE(sae.value, 'false') AS staff_assignment_enabled,
@@ -80,7 +86,7 @@ router.get('/table/:tableId', async (req, res, next) => {
        LEFT JOIN settings sae ON sae.restaurant_id = t.restaurant_id AND sae.key = 'staff_assignment_enabled'
        LEFT JOIN settings tax ON tax.restaurant_id = t.restaurant_id AND tax.key = 'tax_rate'
        LEFT JOIN settings sc  ON sc.restaurant_id  = t.restaurant_id AND sc.key  = 'service_charge'
-       WHERE t.id = $1`,
+       WHERE t.public_token = $1`,
       [tableId],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Table not found' });
@@ -147,12 +153,12 @@ router.patch('/table/:tableId/staff', tableStaffLimiter, async (req, res, next) 
     const staff = await authRepo.findUserByPin(restaurantId, String(staffPin));
     if (!staff) return res.status(404).json({ error: 'Staff not found' });
 
-    await db.query('UPDATE tables SET assigned_staff_id = $1 WHERE id = $2', [staff.id, tableId]);
-    ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
+    await db.query('UPDATE tables SET assigned_staff_id = $1 WHERE id = $2', [staff.id, table.id]);
+    ws.broadcast('TABLE_UPDATED', { tableId: table.id }, restaurantId);
 
     // Notify the self-assigned staff member AND all admins
     const staffName = staff.name || staff.email.split('@')[0];
-    const assignPayload = { tableId, tableNumber: table.number ?? null, staffName };
+    const assignPayload = { tableId: table.id, tableNumber: table.number ?? null, staffName };
     ws.broadcastToRolesOrUser('STAFF_ASSIGNED', assignPayload, restaurantId, ['admin'], staff.id);
 
     res.json({ success: true, name: staffName });
@@ -184,7 +190,7 @@ router.post('/orders', orderLimiter, async (req, res, next) => {
 
     const order = await ordersService.createOrder({
       restaurantId,
-      tableId,
+      tableId: table.id,
       createdBy: null,
       assignedStaffId,
       items: items.map((i) => ({
@@ -208,10 +214,11 @@ router.get('/orders/table/:tableId', async (req, res, next) => {
     if (!UUID_RE.test(tableId)) return res.status(404).json({ error: 'Table not found' });
 
     const { rows: tableRows } = await db.query(
-      'SELECT id FROM tables WHERE id = $1',
+      'SELECT id FROM tables WHERE public_token = $1',
       [tableId],
     );
     if (!tableRows[0]) return res.status(404).json({ error: 'Table not found' });
+    const internalTableId = tableRows[0].id;
 
     const { rows } = await db.query(
       `SELECT o.id, o.status, o.created_at,
@@ -232,7 +239,7 @@ router.get('/orders/table/:tableId', async (req, res, next) => {
        WHERE o.table_id = $1 AND o.status NOT IN ('paid', 'cancelled')
        GROUP BY o.id
        ORDER BY o.created_at DESC`,
-      [tableId],
+      [internalTableId],
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -248,9 +255,14 @@ router.post('/orders/:orderId/cancel', orderLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid request' });
     }
 
+    // tableId is the public token — resolve it to the internal id, which is
+    // what orders.table_id references.
+    const { rows: t } = await db.query('SELECT id FROM tables WHERE public_token = $1', [tableId]);
+    if (!t[0]) return res.status(404).json({ error: 'Order not found' });
+
     const { rows } = await db.query(
       'SELECT id, status FROM orders WHERE id = $1 AND table_id = $2',
-      [orderId, tableId],
+      [orderId, t[0].id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Order not found' });
     if (rows[0].status !== 'received') {
@@ -275,7 +287,7 @@ router.post('/request-bill', orderLimiter, async (req, res, next) => {
     if (!table) return res.status(404).json({ error: 'Table not found' });
 
     const { number: tableNumber, restaurant_id: restaurantId, assigned_staff_id: staffId } = table;
-    const payload = { tableId, tableNumber };
+    const payload = { tableId: table.id, tableNumber };
     if (staffId) {
       // Notify the assigned staff member + all admins + cashiers
       ws.broadcastToRolesOrUser('BILL_REQUESTED', payload, restaurantId, ['admin', 'cashier'], staffId);
@@ -315,7 +327,7 @@ router.post('/reviews', reviewLimiter, async (req, res, next) => {
     // tableId in the URL could be swapped to post reviews against any table.
     const { rows: hasOrder } = await db.query(
       "SELECT 1 FROM orders WHERE table_id = $1 AND status <> 'cancelled' LIMIT 1",
-      [tableId],
+      [table.id],
     );
     if (!hasOrder[0]) return res.status(403).json({ error: 'No order found for this table' });
 
@@ -337,7 +349,7 @@ router.post('/reviews', reviewLimiter, async (req, res, next) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         table.restaurant_id,
-        tableId,
+        table.id,
         overall,
         toRating(foodRating),
         toRating(serviceRating),

@@ -242,13 +242,13 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
 
   async function handleQrClick(t) {
     setQrDataUrl(''); setCopied(false); setQrTable(t);
-    const url = `${menuBase}/order/${t.id}`;
+    const url = `${menuBase}/order/${t.public_token}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#0A0A0A' } });
     setQrDataUrl(dataUrl);
   }
 
   function handleCopyUrl() {
-    const url = `${menuBase}/order/${qrTable.id}`;
+    const url = `${menuBase}/order/${qrTable.public_token}`;
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }
 
@@ -630,7 +630,7 @@ const [newOrderForTable, setNewOrderForTable] = useState(null);
             const isStaffOpen  = expandedStaff === t.id;
             const loggedInPin  = meProfile?.staff_pin;
             const assignedPin  = loggedInPin || allUsers.find((u) => u.id === t.assigned_staff_id)?.staff_pin;
-            const menuUrl      = `${menuBase}/order/${t.id}${assignedPin ? `?staff=${assignedPin}` : ''}`;
+            const menuUrl      = `${menuBase}/order/${t.public_token}${assignedPin ? `?staff=${assignedPin}` : ''}`;
 
             const iconBtn = {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
