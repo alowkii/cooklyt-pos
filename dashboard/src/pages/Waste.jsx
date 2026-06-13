@@ -84,7 +84,7 @@ function WasteDashboardPreview() {
         </div>
       </div>
       {/* Toast */}
-      <div style={{ position: "absolute", right: -16, bottom: -16, padding: "12px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 186 }}>
+      <div className="preview-badge" style={{ position: "absolute", right: -16, bottom: -16, padding: "12px 14px", background: "var(--ink)", color: "var(--accent-on)", borderRadius: 8, boxShadow: "0 14px 30px -10px rgba(10,10,10,.4)", minWidth: 186 }}>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10, letterSpacing: ".12em", opacity: 0.55, textTransform: "uppercase" }}>Waste spike detected</div>
         <div style={{ fontSize: 13, marginTop: 6 }}>Saturday lunch +58%</div>
         <div style={{ fontFamily: '"Geist Mono", monospace', fontSize: 10.5, color: "rgba(250,250,248,.5)", marginTop: 4 }}>Tomatoes · Paneer</div>
@@ -201,9 +201,7 @@ export default function Waste() {
           .page-hero-grid    { grid-template-columns: 1fr !important; gap: 48px !important; }
           .page-hero-preview { padding-right: 32px !important; }
         }
-        @media (max-width: 600px) {
-          .page-hero-preview { display: none !important; }
-        }
+        /* hero preview now stays visible on phones — badge shrunk in LandingLayout */
         @media (max-width: 860px) {
           .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .features-grid > div:nth-child(odd)  { border-right: 1px solid var(--line) !important; }
