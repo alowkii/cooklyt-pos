@@ -38,7 +38,7 @@ router.delete('/groups/:id', async (req, res, next) => {
 
 router.post('/groups/:groupId/options', async (req, res, next) => {
   try {
-    res.status(201).json(await service.addOption(req.params.groupId, req.body));
+    res.status(201).json(await service.addOption(req.params.groupId, req.body, req.user.restaurantId));
   } catch (e) {
     next(e);
   }
@@ -46,7 +46,7 @@ router.post('/groups/:groupId/options', async (req, res, next) => {
 
 router.delete('/options/:id', async (req, res, next) => {
   try {
-    res.json(await service.deleteOption(req.params.id));
+    res.json(await service.deleteOption(req.params.id, req.user.restaurantId));
   } catch (e) {
     next(e);
   }
@@ -54,7 +54,7 @@ router.delete('/options/:id', async (req, res, next) => {
 
 router.get('/overrides/:recipeId', async (req, res, next) => {
   try {
-    res.json(await service.getOverrides(req.params.recipeId));
+    res.json(await service.getOverrides(req.params.recipeId, req.user.restaurantId));
   } catch (e) {
     next(e);
   }
@@ -62,7 +62,7 @@ router.get('/overrides/:recipeId', async (req, res, next) => {
 
 router.put('/overrides', async (req, res, next) => {
   try {
-    res.json(await service.upsertOverride(req.body));
+    res.json(await service.upsertOverride(req.body, req.user.restaurantId));
   } catch (e) {
     next(e);
   }
@@ -71,7 +71,7 @@ router.put('/overrides', async (req, res, next) => {
 router.delete('/overrides', async (req, res, next) => {
   try {
     const { recipeId, optionId, ingredientId } = req.body;
-    await service.deleteOverride(recipeId, optionId, ingredientId);
+    await service.deleteOverride(recipeId, optionId, ingredientId, req.user.restaurantId);
     res.json({ ok: true });
   } catch (e) {
     next(e);

@@ -18,8 +18,15 @@ const logoUpload = multer({
       cb(null, dir);
     },
     filename(req, file, cb) {
+      // req.params.id is interpolated into the on-disk filename. An encoded
+      // slash or ".." in the route param could otherwise escape uploads/logos,
+      // so only accept a plain UUID.
+      const id = String(req.params.id || '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return cb(Object.assign(new Error('Invalid restaurant id'), { statusCode: 400 }), null);
+      }
       const ext = path.extname(file.originalname).toLowerCase() || '.png';
-      cb(null, `${req.params.id}-${Date.now()}${ext}`);
+      cb(null, `${id}-${Date.now()}${ext}`);
     },
   }),
   limits: { fileSize: 2 * 1024 * 1024 },
