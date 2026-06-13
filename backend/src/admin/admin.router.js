@@ -346,6 +346,22 @@ router.delete('/restaurants/:id', authV, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Rotate every table's public QR token for a restaurant (revokes existing QRs)
+router.post('/restaurants/:id/regenerate-qr', authV, async (req, res, next) => {
+  try {
+    const result = await service.regenerateRestaurantQr(req.params.id);
+    audit.log({
+      ...sa(req),
+      restaurantId: req.params.id,
+      action: 'update',
+      resourceType: 'restaurant',
+      resourceId: req.params.id,
+      description: `Regenerated QR codes for ${result.count} table(s) at "${result.name}"`,
+    });
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 router.post('/restaurants/:id/users', authV, async (req, res, next) => {

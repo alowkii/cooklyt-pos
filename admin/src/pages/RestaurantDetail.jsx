@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { HexColorPicker } from 'react-colorful';
 import settingsOptions from '@shared/settings-options.json';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Check, X, Trash2, UserPlus, ImagePlus, RotateCcw, PowerOff, Power, Palette, Download, Upload, ChevronDown, Sparkles } from 'lucide-react';
+import { ArrowLeft, Pencil, Check, X, Trash2, UserPlus, ImagePlus, RotateCcw, PowerOff, Power, Palette, Download, Upload, ChevronDown, Sparkles, LayoutGrid } from 'lucide-react';
 import {
   useRestaurant,
   useUpdateRestaurant,
@@ -14,6 +14,7 @@ import {
   useDeleteLogo,
   useSetRestaurantStatus,
   useSetRestaurantAi,
+  useRegenerateTableTokens,
 } from '../hooks/useAdmin';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -1245,6 +1246,87 @@ function AiAssistantCard({ restaurantId, enabled }) {
   );
 }
 
+function ConfirmRegenerateModal({ tableCount, onConfirm, onClose, isPending }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,10,10,.45)' }} onClick={onClose}>
+      <div style={{ background: 'var(--paper)', border: '1px solid var(--line-2)', borderRadius: 10, padding: 24, maxWidth: 400, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Regenerate all QR codes?</p>
+        <p style={{ fontSize: 13, color: 'var(--mute)', marginBottom: 6, lineHeight: 1.55 }}>
+          All <strong style={{ color: 'var(--ink)' }}>{tableCount}</strong> table{tableCount !== 1 ? 's' : ''} will get a brand-new QR token.
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--warn)', marginBottom: 20, lineHeight: 1.5 }}>
+          Every printed QR code for this restaurant stops working immediately and must be reprinted from its dashboard.
+        </p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={onConfirm} disabled={isPending} className="flex-1 rounded-[6px] px-4 py-2 disabled:opacity-60" style={{ fontSize: 13, fontWeight: 500, background: 'var(--warn)', color: '#fff', border: 0, cursor: 'pointer' }}>
+            {isPending ? 'Regenerating…' : 'Regenerate'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function TablesQrCard({ restaurantId, tableCount }) {
+  const regenerate = useRegenerateTableTokens(restaurantId);
+  const [confirm, setConfirm] = useState(false);
+  const [done,    setDone]    = useState(null);
+
+  async function handleRegenerate() {
+    const res = await regenerate.mutateAsync();
+    setConfirm(false);
+    setDone(res.count);
+    setTimeout(() => setDone(null), 6000);
+  }
+
+  return (
+    <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, background: 'var(--paper)', padding: 20 }}>
+      <div className="flex items-center justify-between gap-3">
+        <div style={{ minWidth: 0 }}>
+          <p className="flex items-center gap-1.5" style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+            <LayoutGrid size={13} /> Tables
+          </p>
+          <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--mute)' }}>
+            {tableCount} table{tableCount !== 1 ? 's' : ''} configured
+          </p>
+        </div>
+        <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{tableCount}</span>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 14 }}>
+        <button
+          onClick={() => setConfirm(true)}
+          disabled={tableCount === 0 || regenerate.isPending}
+          className="btn btn-sm flex w-full items-center justify-center gap-1.5 disabled:opacity-50"
+          style={{ fontSize: 12 }}
+        >
+          <RotateCcw size={12} /> {regenerate.isPending ? 'Regenerating…' : 'Regenerate QR codes'}
+        </button>
+        {done != null ? (
+          <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--ok)', lineHeight: 1.45 }}>
+            New tokens issued for {done} table{done !== 1 ? 's' : ''}. Old QR codes are now invalid — reprint them from the restaurant’s dashboard.
+          </p>
+        ) : (
+          <p style={{ margin: '8px 0 0', fontSize: 10.5, color: 'var(--mute-2)', lineHeight: 1.45 }}>
+            Issues a fresh QR token for every table. Use this if a QR has leaked — existing printed codes will then need reprinting.
+          </p>
+        )}
+      </div>
+
+      {confirm && (
+        <ConfirmRegenerateModal
+          tableCount={tableCount}
+          onConfirm={handleRegenerate}
+          onClose={() => setConfirm(false)}
+          isPending={regenerate.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
 function AddUserForm({ restaurantId, onClose }) {
   const createUser = useCreateUser(restaurantId);
   const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
@@ -1360,6 +1442,7 @@ export default function RestaurantDetail() {
         {/* Settings + Branding button */}
         <div className="lg:col-span-1 space-y-5">
           <SettingsCard restaurantId={id} settings={data.settings} />
+          <TablesQrCard restaurantId={id} tableCount={data.table_count ?? 0} />
           <AiAssistantCard restaurantId={id} enabled={data.ai_enabled !== false} />
           <BrandingButton settings={data.settings} onOpen={() => setShowBranding(true)} />
         </div>

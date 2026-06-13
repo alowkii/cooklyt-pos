@@ -79,11 +79,11 @@ const createFirstSuperAdmin = (email, password) =>
 
 const getAllRestaurants = () =>
   db.query(
+    // Scalar subqueries (not JOINs) so the two counts don't multiply each other.
     `SELECT r.id, r.name, r.is_active, r.ai_enabled, r.created_at,
-            COUNT(u.id)::int AS user_count
+            (SELECT COUNT(*) FROM users  u WHERE u.restaurant_id = r.id)::int AS user_count,
+            (SELECT COUNT(*) FROM tables t WHERE t.restaurant_id = r.id)::int AS table_count
      FROM restaurants r
-     LEFT JOIN users u ON u.restaurant_id = r.id
-     GROUP BY r.id
      ORDER BY r.created_at DESC`,
   ).then((r) => r.rows);
 
@@ -102,6 +102,18 @@ const setRestaurantAiEnabled = (id, enabled) =>
 const getRestaurantById = (id) =>
   db.query('SELECT * FROM restaurants WHERE id = $1', [id])
     .then((r) => r.rows[0]);
+
+const countTablesByRestaurant = (id) =>
+  db.query('SELECT COUNT(*)::int AS count FROM tables WHERE restaurant_id = $1', [id])
+    .then((r) => r.rows[0].count);
+
+// Issue a fresh random public_token to every table in a restaurant — invalidates
+// all existing QR codes for that tenant. Returns the number of tables rotated.
+const regenerateTableTokens = (restaurantId) =>
+  db.query(
+    'UPDATE tables SET public_token = gen_random_uuid() WHERE restaurant_id = $1',
+    [restaurantId],
+  ).then((r) => r.rowCount);
 
 const createRestaurant = (name) =>
   db.query(
@@ -228,6 +240,8 @@ module.exports = {
   updateSuperAdminDefaults,
   getAllRestaurants,
   getRestaurantById,
+  countTablesByRestaurant,
+  regenerateTableTokens,
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
