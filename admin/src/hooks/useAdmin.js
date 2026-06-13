@@ -78,6 +78,17 @@ export function useSetRestaurantAi() {
   });
 }
 
+export function useRegenerateTableTokens(id) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post(`/restaurants/${id}/regenerate-qr`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurants', id] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export function useCreateUser(restaurantId) {
