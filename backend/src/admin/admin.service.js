@@ -73,13 +73,21 @@ async function getAllRestaurants() {
 }
 
 async function getRestaurant(id) {
-  const [restaurant, users, settings] = await Promise.all([
+  const [restaurant, users, settings, tableCount] = await Promise.all([
     repo.getRestaurantById(id),
     repo.getUsersByRestaurant(id),
     repo.getSettings(id),
+    repo.countTablesByRestaurant(id),
   ]);
   if (!restaurant) throw new NotFoundError('Restaurant');
-  return { ...restaurant, users, settings };
+  return { ...restaurant, users, settings, table_count: tableCount };
+}
+
+async function regenerateRestaurantQr(id) {
+  const restaurant = await repo.getRestaurantById(id);
+  if (!restaurant) throw new NotFoundError('Restaurant');
+  const count = await repo.regenerateTableTokens(id);
+  return { count, name: restaurant.name };
 }
 
 async function createRestaurant(name) {
@@ -304,6 +312,7 @@ module.exports = {
   deleteRestaurant,
   setRestaurantStatus,
   setRestaurantAiEnabled,
+  regenerateRestaurantQr,
   createUser,
   deleteUser,
   getAllSuperAdmins,

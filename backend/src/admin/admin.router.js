@@ -18,8 +18,15 @@ const logoUpload = multer({
       cb(null, dir);
     },
     filename(req, file, cb) {
+      // req.params.id is interpolated into the on-disk filename. An encoded
+      // slash or ".." in the route param could otherwise escape uploads/logos,
+      // so only accept a plain UUID.
+      const id = String(req.params.id || '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return cb(Object.assign(new Error('Invalid restaurant id'), { statusCode: 400 }), null);
+      }
       const ext = path.extname(file.originalname).toLowerCase() || '.png';
-      cb(null, `${req.params.id}-${Date.now()}${ext}`);
+      cb(null, `${id}-${Date.now()}${ext}`);
     },
   }),
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -336,6 +343,22 @@ router.delete('/restaurants/:id', authV, async (req, res, next) => {
     const deleted = await service.deleteRestaurant(req.params.id);
     audit.log({ ...sa(req), restaurantName: deleted.name, action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant "${deleted.name}"` });
     res.status(204).send();
+  } catch (e) { next(e); }
+});
+
+// Rotate every table's public QR token for a restaurant (revokes existing QRs)
+router.post('/restaurants/:id/regenerate-qr', authV, async (req, res, next) => {
+  try {
+    const result = await service.regenerateRestaurantQr(req.params.id);
+    audit.log({
+      ...sa(req),
+      restaurantId: req.params.id,
+      action: 'update',
+      resourceType: 'restaurant',
+      resourceId: req.params.id,
+      description: `Regenerated QR codes for ${result.count} table(s) at "${result.name}"`,
+    });
+    res.json(result);
   } catch (e) { next(e); }
 });
 

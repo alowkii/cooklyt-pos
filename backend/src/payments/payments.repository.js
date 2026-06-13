@@ -1,8 +1,5 @@
 const db = require('../shared/db');
 
-const getById = (id) =>
-  db.query('SELECT * FROM payments WHERE id = $1', [id]).then((r) => r.rows[0]);
-
 const getByOrderId = (orderId) =>
   db.query('SELECT * FROM payments WHERE order_id = $1', [orderId]).then((r) => r.rows);
 
@@ -113,4 +110,4 @@ const getReceiptData = (orderId, restaurantId) =>
     [orderId, restaurantId],
   ).then((r) => r.rows[0] || null);
 
-module.exports = { getById, getByOrderId, create, updateStatus, getReceiptData };
+module.exports = { getByOrderId, create, updateStatus, getReceiptData };

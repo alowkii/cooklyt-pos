@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, ArrowRight, Building2, Users, PowerOff, Power } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Building2, Users, PowerOff, Power, LayoutGrid } from 'lucide-react';
 import { useRestaurants, useCreateRestaurant, useDeleteRestaurant, useSetRestaurantStatus } from '../hooks/useAdmin';
 
 function ConfirmDeleteModal({ restaurant, onConfirm, onClose, isPending }) {
@@ -143,6 +143,7 @@ export default function Restaurants() {
   }
 
   const totalUsers   = restaurants.reduce((s, r) => s + (r.user_count || 0), 0);
+  const totalTables  = restaurants.reduce((s, r) => s + (r.table_count || 0), 0);
   const activeCount  = restaurants.filter((r) => r.is_active !== false).length;
   const suspended    = restaurants.length - activeCount;
 
@@ -154,7 +155,7 @@ export default function Restaurants() {
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>Restaurants</h1>
           <p style={{ fontSize: 12, color: 'var(--mute)', marginTop: 2 }}>
-            {restaurants.length} restaurant{restaurants.length !== 1 ? 's' : ''} · {totalUsers} total users
+            {restaurants.length} restaurant{restaurants.length !== 1 ? 's' : ''} · {totalUsers} total users · {totalTables} tables
           </p>
         </div>
         <button onClick={() => setShowForm((v) => !v)} className="btn-primary flex items-center gap-2">
@@ -165,11 +166,12 @@ export default function Restaurants() {
 
       {/* KPI cards */}
       {restaurants.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { Icon: Building2, label: 'Total',     value: restaurants.length, color: 'var(--ink)' },
-            { Icon: Power,     label: 'Active',    value: activeCount,        color: 'var(--ok)' },
-            { Icon: Users,     label: 'All users', value: totalUsers,         color: 'var(--info)' },
+            { Icon: Building2,  label: 'Total',      value: restaurants.length, color: 'var(--ink)' },
+            { Icon: Power,      label: 'Active',     value: activeCount,        color: 'var(--ok)' },
+            { Icon: Users,      label: 'All users',  value: totalUsers,         color: 'var(--info)' },
+            { Icon: LayoutGrid, label: 'All tables', value: totalTables,        color: 'var(--warn)' },
           ].map(({ Icon, label, value, color }) => (
             <div
               key={label}
@@ -230,6 +232,7 @@ export default function Restaurants() {
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Name</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Status</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Users</th>
+                <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Tables</th>
                 <th className="px-5 py-3 text-left" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)' }}>Created</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -247,6 +250,7 @@ export default function Restaurants() {
                     <StatusBadge isActive={r.is_active !== false} />
                   </td>
                   <td className="px-5 py-3.5 mono num" style={{ color: 'var(--mute)' }}>{r.user_count}</td>
+                  <td className="px-5 py-3.5 mono num" style={{ color: 'var(--mute)' }}>{r.table_count}</td>
                   <td className="px-5 py-3.5" style={{ color: 'var(--mute)' }}>
                     {new Date(r.created_at).toLocaleDateString()}
                   </td>
