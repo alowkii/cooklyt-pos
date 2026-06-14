@@ -20,7 +20,10 @@
     "testEnvironment": "node",
     "testMatch": [
       "**/tests/**/*.test.js"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^uuid$": "<rootDir>/tests/stubs/uuid.js"
+    }
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

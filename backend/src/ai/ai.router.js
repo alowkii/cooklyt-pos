@@ -3,8 +3,18 @@ const service = require('./ai.service');
 const repo = require('./ai.repository');
 const llm = require('./llm.client');
 const { authenticate, authorize } = require('../shared/middleware/auth');
+const { rateLimit } = require('../shared/middleware/rateLimit');
 
 router.use(authenticate, authorize('admin', 'staff'));
+
+// Chat turns drive the LLM (and writes), so cap them per user to bound cost and
+// prevent a single account from hammering the model or the write path.
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  key: (req) => `ai:${req.user.userId}`,
+  message: 'Too many AI requests, please slow down',
+});
 
 // Liveness for the chat UI — lets the bubble hide itself when the model is down.
 // `enabled: false` means the operator turned the assistant off for this
@@ -25,7 +35,7 @@ router.get('/status', async (req, res, next) => {
 //   data: {"type":"confirm_required","tool":"...","args":{...},"summary":"..."}
 //   data: {"type":"error","message":"..."}
 //   data: {"type":"done"}
-router.post('/chat', async (req, res, next) => {
+router.post('/chat', chatLimiter, async (req, res, next) => {
   // Reject before headers are flushed so this travels as a normal JSON error
   try {
     if (!(await repo.getAiEnabled(req.user.restaurantId))) {
@@ -53,6 +63,7 @@ router.post('/chat', async (req, res, next) => {
       sessionId:    req.body.sessionId,
       restaurantId: req.user.restaurantId,
       userId:       req.user.userId,
+      role:         req.user.role,
       message:      req.body.message,
     });
     for await (const ev of turn) {
@@ -69,7 +80,7 @@ router.post('/chat', async (req, res, next) => {
 });
 
 // Execute or decline a write action previously offered via confirm_required
-router.post('/confirm', async (req, res, next) => {
+router.post('/confirm', chatLimiter, async (req, res, next) => {
   try {
     if (!(await repo.getAiEnabled(req.user.restaurantId))) {
       return res.status(403).json({ error: 'The AI assistant is disabled for this restaurant' });
@@ -79,6 +90,7 @@ router.post('/confirm', async (req, res, next) => {
         sessionId:    req.body.sessionId,
         restaurantId: req.user.restaurantId,
         userId:       req.user.userId,
+        role:         req.user.role,
         tool:         req.body.tool,
         args:         req.body.args,
         confirmed:    req.body.confirmed === true,

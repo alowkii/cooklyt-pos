@@ -6,23 +6,28 @@ const DB_URL =
   process.env.DATABASE_URL ||
   'postgres://pos_user:pos_password@localhost:5434/pos_dev';
 
-const RESTAURANT_ID = '00000000-0000-0000-0000-000000000001';
-const ADMIN_ID      = '00000000-0000-0000-0000-000000000002';
-const STAFF_ID      = '00000000-0000-0000-0000-000000000003';
-const STAFF_IDS     = [
-  '00000000-0000-0000-0000-000000000003', // Arjun
-  '00000000-0000-0000-0000-000000000004', // Priya
-  '00000000-0000-0000-0000-000000000005', // Ravi
-];
+// Fixed but UNGUESSABLE ids. They stay constant so re-seeding is idempotent
+// (cleanup deletes by RESTAURANT_ID; users upsert ON CONFLICT (id)), but they're
+// random UUIDs rather than 0001/0002/… — seeded ids must never be guessable
+// (the restaurant id is reachable through the public menu endpoint, and a
+// sequential-id habit is exactly what caused the table-enumeration bug).
+const RESTAURANT_ID = 'cd7aad32-2c22-46ef-aa5b-94aba18d70b7';
+const ADMIN_ID      = '4e90d8ed-f1e4-47ca-a9f1-eaee9a3083f9';
+const STAFF_ID      = '4fbd866f-8d29-4b20-95bd-d263e3989cbb'; // Arjun
+const PRIYA_ID      = '77ae3c1e-ee71-4f9b-ac71-a79a7fcff07c';
+const RAVI_ID       = 'f3a60966-e9cd-46a6-a7fb-74b34614f5e8';
+const KITCHEN_ID    = '2d11e679-164c-4953-8005-cf437d4e65f5';
+const CASHIER_ID    = 'a9fbcab7-9fa0-43c7-ab00-134a272833ff';
+const STAFF_IDS     = [STAFF_ID, PRIYA_ID, RAVI_ID];
 function pickStaff() { return STAFF_IDS[Math.floor(Math.random() * STAFF_IDS.length)]; }
 
 const SEED_USERS = [
-  { id: ADMIN_ID,                                    email: 'admin@demo.com',   password: 'admin123', role: 'admin',   name: 'Admin',      pin: null   },
-  { id: STAFF_ID,                                    email: 'arjun@demo.com',   password: 'staff123', role: 'staff',   name: 'Arjun',      pin: '1234' },
-  { id: '00000000-0000-0000-0000-000000000004',      email: 'priya@demo.com',   password: 'staff123', role: 'staff',   name: 'Priya',      pin: '2345' },
-  { id: '00000000-0000-0000-0000-000000000005',      email: 'ravi@demo.com',    password: 'staff123', role: 'staff',   name: 'Ravi',       pin: '3456' },
-  { id: '00000000-0000-0000-0000-000000000006',      email: 'kitchen@demo.com', password: 'staff123', role: 'kitchen', name: 'Kitchen',    pin: '4567' },
-  { id: '00000000-0000-0000-0000-000000000007',      email: 'cashier@demo.com', password: 'staff123', role: 'cashier', name: 'Cashier',    pin: '5678' },
+  { id: ADMIN_ID,   email: 'admin@demo.com',   password: 'admin123', role: 'admin',   name: 'Admin',   pin: null   },
+  { id: STAFF_ID,   email: 'arjun@demo.com',   password: 'staff123', role: 'staff',   name: 'Arjun',   pin: '1234' },
+  { id: PRIYA_ID,   email: 'priya@demo.com',   password: 'staff123', role: 'staff',   name: 'Priya',   pin: '2345' },
+  { id: RAVI_ID,    email: 'ravi@demo.com',    password: 'staff123', role: 'staff',   name: 'Ravi',    pin: '3456' },
+  { id: KITCHEN_ID, email: 'kitchen@demo.com', password: 'staff123', role: 'kitchen', name: 'Kitchen', pin: '4567' },
+  { id: CASHIER_ID, email: 'cashier@demo.com', password: 'staff123', role: 'cashier', name: 'Cashier', pin: '5678' },
 ];
 
 // Full menu across categories (prices in INR)

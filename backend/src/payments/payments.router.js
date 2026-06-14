@@ -1,9 +1,12 @@
 const router = require('express').Router();
 const service = require('./payments.service');
-const { authenticate } = require('../shared/middleware/auth');
+const { authenticate, authorize } = require('../shared/middleware/auth');
 const audit = require('../shared/audit');
 
-router.post('/:orderId/split', authenticate, async (req, res, next) => {
+// Taking money is a front-of-house action — kitchen has no business here.
+const canTakePayment = authorize('admin', 'staff', 'cashier');
+
+router.post('/:orderId/split', authenticate, canTakePayment, async (req, res, next) => {
   try {
     const result = await service.processSplitPayment(req.params.orderId, req.body, req.user.restaurantId);
     audit.log({
@@ -17,7 +20,7 @@ router.post('/:orderId/split', authenticate, async (req, res, next) => {
   }
 });
 
-router.post('/:orderId', authenticate, async (req, res, next) => {
+router.post('/:orderId', authenticate, canTakePayment, async (req, res, next) => {
   try {
     const result = await service.processPayment(req.params.orderId, req.body, req.user.restaurantId);
     const methodLabel = req.body.tenders

@@ -5,7 +5,8 @@ const ingredientsService = require('../ingredients/ingredients.service');
 const wasteService = require('../waste/waste.service');
 const ordersService = require('../orders/orders.service');
 const settingsService = require('../settings/settings.service');
-const { ValidationError } = require('../shared/errors');
+const audit = require('../shared/audit');
+const { ValidationError, ForbiddenError } = require('../shared/errors');
 
 const WASTE_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
 
@@ -42,6 +43,18 @@ const TOOLS = [
   { type: 'function', function: { name: 'get_settings',           description: 'Current restaurant settings: tax rate, service charge, daily revenue target, loyalty configuration, open/closed state, and more.', parameters: { type: 'object', properties: {}, required: [] } } },
   { type: 'function', function: { name: 'update_setting',         description: `WRITE ACTION (user must confirm): change a restaurant setting. key must be one of: ${SETTABLE_KEYS.join(', ')}. Booleans as 'true'/'false', numbers as plain numbers (e.g. daily_revenue_target: 20000).`, parameters: { type: 'object', properties: { key: { type: 'string', enum: SETTABLE_KEYS }, value: { type: 'string', description: 'The new value, as a string' } }, required: ['key', 'value'] } } },
 ];
+
+// These actions are admin-only through their normal routers (settings, ingredients),
+// so the assistant must not let a non-admin perform them. Enforced both when
+// offering tools (below) and again at execution time in confirmAction — the
+// /confirm endpoint trusts client-supplied args, so the gate can't live only in
+// the proposal step.
+const ADMIN_ONLY_TOOLS = new Set(['update_setting', 'update_reorder_level', 'record_purchase']);
+
+function toolsForRole(role) {
+  if (role === 'admin') return TOOLS;
+  return TOOLS.filter((t) => !ADMIN_ONLY_TOOLS.has(t.function.name));
+}
 
 const SYSTEM_PROMPT = `You are CookLyt's assistant for restaurant staff. You answer questions about waste, inventory, recipes, sales, and orders using the provided tools.
 
@@ -331,20 +344,24 @@ async function buildDataCard(restaurantId, toolName, args, result) {
 // Explicit capability manifest, derived from the live TOOLS list so it can't
 // drift. Small models improvise around vague boundaries; an enumerated
 // can/can't list makes refusals reliable.
-let capabilityNote = null;
-function capabilities() {
-  if (!capabilityNote) {
-    const names = TOOLS.map((t) => t.function.name);
+const capabilityNoteByRole = new Map();
+function capabilities(role) {
+  const cacheKey = role === 'admin' ? 'admin' : 'staff';
+  if (!capabilityNoteByRole.has(cacheKey)) {
+    const names = toolsForRole(role).map((t) => t.function.name);
     const reads  = names.filter((n) => READ_TOOLS[n]).map((n) => n.replace(/^get_/, '').replace(/^find_/, 'look up ').replace(/_/g, ' '));
     const writes = names.filter((n) => !READ_TOOLS[n]).map((n) => n.replace(/_/g, ' '));
-    capabilityNote =
+    const canChangeSettings = !ADMIN_ONLY_TOOLS.has('update_setting') || role === 'admin';
+    capabilityNoteByRole.set(cacheKey,
       `YOUR COMPLETE CAPABILITIES — this list is exhaustive:\n` +
       `- Look up: ${reads.join(', ')}.\n` +
       `- Actions (each shown to the user for confirmation first): ${writes.join(', ')}.\n` +
-      `- Settings you can change: ${SETTABLE_KEYS.join(', ')}.\n` +
-      `Everything else is IMPOSSIBLE for you — including (but not limited to): creating or editing menu items and prices, recipes, combos, or coupons; processing payments or refunds; managing reservations; adding or managing staff accounts, shifts, or payroll; sending emails or messages; printers, wifi, or other devices; anything outside this restaurant's POS data. When asked for any of these, say plainly that you cannot do it and name the closest thing you CAN do. Never improvise with a different tool.`;
+      (canChangeSettings ? `- Settings you can change: ${SETTABLE_KEYS.join(', ')}.\n` : '') +
+      `Everything else is IMPOSSIBLE for you — including (but not limited to): creating or editing menu items and prices, recipes, combos, or coupons; processing payments or refunds; managing reservations; adding or managing staff accounts, shifts, or payroll; sending emails or messages; printers, wifi, or other devices; ` +
+      (role === 'admin' ? '' : 'changing restaurant settings, ingredient reorder levels, or recording stock purchases (these are admin-only); ') +
+      `anything outside this restaurant's POS data. When asked for any of these, say plainly that you cannot do it and name the closest thing you CAN do. Never improvise with a different tool.`);
   }
-  return capabilityNote;
+  return capabilityNoteByRole.get(cacheKey);
 }
 
 // The model has no clock — without this it hallucinates dates from training data.
@@ -404,7 +421,7 @@ async function compactHistory(sessionId, restaurantId, userId, oldSummary, toFol
   }
 }
 
-async function buildMessages(sessionId, restaurantId, userId, userMessage) {
+async function buildMessages(sessionId, restaurantId, userId, role, userMessage) {
   const [summaryRow, settings] = await Promise.all([
     repo.getLatestSummary(sessionId, restaurantId),
     settingsRepo.getAll(restaurantId).catch(() => ({})),
@@ -420,7 +437,7 @@ async function buildMessages(sessionId, restaurantId, userId, userMessage) {
     }
   }
 
-  const system = `${SYSTEM_PROMPT}\n\n${capabilities()}\n\n${dateContext(settings)}` +
+  const system = `${SYSTEM_PROMPT}\n\n${capabilities(role)}\n\n${dateContext(settings)}` +
     (summary ? `\n\nCompacted summary of this conversation so far (older turns):\n${summary}` : '');
 
   return [
@@ -438,11 +455,12 @@ async function buildMessages(sessionId, restaurantId, userId, userMessage) {
  * Handles the tool loop internally; persists the user message and final
  * assistant text to ai_conversations.
  */
-async function* streamChat({ sessionId, restaurantId, userId, message }) {
+async function* streamChat({ sessionId, restaurantId, userId, role, message }) {
   if (!sessionId)              throw new ValidationError('sessionId is required');
   if (!message?.trim())        throw new ValidationError('message is required');
 
-  const messages = await buildMessages(sessionId, restaurantId, userId, message.trim());
+  const messages = await buildMessages(sessionId, restaurantId, userId, role, message.trim());
+  const tools = toolsForRole(role);
   await repo.saveMessage({ sessionId, restaurantId, userId, role: 'user', content: message.trim() });
 
   const MAX_ROUNDS = 5;
@@ -456,7 +474,7 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
     // Low temperature: data answers must be driven by tool results, not sampling
     // creativity — at default temp the model occasionally reuses stale history
     // instead of calling a tool. Avoid 0 exactly (greedy decoding can loop).
-    for await (const ev of llm.chatStream(messages, { tools: TOOLS, temperature: 0.2 })) {
+    for await (const ev of llm.chatStream(messages, { tools, temperature: 0.2 })) {
       if (ev.type === 'text') {
         roundText += ev.delta;
         yield { type: 'text', delta: ev.delta };
@@ -542,11 +560,17 @@ async function* streamChat({ sessionId, restaurantId, userId, message }) {
  * resolved payload from the confirm_required event (ingredientId already
  * validated against this restaurant during resolution; services re-check).
  */
-async function confirmAction({ sessionId, restaurantId, userId, tool, args, confirmed, summary }) {
+async function confirmAction({ sessionId, restaurantId, userId, role, tool, args, confirmed, summary }) {
   if (!confirmed) {
     const message = summary ? `Cancelled: ${summary}` : 'Action cancelled.';
     await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: message });
     return { executed: false, message };
+  }
+
+  // The /confirm endpoint trusts client-supplied tool+args, so re-check the
+  // admin-only gate here rather than relying on the proposal step.
+  if (ADMIN_ONLY_TOOLS.has(tool) && role !== 'admin') {
+    throw new ForbiddenError('Only an admin can perform this action');
   }
 
   let result;
@@ -590,6 +614,15 @@ async function confirmAction({ sessionId, restaurantId, userId, tool, args, conf
   } else {
     throw new ValidationError(`Unknown write tool: ${tool}`);
   }
+
+  // AI-driven writes hit the same data as the dashboard routes, so they belong in
+  // the same audit trail (the /confirm endpoint otherwise leaves no record).
+  audit.log({
+    actorType: 'user', actorId: userId, restaurantId,
+    action: tool === 'cancel_order' ? 'update' : (tool.startsWith('record_') || tool.startsWith('place_') || tool.startsWith('log_') ? 'create' : 'update'),
+    resourceType: 'ai_action', resourceId: result?.id ?? args.orderId ?? args.ingredientId ?? null,
+    description: `AI assistant: ${outcome}`,
+  });
 
   await repo.saveMessage({ sessionId, restaurantId, userId, role: 'tool', content: outcome, toolName: tool });
   await repo.saveMessage({ sessionId, restaurantId, userId, role: 'assistant', content: outcome });
