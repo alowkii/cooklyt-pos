@@ -134,6 +134,9 @@ const ITEM_STATUS_ORDER = ['pending', 'preparing', 'ready', 'served'];
 // wastage — preparing/ready/served: kitchen touched it, stock stays out, waste is logged
 const VOID_STATUSES    = ['pending'];
 const WASTAGE_STATUSES = ['pending', 'preparing', 'ready', 'served'];
+// Bulk "cancel pending" returns stock for items the kitchen hasn't finished —
+// matches the "No pending or preparing items to cancel" guard below.
+const CANCELLABLE_ITEM_STATUSES = ['pending', 'preparing'];
 
 async function updateItemStatus(orderId, itemId, status, restaurantId, actionType = 'void', cancelReason = null) {
   const validStatuses = [...ITEM_STATUS_ORDER, 'cancelled'];
