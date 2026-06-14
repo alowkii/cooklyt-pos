@@ -27,8 +27,9 @@ describe("POST /api/auth/login", () => {
   it("sets a cookie and returns user info for valid credentials", async () => {
     const hashed = await bcrypt.hash("password123", 10);
     await db.query(
-      `INSERT INTO users (email, password, role, restaurant_id, password_changed_at)
-       VALUES ($1, $2, 'admin', $3, NOW() - INTERVAL '1 hour')`,
+      // email_verified must be true — login rejects unverified accounts (migration 047)
+      `INSERT INTO users (email, password, role, restaurant_id, password_changed_at, email_verified)
+       VALUES ($1, $2, 'admin', $3, NOW() - INTERVAL '1 hour', true)`,
       ["admin@test.com", hashed, restaurantId],
     );
 
