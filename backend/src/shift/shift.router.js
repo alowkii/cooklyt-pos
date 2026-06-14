@@ -1,22 +1,27 @@
 const router = require('express').Router();
 const service = require('./shift.service');
-const { authenticate } = require('../shared/middleware/auth');
+const { authenticate, authorize } = require('../shared/middleware/auth');
 const { ValidationError } = require('../shared/errors');
 
-router.get('/summary', authenticate, async (req, res, next) => {
+// Cash-drawer reconciliation is front-of-house + management only — kitchen has no
+// business seeing expected/counted cash. Mirrors the dashboard's RequireNotKitchen
+// gate on the Shift pages.
+router.use(authenticate, authorize('admin', 'staff', 'cashier'));
+
+router.get('/summary', async (req, res, next) => {
   try {
     res.json(await service.getSummary(req.user.restaurantId));
   } catch (e) { next(e); }
 });
 
-router.get('/history', authenticate, async (req, res, next) => {
+router.get('/history', async (req, res, next) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 30, 500);
     res.json(await service.getHistory(req.user.restaurantId, limit));
   } catch (e) { next(e); }
 });
 
-router.post('/count', authenticate, async (req, res, next) => {
+router.post('/count', async (req, res, next) => {
   try {
     const { actualCash, notes, denominations } = req.body;
     const n = parseFloat(actualCash);

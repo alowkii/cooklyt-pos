@@ -64,3 +64,23 @@ describe("GET /api/orders/:id", () => {
     expect(res.body.id).toBe(orderId);
   });
 });
+
+describe("POST /api/orders/:id/cancel-pending", () => {
+  // Regression: cancelPendingItems referenced an undefined constant
+  // (CANCELLABLE_ITEM_STATUSES) and threw a ReferenceError -> 500 on every call.
+  it("cancels pending items without crashing", async () => {
+    const created = await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tableId, items: [{ menuItemId, quantity: 1 }] });
+    expect(created.status).toBe(201);
+
+    const res = await request(app)
+      .post(`/api/orders/${created.body.id}/cancel-pending`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    // Only item was pending -> order ends up cancelled
+    expect(res.body.status).toBe("cancelled");
+  });
+});
