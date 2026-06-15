@@ -120,11 +120,7 @@ async function updateUserRole(id, role, restaurantId) {
 }
 
 async function createRestaurantWithAdmin({ restaurantName, email, password, verificationToken, verificationTokenExpiresAt }) {
-  const db = require('../shared/db');
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
-
+  return db.withTransaction(async (client) => {
     const { rows: [restaurant] } = await client.query(
       `INSERT INTO restaurants (name) VALUES ($1) RETURNING id, name, created_at`,
       [restaurantName],
@@ -145,14 +141,8 @@ async function createRestaurantWithAdmin({ restaurantName, email, password, veri
       [restaurant.id],
     );
 
-    await client.query('COMMIT');
     return { restaurant, user };
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 // --- email verification ---

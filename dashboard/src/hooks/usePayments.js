@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
 import { enqueue } from '../store/syncQueue';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useBill(orderId, { itemIds = null, waiveServiceCharge = false } = {}) {
   const key = itemIds?.length ? itemIds.join(',') : null;
@@ -26,9 +26,7 @@ export function useApplyDiscount(orderId) {
       const { data } = await api.patch(`/orders/${orderId}/discount`, { discountType, discountValue });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bill', orderId] });
-    },
+    onSuccess: invalidate(['bill', orderId]),
   });
 }
 
@@ -50,12 +48,7 @@ export function useProcessPayment() {
       await enqueue('payments', 'POST', { orderId, ...body });
       return { orderId, status: 'queued' };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-      queryClient.invalidateQueries({ queryKey: ['order-history'] });
-      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
-    },
+    onSuccess: invalidate('kitchen', 'tables', 'order-history', 'loyalty-customers'),
   });
 }
 
@@ -73,11 +66,6 @@ export function useProcessSplitPayment() {
       await enqueue('payments', 'split:POST', { orderId, splits, waiveServiceCharge });
       return { orderId, status: 'queued' };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-      queryClient.invalidateQueries({ queryKey: ['order-history'] });
-      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
-    },
+    onSuccess: invalidate('kitchen', 'tables', 'order-history', 'loyalty-customers'),
   });
 }

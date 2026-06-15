@@ -40,8 +40,7 @@
     "node-pg-migrate": "^8.0.4",
     "nodemailer": "^8.0.10",
     "pg": "^8.13.3",
-    "ws": "^8.18.0",
-    "zod": "^4.4.3"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",

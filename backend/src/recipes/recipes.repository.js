@@ -30,10 +30,8 @@ const getById = (id, restaurantId) =>
     .query(`${WITH_INGREDIENTS} WHERE r.id = $1 AND r.restaurant_id = $2 GROUP BY r.id`, [id, restaurantId])
     .then((r) => r.rows[0]);
 
-const create = async ({ restaurantId, name, yieldQuantity, yieldUnit, prepTimeSec, notes, ingredients }) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+const create = ({ restaurantId, name, yieldQuantity, yieldUnit, prepTimeSec, notes, ingredients }) =>
+  db.withTransaction(async (client) => {
     const {
       rows: [recipe],
     } = await client.query(
@@ -48,20 +46,11 @@ const create = async ({ restaurantId, name, yieldQuantity, yieldUnit, prepTimeSe
         [recipe.id, ing.ingredientId, ing.quantity, ing.unit, ing.costPerUnit || 0],
       );
     }
-    await client.query('COMMIT');
     return recipe;
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+  });
 
 const update = async (id, { name, yieldQuantity, yieldUnit, prepTimeSec, notes, ingredients }, restaurantId) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+  await db.withTransaction(async (client) => {
     await client.query(
       `UPDATE recipes SET
          name           = COALESCE($1, name),
@@ -83,14 +72,8 @@ const update = async (id, { name, yieldQuantity, yieldUnit, prepTimeSec, notes, 
         );
       }
     }
-    await client.query('COMMIT');
-    return getById(id, restaurantId);
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+  });
+  return getById(id, restaurantId);
 };
 
 const remove = (id, restaurantId) =>

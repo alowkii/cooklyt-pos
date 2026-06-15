@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useReservations(date) {
   return useQuery({
@@ -20,10 +20,7 @@ export function useCreateReservation() {
       const { data } = await api.post('/reservations', body);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }
 
@@ -33,10 +30,7 @@ export function useUpdateReservation() {
       const { data } = await api.patch(`/reservations/${id}`, body);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }
 
@@ -45,10 +39,7 @@ export function useDeleteReservation() {
     mutationFn: async (id) => {
       await api.delete(`/reservations/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }
 
@@ -58,10 +49,7 @@ export function useSeatReservation() {
       const { data } = await api.post(`/reservations/${id}/seat`);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }
 
@@ -71,10 +59,7 @@ export function useCancelReservation() {
       const { data } = await api.post(`/reservations/${id}/cancel`);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }
 
@@ -84,9 +69,6 @@ export function useNoShowReservation() {
       const { data } = await api.post(`/reservations/${id}/no-show`);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('reservations', 'tables'),
   });
 }

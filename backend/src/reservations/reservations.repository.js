@@ -1,4 +1,5 @@
 const db = require('../shared/db');
+const { buildUpdateSet } = require('../shared/sql');
 
 const BASE_SELECT = `
   SELECT r.*,
@@ -34,27 +35,22 @@ const create = ({ restaurantId, tableId, guestName, guestPhone, partySize, reser
   ).then((r) => r.rows[0]);
 
 const update = (id, restaurantId, fields) => {
-  const sets = [];
-  const params = [id, restaurantId];
-  const map = {
-    guestName:  'guest_name',
-    guestPhone: 'guest_phone',
-    partySize:  'party_size',
-    reservedAt: 'reserved_at',
-    notes:      'notes',
-    tableId:    'table_id',
-    status:     'status',
-  };
-  for (const [key, col] of Object.entries(map)) {
-    if (key in fields) {
-      params.push(fields[key] ?? null);
-      sets.push(`${col} = $${params.length}`);
-    }
-  }
-  if (!sets.length) return getById(id, restaurantId);
+  // A key present in `fields` updates its column (a nullish value clears it);
+  // an absent key leaves the column untouched.
+  const col = (key) => (key in fields ? (fields[key] ?? null) : undefined);
+  const { clause, values } = buildUpdateSet({
+    guest_name:  col('guestName'),
+    guest_phone: col('guestPhone'),
+    party_size:  col('partySize'),
+    reserved_at: col('reservedAt'),
+    notes:       col('notes'),
+    table_id:    col('tableId'),
+    status:      col('status'),
+  }, 3);
+  if (!clause) return getById(id, restaurantId);
   return db.query(
-    `UPDATE reservations SET ${sets.join(', ')} WHERE id = $1 AND restaurant_id = $2 RETURNING *`,
-    params,
+    `UPDATE reservations SET ${clause} WHERE id = $1 AND restaurant_id = $2 RETURNING *`,
+    [id, restaurantId, ...values],
   ).then((r) => r.rows[0]);
 };
 

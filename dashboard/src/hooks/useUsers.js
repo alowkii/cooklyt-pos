@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useUsers() {
   return useQuery({
@@ -20,7 +20,7 @@ export function useCreateUser() {
       const { data } = await api.post('/auth/register', { email, role, name: name || undefined });
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: invalidate('users'),
   });
 }
 
@@ -29,7 +29,7 @@ export function useDeleteUser() {
     mutationFn: async (id) => {
       await api.delete(`/auth/users/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: invalidate('users'),
   });
 }
 
@@ -39,7 +39,7 @@ export function useUpdateUserRole() {
       const { data } = await api.patch(`/auth/users/${id}/role`, { role });
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: invalidate('users'),
   });
 }
 
@@ -60,7 +60,7 @@ export function useUpdateUserName() {
       const { data } = await api.patch(`/auth/users/${id}/name`, { name: name || null });
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: invalidate('users'),
   });
 }
 
@@ -70,7 +70,7 @@ export function useSetUserActive() {
       const { data } = await api.patch(`/auth/users/${id}/active`, { is_active: isActive });
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: invalidate('users'),
   });
 }
 
@@ -80,10 +80,7 @@ export function useSetUserPresent() {
       const { data } = await api.patch(`/auth/users/${id}/present`, { is_present: isPresent });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['me'] });
-    },
+    onSuccess: invalidate('users', 'me'),
   });
 }
 
@@ -93,10 +90,7 @@ export function useSetStaffPin() {
       const { data } = await api.patch(`/auth/users/${id}/pin`, { pin: pin ?? '' });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['me'] });
-    },
+    onSuccess: invalidate('users', 'me'),
   });
 }
 

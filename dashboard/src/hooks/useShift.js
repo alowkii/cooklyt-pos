@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useShiftSummary() {
   return useQuery({
@@ -29,9 +29,6 @@ export function useShiftFullHistory() {
 export function useRecordShiftCount() {
   return useMutation({
     mutationFn: (data) => api.post('/shift/count', data).then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shift-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['shift-history'] });
-    },
+    onSuccess: invalidate('shift-summary', 'shift-history'),
   });
 }

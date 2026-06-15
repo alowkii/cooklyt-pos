@@ -27,8 +27,32 @@ pool.on("error", (err) => {
   process.exit(-1);
 });
 
+// Run `fn` inside a single transaction. The callback receives a dedicated
+// client; the transaction commits on success and rolls back if it throws.
+// The client is always released. Returns whatever `fn` resolves to.
+//
+//   const order = await db.withTransaction(async (client) => {
+//     await client.query('INSERT ...');
+//     return result;
+//   });
+async function withTransaction(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   getClient: () => pool.connect(),
+  withTransaction,
   close: () => pool.end(),
 };
