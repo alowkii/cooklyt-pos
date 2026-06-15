@@ -9,8 +9,8 @@ export function fmtDate(iso) {
   return new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
 }
 
-/** Format ISO datetime → medium date + short time */
-function fmtDateTime(ts) {
+/** Format ISO datetime → medium date + short time, e.g. "12 Jun 2026, 09:30" */
+export function fmtDateTime(ts) {
   return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 

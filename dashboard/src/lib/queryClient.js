@@ -15,3 +15,12 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Returns an onSuccess handler that invalidates one or more query keys.
+// Each arg is a queryKey root (string) or a full queryKey array:
+//   onSuccess: invalidate('coupons')
+//   onSuccess: invalidate('reservations', 'tables')
+//   onSuccess: invalidate(['order', orderId])
+export const invalidate = (...keys) => () =>
+  keys.forEach((k) =>
+    queryClient.invalidateQueries({ queryKey: Array.isArray(k) ? k : [k] }));

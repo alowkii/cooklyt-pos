@@ -1,4 +1,5 @@
 const db = require('../shared/db');
+const { buildUpdateSet } = require('../shared/sql');
 
 const list = (restaurantId, { includeInactive = false } = {}) =>
   db.query(
@@ -37,21 +38,20 @@ const create = (restaurantId, { code, description, discountType, discountValue, 
   ).then((r) => r.rows[0]);
 
 const update = (restaurantId, id, fields) => {
-  const sets = [];
-  const vals = [restaurantId, id];
-  let i = 3;
-  if (fields.code        !== undefined) { sets.push(`code = $${i++}`);              vals.push(fields.code.toUpperCase()); }
-  if (fields.description !== undefined) { sets.push(`description = $${i++}`);       vals.push(fields.description); }
-  if (fields.discountType  !== undefined) { sets.push(`discount_type = $${i++}`);   vals.push(fields.discountType); }
-  if (fields.discountValue !== undefined) { sets.push(`discount_value = $${i++}`);  vals.push(fields.discountValue); }
-  if (fields.minOrderAmount !== undefined) { sets.push(`min_order_amount = $${i++}`); vals.push(fields.minOrderAmount); }
-  if (fields.maxUses  !== undefined) { sets.push(`max_uses = $${i++}`);             vals.push(fields.maxUses); }
-  if (fields.expiresAt !== undefined) { sets.push(`expires_at = $${i++}`);          vals.push(fields.expiresAt); }
-  if (fields.isActive  !== undefined) { sets.push(`is_active = $${i++}`);           vals.push(fields.isActive); }
-  if (!sets.length) return getById(restaurantId, id);
+  const { clause, values } = buildUpdateSet({
+    code:             fields.code !== undefined ? fields.code.toUpperCase() : undefined,
+    description:      fields.description,
+    discount_type:    fields.discountType,
+    discount_value:   fields.discountValue,
+    min_order_amount: fields.minOrderAmount,
+    max_uses:         fields.maxUses,
+    expires_at:       fields.expiresAt,
+    is_active:        fields.isActive,
+  }, 3);
+  if (!clause) return getById(restaurantId, id);
   return db.query(
-    `UPDATE coupons SET ${sets.join(', ')} WHERE restaurant_id = $1 AND id = $2 RETURNING *`,
-    vals,
+    `UPDATE coupons SET ${clause} WHERE restaurant_id = $1 AND id = $2 RETURNING *`,
+    [restaurantId, id, ...values],
   ).then((r) => r.rows[0]);
 };
 
@@ -63,10 +63,8 @@ const hasRedemptions = (id) =>
     .then((r) => r.rows.length > 0);
 
 // Atomically record redemption + increment uses_count
-const recordRedemption = async (restaurantId, couponId, orderId, discountAmount) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+const recordRedemption = (restaurantId, couponId, orderId, discountAmount) =>
+  db.withTransaction(async (client) => {
     await client.query(
       `INSERT INTO coupon_redemptions (coupon_id, order_id, restaurant_id, discount_amount)
        VALUES ($1, $2, $3, $4)`,
@@ -76,20 +74,11 @@ const recordRedemption = async (restaurantId, couponId, orderId, discountAmount)
       'UPDATE coupons SET uses_count = uses_count + 1 WHERE id = $1',
       [couponId],
     );
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+  });
 
 // Undo redemption if coupon is removed from an order before payment
-const removeRedemption = async (orderId) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+const removeRedemption = (orderId) =>
+  db.withTransaction(async (client) => {
     const res = await client.query(
       'DELETE FROM coupon_redemptions WHERE order_id = $1 RETURNING coupon_id',
       [orderId],
@@ -100,13 +89,6 @@ const removeRedemption = async (orderId) => {
         [res.rows[0].coupon_id],
       );
     }
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+  });
 
 module.exports = { list, getById, getByCode, create, update, remove, hasRedemptions, recordRedemption, removeRedemption };

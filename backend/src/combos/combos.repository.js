@@ -31,9 +31,7 @@ const getById = (id, restaurantId) =>
     .then((r) => r.rows[0]);
 
 const create = async ({ restaurantId, name, sku, price, validFrom, validUntil, items }) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+  const comboId = await db.withTransaction(async (client) => {
     const {
       rows: [combo],
     } = await client.query(
@@ -49,20 +47,13 @@ const create = async ({ restaurantId, name, sku, price, validFrom, validUntil, i
         [combo.id, item.menuItemId, item.quantity || 1, item.sortOrder ?? i],
       );
     }
-    await client.query('COMMIT');
-    return getById(combo.id, restaurantId);
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+    return combo.id;
+  });
+  return getById(comboId, restaurantId);
 };
 
 const update = async (id, { name, sku, price, isActive, validFrom, validUntil, items }, restaurantId) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+  await db.withTransaction(async (client) => {
     await client.query(
       `UPDATE combo_meals SET
          name        = COALESCE($1, name),
@@ -85,14 +76,8 @@ const update = async (id, { name, sku, price, isActive, validFrom, validUntil, i
         );
       }
     }
-    await client.query('COMMIT');
-    return getById(id, restaurantId);
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
+  });
+  return getById(id, restaurantId);
 };
 
 module.exports = { getAll, getById, create, update };
