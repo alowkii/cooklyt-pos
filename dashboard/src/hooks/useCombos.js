@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useCombos() {
   return useQuery({
@@ -18,7 +18,7 @@ export function useCreateCombo() {
       const { data } = await api.post('/combos', body);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['combos'] }),
+    onSuccess: invalidate('combos'),
   });
 }
 
@@ -28,6 +28,6 @@ export function useUpdateCombo() {
       const { data } = await api.patch(`/combos/${id}`, body);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['combos'] }),
+    onSuccess: invalidate('combos'),
   });
 }

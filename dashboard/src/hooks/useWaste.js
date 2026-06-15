@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useWastageReviews(status) {
   return useQuery({
@@ -20,11 +20,7 @@ export function useResolveWastageReview() {
       const { data } = await api.post(`/wastage-reviews/${id}/resolve`, { ingredients });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wastage-reviews'] });
-      queryClient.invalidateQueries({ queryKey: ['waste'] });
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-    },
+    onSuccess: invalidate('wastage-reviews', 'waste', 'ingredients'),
   });
 }
 
@@ -47,10 +43,7 @@ export function useLogWaste() {
       const { data } = await api.post('/waste', body);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['waste'] });
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-    },
+    onSuccess: invalidate('waste', 'ingredients'),
   });
 }
 
@@ -60,9 +53,6 @@ export function useLogWasteByMenuItem() {
       const { data } = await api.post('/waste/by-menu-item', body);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['waste'] });
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-    },
+    onSuccess: invalidate('waste', 'ingredients'),
   });
 }

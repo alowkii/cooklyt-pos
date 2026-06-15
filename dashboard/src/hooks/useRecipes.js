@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useRecipes() {
   return useQuery({
@@ -18,7 +18,7 @@ export function useCreateRecipe() {
       const { data } = await api.post('/recipes', body);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
+    onSuccess: invalidate('recipes'),
   });
 }
 
@@ -28,7 +28,7 @@ export function useUpdateRecipe() {
       const { data } = await api.patch(`/recipes/${id}`, body);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
+    onSuccess: invalidate('recipes'),
   });
 }
 
@@ -38,7 +38,7 @@ export function useDeleteRecipe() {
       const { data } = await api.delete(`/recipes/${id}`);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
+    onSuccess: invalidate('recipes'),
   });
 }
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useInventoryTransactions({ ingredientId, type, from, to, limit } = {}) {
   return useQuery({
@@ -37,10 +37,7 @@ export function useImportLedger() {
       const { data } = await api.post('/inventory/import', { rows });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
-    },
+    onSuccess: invalidate('ingredients', 'inventory-transactions'),
   });
 }
 
@@ -50,9 +47,6 @@ export function useRecordAdjustment() {
       const { data } = await api.post('/inventory/adjustment', body);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-transactions'] });
-    },
+    onSuccess: invalidate('ingredients', 'inventory-transactions'),
   });
 }

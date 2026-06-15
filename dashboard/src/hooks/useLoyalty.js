@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useLoyaltyCustomers(search = '') {
   return useQuery({
@@ -37,7 +37,7 @@ export function useLookupLoyaltyCustomer() {
 export function useCreateLoyaltyCustomer() {
   return useMutation({
     mutationFn: (body) => api.post('/loyalty/customers', body).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] }),
+    onSuccess: invalidate('loyalty-customers'),
   });
 }
 
@@ -45,11 +45,11 @@ export function useAdjustPoints(customerId) {
   return useMutation({
     mutationFn: ({ points, description }) =>
       api.patch(`/loyalty/customers/${customerId}/adjust`, { points, description }).then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyalty-customer', customerId] });
-      queryClient.invalidateQueries({ queryKey: ['loyalty-transactions', customerId] });
-      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
-    },
+    onSuccess: invalidate(
+      ['loyalty-customer', customerId],
+      ['loyalty-transactions', customerId],
+      'loyalty-customers',
+    ),
   });
 }
 
@@ -57,28 +57,28 @@ export function useApplyLoyalty(orderId) {
   return useMutation({
     mutationFn: ({ phone, pointsToRedeem }) =>
       api.patch(`/orders/${orderId}/loyalty`, { phone, pointsToRedeem }).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bill', orderId] }),
+    onSuccess: invalidate(['bill', orderId]),
   });
 }
 
 export function useDeleteLoyaltyCustomer() {
   return useMutation({
     mutationFn: (id) => api.delete(`/loyalty/customers/${id}`).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] }),
+    onSuccess: invalidate('loyalty-customers'),
   });
 }
 
 export function useUpdateLoyaltyCustomerName() {
   return useMutation({
     mutationFn: ({ id, name }) => api.patch(`/loyalty/customers/${id}`, { name }).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] }),
+    onSuccess: invalidate('loyalty-customers'),
   });
 }
 
 export function useRemoveLoyalty(orderId) {
   return useMutation({
     mutationFn: () => api.delete(`/orders/${orderId}/loyalty`).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bill', orderId] }),
+    onSuccess: invalidate(['bill', orderId]),
   });
 }
 
@@ -101,13 +101,13 @@ export function useLoyaltyRewards() {
 export function useSaveLoyaltyTiers() {
   return useMutation({
     mutationFn: (tiers) => api.put('/loyalty/tiers', tiers).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loyalty-tiers'] }),
+    onSuccess: invalidate('loyalty-tiers'),
   });
 }
 
 export function useSaveLoyaltyRewards() {
   return useMutation({
     mutationFn: (rewards) => api.put('/loyalty/rewards', rewards).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loyalty-rewards'] }),
+    onSuccess: invalidate('loyalty-rewards'),
   });
 }
