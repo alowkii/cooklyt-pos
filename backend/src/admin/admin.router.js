@@ -8,6 +8,7 @@ const service = require('./admin.service');
 const repo    = require('./admin.repository');
 const settingsRepo = require('../settings/settings.repository');
 const { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged } = require('./admin.middleware');
+const { asyncHandler } = require('../shared/asyncHandler');
 
 // Multer instance for restaurant logo uploads (images only, stored on disk)
 const logoUpload = multer({
@@ -96,14 +97,12 @@ const verifyPasswordLimiter = rateLimit({
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-router.post('/auth/setup', setupLimiter, async (req, res, next) => {
-  try {
-    const result = await service.setup(req.body.email, req.body.password);
-    res.cookie('admin_token', result.token, COOKIE_OPTS);
-    const { token: _t, ...safe } = result;
-    res.status(201).json(safe);
-  } catch (e) { next(e); }
-});
+router.post('/auth/setup', setupLimiter, asyncHandler(async (req, res) => {
+  const result = await service.setup(req.body.email, req.body.password);
+  res.cookie('admin_token', result.token, COOKIE_OPTS);
+  const { token: _t, ...safe } = result;
+  res.status(201).json(safe);
+}));
 
 router.post('/auth/login', loginLimiter, async (req, res, next) => {
   try {
@@ -129,62 +128,50 @@ router.post('/auth/logout', (req, res) => {
 
 // ── Public verification endpoints ─────────────────────────────────────────────
 
-router.get('/verify-email', verifyEmailLimiter, async (req, res, next) => {
-  try {
-    res.json(await service.verifySuperAdminEmail(req.query.token));
-  } catch (e) { next(e); }
-});
+router.get('/verify-email', verifyEmailLimiter, asyncHandler(async (req, res) => {
+  res.json(await service.verifySuperAdminEmail(req.query.token));
+}));
 
-router.post('/resend-verification', resendLimiter, async (req, res, next) => {
-  try {
-    res.json(await service.resendSuperAdminVerification(req.body.email));
-  } catch (e) { next(e); }
-});
+router.post('/resend-verification', resendLimiter, asyncHandler(async (req, res) => {
+  res.json(await service.resendSuperAdminVerification(req.body.email));
+}));
 
 // ── Protected auth ────────────────────────────────────────────────────────────
 
-router.get('/auth/me', auth, async (req, res, next) => {
-  try {
-    res.json(await service.me(req.superAdmin.superAdminId));
-  } catch (e) { next(e); }
-});
+router.get('/auth/me', auth, asyncHandler(async (req, res) => {
+  res.json(await service.me(req.superAdmin.superAdminId));
+}));
 
-router.post('/auth/change-password', auth, changePasswordLimiter, async (req, res, next) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const result = await service.changePassword(req.superAdmin.superAdminId, currentPassword, newPassword);
-    audit.log({
-      ...sa(req),
-      action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId,
-      description: 'Changed own password',
-    });
-    res.cookie('admin_token', result.token, COOKIE_OPTS);
-    res.json({ ok: true });
-  } catch (e) { next(e); }
-});
+router.post('/auth/change-password', auth, changePasswordLimiter, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const result = await service.changePassword(req.superAdmin.superAdminId, currentPassword, newPassword);
+  audit.log({
+    ...sa(req),
+    action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId,
+    description: 'Changed own password',
+  });
+  res.cookie('admin_token', result.token, COOKIE_OPTS);
+  res.json({ ok: true });
+}));
 
-router.patch('/auth/me/defaults', authV, async (req, res, next) => {
-  try {
-    const { timezone, currency, tax_rate, service_charge } = req.body;
-    const result = await service.updateDefaults(req.superAdmin.superAdminId, { timezone, currency, tax_rate, service_charge });
-    audit.log({ ...sa(req), action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId, description: 'Updated new-restaurant defaults' });
-    res.json(result);
-  } catch (e) { next(e); }
-});
+router.patch('/auth/me/defaults', authV, asyncHandler(async (req, res) => {
+  const { timezone, currency, tax_rate, service_charge } = req.body;
+  const result = await service.updateDefaults(req.superAdmin.superAdminId, { timezone, currency, tax_rate, service_charge });
+  audit.log({ ...sa(req), action: 'update', resourceType: 'super_admin', resourceId: req.superAdmin.superAdminId, description: 'Updated new-restaurant defaults' });
+  res.json(result);
+}));
 
-router.post('/auth/verify-password', authV, verifyPasswordLimiter, async (req, res, next) => {
-  try {
-    const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);
-    // Log the export action here so it's tied to a verified identity
-    audit.log({
-      ...sa(req),
-      action: 'export',
-      resourceType: 'audit_log',
-      description: `Exported audit logs${req.body.context ? ` (${req.body.context})` : ''}`,
-    });
-    res.json(result);
-  } catch (e) { next(e); }
-});
+router.post('/auth/verify-password', authV, verifyPasswordLimiter, asyncHandler(async (req, res) => {
+  const result = await service.verifyPassword(req.superAdmin.superAdminId, req.body.password);
+  // Log the export action here so it's tied to a verified identity
+  audit.log({
+    ...sa(req),
+    action: 'export',
+    resourceType: 'audit_log',
+    description: `Exported audit logs${req.body.context ? ` (${req.body.context})` : ''}`,
+  });
+  res.json(result);
+}));
 
 // ── Google OAuth ─────────────────────────────────────────────────────────────
 
@@ -276,185 +263,147 @@ router.get('/auth/google/callback', async (req, res) => {
 
 // ── Restaurants ───────────────────────────────────────────────────────────────
 
-router.get('/restaurants', auth, async (req, res, next) => {
-  try {
-    res.json(await service.getAllRestaurants());
-  } catch (e) { next(e); }
-});
+router.get('/restaurants', auth, asyncHandler(async (req, res) => {
+  res.json(await service.getAllRestaurants());
+}));
 
-router.post('/restaurants', authV, async (req, res, next) => {
-  try {
-    const restaurant = await service.createRestaurant(req.body.name);
-    audit.log({ ...sa(req), action: 'create', resourceType: 'restaurant', resourceId: restaurant.id, description: `Created restaurant "${restaurant.name}"` });
-    res.status(201).json(restaurant);
-  } catch (e) { next(e); }
-});
+router.post('/restaurants', authV, asyncHandler(async (req, res) => {
+  const restaurant = await service.createRestaurant(req.body.name);
+  audit.log({ ...sa(req), action: 'create', resourceType: 'restaurant', resourceId: restaurant.id, description: `Created restaurant "${restaurant.name}"` });
+  res.status(201).json(restaurant);
+}));
 
-router.get('/restaurants/:id', auth, async (req, res, next) => {
-  try {
-    res.json(await service.getRestaurant(req.params.id));
-  } catch (e) { next(e); }
-});
+router.get('/restaurants/:id', auth, asyncHandler(async (req, res) => {
+  res.json(await service.getRestaurant(req.params.id));
+}));
 
-router.patch('/restaurants/:id', authV, async (req, res, next) => {
-  try {
-    const restaurant = await service.updateRestaurant(req.params.id, req.body.name);
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'restaurant', resourceId: req.params.id, description: `Renamed restaurant to "${restaurant.name}"` });
-    res.json(restaurant);
-  } catch (e) { next(e); }
-});
+router.patch('/restaurants/:id', authV, asyncHandler(async (req, res) => {
+  const restaurant = await service.updateRestaurant(req.params.id, req.body.name);
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'restaurant', resourceId: req.params.id, description: `Renamed restaurant to "${restaurant.name}"` });
+  res.json(restaurant);
+}));
 
-router.patch('/restaurants/:id/status', authV, async (req, res, next) => {
-  try {
-    const { is_active } = req.body;
-    if (typeof is_active !== 'boolean') return res.status(400).json({ error: 'is_active must be a boolean' });
-    const restaurant = await service.setRestaurantStatus(req.params.id, is_active);
-    audit.log({
-      ...sa(req),
-      restaurantId: req.params.id,
-      action: 'update',
-      resourceType: 'restaurant',
-      resourceId: req.params.id,
-      description: `${is_active ? 'Activated' : 'Suspended'} restaurant "${restaurant.name}"`,
-    });
-    res.json(restaurant);
-  } catch (e) { next(e); }
-});
+router.patch('/restaurants/:id/status', authV, asyncHandler(async (req, res) => {
+  const { is_active } = req.body;
+  if (typeof is_active !== 'boolean') return res.status(400).json({ error: 'is_active must be a boolean' });
+  const restaurant = await service.setRestaurantStatus(req.params.id, is_active);
+  audit.log({
+    ...sa(req),
+    restaurantId: req.params.id,
+    action: 'update',
+    resourceType: 'restaurant',
+    resourceId: req.params.id,
+    description: `${is_active ? 'Activated' : 'Suspended'} restaurant "${restaurant.name}"`,
+  });
+  res.json(restaurant);
+}));
 
-router.patch('/restaurants/:id/ai', authV, async (req, res, next) => {
-  try {
-    const { ai_enabled } = req.body;
-    if (typeof ai_enabled !== 'boolean') return res.status(400).json({ error: 'ai_enabled must be a boolean' });
-    const restaurant = await service.setRestaurantAiEnabled(req.params.id, ai_enabled);
-    audit.log({
-      ...sa(req),
-      restaurantId: req.params.id,
-      action: 'update',
-      resourceType: 'restaurant',
-      resourceId: req.params.id,
-      description: `${ai_enabled ? 'Enabled' : 'Disabled'} AI assistant for "${restaurant.name}"`,
-    });
-    res.json(restaurant);
-  } catch (e) { next(e); }
-});
+router.patch('/restaurants/:id/ai', authV, asyncHandler(async (req, res) => {
+  const { ai_enabled } = req.body;
+  if (typeof ai_enabled !== 'boolean') return res.status(400).json({ error: 'ai_enabled must be a boolean' });
+  const restaurant = await service.setRestaurantAiEnabled(req.params.id, ai_enabled);
+  audit.log({
+    ...sa(req),
+    restaurantId: req.params.id,
+    action: 'update',
+    resourceType: 'restaurant',
+    resourceId: req.params.id,
+    description: `${ai_enabled ? 'Enabled' : 'Disabled'} AI assistant for "${restaurant.name}"`,
+  });
+  res.json(restaurant);
+}));
 
-router.delete('/restaurants/:id', authV, async (req, res, next) => {
-  try {
-    const deleted = await service.deleteRestaurant(req.params.id);
-    audit.log({ ...sa(req), restaurantName: deleted.name, action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant "${deleted.name}"` });
-    res.status(204).send();
-  } catch (e) { next(e); }
-});
+router.delete('/restaurants/:id', authV, asyncHandler(async (req, res) => {
+  const deleted = await service.deleteRestaurant(req.params.id);
+  audit.log({ ...sa(req), restaurantName: deleted.name, action: 'delete', resourceType: 'restaurant', resourceId: req.params.id, description: `Deleted restaurant "${deleted.name}"` });
+  res.status(204).send();
+}));
 
 // Rotate every table's public QR token for a restaurant (revokes existing QRs)
-router.post('/restaurants/:id/regenerate-qr', authV, async (req, res, next) => {
-  try {
-    const result = await service.regenerateRestaurantQr(req.params.id);
-    audit.log({
-      ...sa(req),
-      restaurantId: req.params.id,
-      action: 'update',
-      resourceType: 'restaurant',
-      resourceId: req.params.id,
-      description: `Regenerated QR codes for ${result.count} table(s) at "${result.name}"`,
-    });
-    res.json(result);
-  } catch (e) { next(e); }
-});
+router.post('/restaurants/:id/regenerate-qr', authV, asyncHandler(async (req, res) => {
+  const result = await service.regenerateRestaurantQr(req.params.id);
+  audit.log({
+    ...sa(req),
+    restaurantId: req.params.id,
+    action: 'update',
+    resourceType: 'restaurant',
+    resourceId: req.params.id,
+    description: `Regenerated QR codes for ${result.count} table(s) at "${result.name}"`,
+  });
+  res.json(result);
+}));
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
-router.post('/restaurants/:id/users', authV, async (req, res, next) => {
-  try {
-    const { email, password, role } = req.body;
-    const user = await service.createUser({ email, password, role, restaurantId: req.params.id });
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'create', resourceType: 'user', resourceId: user.id, description: `Created user "${email}" with role ${role}` });
-    res.status(201).json(user);
-  } catch (e) { next(e); }
-});
+router.post('/restaurants/:id/users', authV, asyncHandler(async (req, res) => {
+  const { email, password, role } = req.body;
+  const user = await service.createUser({ email, password, role, restaurantId: req.params.id });
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'create', resourceType: 'user', resourceId: user.id, description: `Created user "${email}" with role ${role}` });
+  res.status(201).json(user);
+}));
 
-router.delete('/restaurants/:id/users/:userId', authV, async (req, res, next) => {
-  try {
-    const user = await service.deleteUser(req.params.userId, req.params.id);
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'user', resourceId: req.params.userId, description: `Deleted user "${user?.email || req.params.userId}"` });
-    res.status(204).send();
-  } catch (e) { next(e); }
-});
+router.delete('/restaurants/:id/users/:userId', authV, asyncHandler(async (req, res) => {
+  const user = await service.deleteUser(req.params.userId, req.params.id);
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'user', resourceId: req.params.userId, description: `Deleted user "${user?.email || req.params.userId}"` });
+  res.status(204).send();
+}));
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-router.get('/restaurants/:id/settings', auth, async (req, res, next) => {
-  try {
-    res.json(await service.getSettings(req.params.id));
-  } catch (e) { next(e); }
-});
+router.get('/restaurants/:id/settings', auth, asyncHandler(async (req, res) => {
+  res.json(await service.getSettings(req.params.id));
+}));
 
-router.patch('/restaurants/:id/settings', authV, async (req, res, next) => {
-  try {
-    const { key, value } = req.body;
-    const settings = await service.updateSetting(req.params.id, key, value);
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: key, description: `Set ${key} to "${value}"` });
-    res.json(settings);
-  } catch (e) { next(e); }
-});
+router.patch('/restaurants/:id/settings', authV, asyncHandler(async (req, res) => {
+  const { key, value } = req.body;
+  const settings = await service.updateSetting(req.params.id, key, value);
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: key, description: `Set ${key} to "${value}"` });
+  res.json(settings);
+}));
 
 // ── Logo upload ───────────────────────────────────────────────────────────────
 
-router.post('/restaurants/:id/logo', authV, logoUpload.single('logo'), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const url = `/uploads/logos/${req.file.filename}`;
-    await settingsRepo.set(req.params.id, 'theme_logo_url', url);
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Updated restaurant logo' });
-    res.json({ url });
-  } catch (e) { next(e); }
-});
+router.post('/restaurants/:id/logo', authV, logoUpload.single('logo'), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const url = `/uploads/logos/${req.file.filename}`;
+  await settingsRepo.set(req.params.id, 'theme_logo_url', url);
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'update', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Updated restaurant logo' });
+  res.json({ url });
+}));
 
-router.delete('/restaurants/:id/logo', authV, async (req, res, next) => {
-  try {
-    await settingsRepo.set(req.params.id, 'theme_logo_url', '');
-    audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Removed restaurant logo' });
-    res.json({ ok: true });
-  } catch (e) { next(e); }
-});
+router.delete('/restaurants/:id/logo', authV, asyncHandler(async (req, res) => {
+  await settingsRepo.set(req.params.id, 'theme_logo_url', '');
+  audit.log({ ...sa(req), restaurantId: req.params.id, action: 'delete', resourceType: 'setting', resourceId: 'theme_logo_url', description: 'Removed restaurant logo' });
+  res.json({ ok: true });
+}));
 
 // ── Super admins ──────────────────────────────────────────────────────────────
 
-router.get('/super-admins', auth, async (req, res, next) => {
-  try {
-    res.json(await service.getAllSuperAdmins());
-  } catch (e) { next(e); }
-});
+router.get('/super-admins', auth, asyncHandler(async (req, res) => {
+  res.json(await service.getAllSuperAdmins());
+}));
 
-router.post('/super-admins', authV, async (req, res, next) => {
-  try {
-    const admin = await service.createSuperAdmin(req.body.email, req.body.password);
-    audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}"` });
-    res.status(201).json(admin);
-  } catch (e) { next(e); }
-});
+router.post('/super-admins', authV, asyncHandler(async (req, res) => {
+  const admin = await service.createSuperAdmin(req.body.email, req.body.password);
+  audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}"` });
+  res.status(201).json(admin);
+}));
 
-router.delete('/super-admins/:id', authV, async (req, res, next) => {
-  try {
-    const admin = await service.deleteSuperAdminById(req.params.id, req.superAdmin.superAdminId);
-    audit.log({ ...sa(req), action: 'delete', resourceType: 'super_admin', resourceId: req.params.id, description: `Deleted operator "${admin.email}"` });
-    res.status(204).send();
-  } catch (e) { next(e); }
-});
+router.delete('/super-admins/:id', authV, asyncHandler(async (req, res) => {
+  const admin = await service.deleteSuperAdminById(req.params.id, req.superAdmin.superAdminId);
+  audit.log({ ...sa(req), action: 'delete', resourceType: 'super_admin', resourceId: req.params.id, description: `Deleted operator "${admin.email}"` });
+  res.status(204).send();
+}));
 
-router.post('/super-admins/:id/resend-verification', authV, async (req, res, next) => {
-  try {
-    res.json(await service.resendSuperAdminVerificationById(req.params.id));
-  } catch (e) { next(e); }
-});
+router.post('/super-admins/:id/resend-verification', authV, asyncHandler(async (req, res) => {
+  res.json(await service.resendSuperAdminVerificationById(req.params.id));
+}));
 
 // ── Audit logs ────────────────────────────────────────────────────────────────
 
-router.get('/audit-logs', auth, async (req, res, next) => {
-  try {
-    const { restaurantId, from, to, resourceType, limit } = req.query;
-    res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? Math.min(parseInt(limit, 10), 2000) : 500 }));
-  } catch (e) { next(e); }
-});
+router.get('/audit-logs', auth, asyncHandler(async (req, res) => {
+  const { restaurantId, from, to, resourceType, limit } = req.query;
+  res.json(await service.getAuditLogs({ restaurantId, from, to, resourceType, limit: limit ? Math.min(parseInt(limit, 10), 2000) : 500 }));
+}));
 
 module.exports = router;
