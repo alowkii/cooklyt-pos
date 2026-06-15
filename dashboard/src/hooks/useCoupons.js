@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 export function useCoupons({ includeInactive = false } = {}) {
   return useQuery({
@@ -29,34 +29,34 @@ export function usePreviewCoupon() {
 export function useCreateCoupon() {
   return useMutation({
     mutationFn: (body) => api.post('/coupons', body).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+    onSuccess: invalidate('coupons'),
   });
 }
 
 export function useUpdateCoupon() {
   return useMutation({
     mutationFn: ({ id, ...body }) => api.patch(`/coupons/${id}`, body).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+    onSuccess: invalidate('coupons'),
   });
 }
 
 export function useDeleteCoupon() {
   return useMutation({
     mutationFn: (id) => api.delete(`/coupons/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+    onSuccess: invalidate('coupons'),
   });
 }
 
 export function useApplyCoupon(orderId) {
   return useMutation({
     mutationFn: (code) => api.patch(`/orders/${orderId}/coupon`, { code }).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['order', orderId] }),
+    onSuccess: invalidate(['order', orderId]),
   });
 }
 
 export function useRemoveCoupon(orderId) {
   return useMutation({
     mutationFn: () => api.delete(`/orders/${orderId}/coupon`).then((r) => r.data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['order', orderId] }),
+    onSuccess: invalidate(['order', orderId]),
   });
 }

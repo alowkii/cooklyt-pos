@@ -4,6 +4,7 @@ const service = require('./auth.service');
 const repo    = require('./auth.repository');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const { rateLimit } = require('../shared/middleware/rateLimit');
+const { asyncHandler } = require('../shared/asyncHandler');
 const audit = require('../shared/audit');
 const ws = require('../shared/websocket');
 
@@ -65,208 +66,148 @@ router.post('/logout', (req, res) => {
 });
 
 // Admin-only: register new staff/admin accounts within the same restaurant
-router.post('/register', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const { email, password, role, name } = req.body;
-    const user = await service.register(email, password, role, req.user.restaurantId, name);
-    audit.log({
-      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
-      action: 'create', resourceType: 'user', resourceId: user.id,
-      description: `Registered user "${email}" with role ${role}`,
-    });
-    res.status(201).json(user);
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/register', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const { email, password, role, name } = req.body;
+  const user = await service.register(email, password, role, req.user.restaurantId, name);
+  audit.log({
+    actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+    action: 'create', resourceType: 'user', resourceId: user.id,
+    description: `Registered user "${email}" with role ${role}`,
+  });
+  res.status(201).json(user);
+}));
 
 // Get current user profile
-router.get('/me', authenticate, async (req, res, next) => {
-  try {
-    const user = await service.me(req.user.userId);
-    res.json(user);
-  } catch (e) {
-    next(e);
-  }
-});
+router.get('/me', authenticate, asyncHandler(async (req, res) => {
+  const user = await service.me(req.user.userId);
+  res.json(user);
+}));
 
 // Admin-only: list all users in this restaurant
-router.get('/users', authenticate, authorize('admin'), async (req, res, next) => {
-  try {
-    const users = await service.getAllUsers(req.user.restaurantId);
-    res.json(users);
-  } catch (e) {
-    next(e);
-  }
-});
+router.get('/users', authenticate, authorize('admin'), asyncHandler(async (req, res) => {
+  const users = await service.getAllUsers(req.user.restaurantId);
+  res.json(users);
+}));
 
 // Admin-only: delete a user (must belong to same restaurant)
-router.delete('/users/:id', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const deleted = await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
-    audit.log({
-      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
-      action: 'delete', resourceType: 'user', resourceId: req.params.id,
-      description: `Deleted user "${deleted?.email || req.params.id}"`,
-    });
-    res.status(204).send();
-  } catch (e) {
-    next(e);
-  }
-});
+router.delete('/users/:id', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const deleted = await service.deleteUser(req.params.id, req.user.userId, req.user.restaurantId);
+  audit.log({
+    actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+    action: 'delete', resourceType: 'user', resourceId: req.params.id,
+    description: `Deleted user "${deleted?.email || req.params.id}"`,
+  });
+  res.status(204).send();
+}));
 
 // Change own password (any authenticated user)
-router.post('/change-password', authenticate, writeLimiter, async (req, res, next) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const result = await service.changePassword(req.user.userId, currentPassword, newPassword);
-    audit.log({
-      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
-      action: 'update', resourceType: 'user', resourceId: req.user.userId,
-      description: 'Changed own password',
-    });
-    res.cookie('pos_token', result.token, COOKIE_OPTS);
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/change-password', authenticate, writeLimiter, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const result = await service.changePassword(req.user.userId, currentPassword, newPassword);
+  audit.log({
+    actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+    action: 'update', resourceType: 'user', resourceId: req.user.userId,
+    description: 'Changed own password',
+  });
+  res.cookie('pos_token', result.token, COOKIE_OPTS);
+  res.json({ ok: true });
+}));
 
 // Admin or self: update a user's display name
-router.patch('/users/:id/name', authenticate, writeLimiter, async (req, res, next) => {
-  try {
-    const isSelf  = req.params.id === req.user.userId;
-    const isAdmin = req.user.role === 'admin';
-    if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
-    const user = await service.updateUserName(req.params.id, req.body.name ?? null, req.user.restaurantId);
-    res.json(user);
-  } catch (e) {
-    next(e);
-  }
-});
+router.patch('/users/:id/name', authenticate, writeLimiter, asyncHandler(async (req, res) => {
+  const isSelf  = req.params.id === req.user.userId;
+  const isAdmin = req.user.role === 'admin';
+  if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
+  const user = await service.updateUserName(req.params.id, req.body.name ?? null, req.user.restaurantId);
+  res.json(user);
+}));
 
 // Admin-only: set or clear a user's 4-digit staff PIN
-router.patch('/users/:id/pin', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const pin = req.body.pin === '' ? null : req.body.pin;
-    const user = await service.setStaffPin(req.params.id, pin, req.user.restaurantId);
-    audit.log({
-      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
-      action: 'update', resourceType: 'user', resourceId: req.params.id,
-      description: pin ? `Set staff PIN for "${user.email}"` : `Cleared staff PIN for "${user.email}"`,
-    });
-    res.json(user);
-  } catch (e) {
-    next(e);
-  }
-});
+router.patch('/users/:id/pin', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const pin = req.body.pin === '' ? null : req.body.pin;
+  const user = await service.setStaffPin(req.params.id, pin, req.user.restaurantId);
+  audit.log({
+    actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+    action: 'update', resourceType: 'user', resourceId: req.params.id,
+    description: pin ? `Set staff PIN for "${user.email}"` : `Cleared staff PIN for "${user.email}"`,
+  });
+  res.json(user);
+}));
 
 // Admin-only: change a user's role (must belong to same restaurant)
-router.patch('/users/:id/role', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const user = await service.updateUserRole(
-      req.params.id,
-      req.body.role,
-      req.user.userId,
-      req.user.restaurantId,
-    );
-    audit.log({
-      actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
-      action: 'update', resourceType: 'user', resourceId: req.params.id,
-      description: `Changed role of "${user.email}" to ${req.body.role}`,
-    });
-    res.json(user);
-  } catch (e) {
-    next(e);
-  }
-});
+router.patch('/users/:id/role', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const user = await service.updateUserRole(
+    req.params.id,
+    req.body.role,
+    req.user.userId,
+    req.user.restaurantId,
+  );
+  audit.log({
+    actorType: 'user', actorId: req.user.userId, restaurantId: req.user.restaurantId,
+    action: 'update', resourceType: 'user', resourceId: req.params.id,
+    description: `Changed role of "${user.email}" to ${req.body.role}`,
+  });
+  res.json(user);
+}));
 
 // Admin-only: enable or disable a user account
-router.patch('/users/:id/active', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const user = await service.setUserActive(req.params.id, !!req.body.is_active, req.user.userId, req.user.restaurantId);
-    res.json(user);
-  } catch (e) { next(e); }
-});
+router.patch('/users/:id/active', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const user = await service.setUserActive(req.params.id, !!req.body.is_active, req.user.userId, req.user.restaurantId);
+  res.json(user);
+}));
 
 // Self or admin: mark presence (in restaurant / away)
-router.patch('/users/:id/present', authenticate, writeLimiter, async (req, res, next) => {
-  try {
-    const isSelf  = req.params.id === req.user.userId;
-    const isAdmin = req.user.role === 'admin';
-    if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
-    const user = await service.setUserPresent(req.params.id, !!req.body.is_present, req.user.restaurantId);
-    ws.broadcast('USER_PRESENCE', { userId: user.id, isPresent: user.is_present }, req.user.restaurantId);
-    res.json(user);
-  } catch (e) { next(e); }
-});
+router.patch('/users/:id/present', authenticate, writeLimiter, asyncHandler(async (req, res) => {
+  const isSelf  = req.params.id === req.user.userId;
+  const isAdmin = req.user.role === 'admin';
+  if (!isSelf && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
+  const user = await service.setUserPresent(req.params.id, !!req.body.is_present, req.user.restaurantId);
+  ws.broadcast('USER_PRESENCE', { userId: user.id, isPresent: user.is_present }, req.user.restaurantId);
+  res.json(user);
+}));
 
 // --- account activation (new staff: set password + verify email) ---
 
-router.post('/activate', writeLimiter, async (req, res, next) => {
-  try {
-    const { token, password } = req.body;
-    const result = await service.activate(token, password);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/activate', writeLimiter, asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
+  const result = await service.activate(token, password);
+  res.json(result);
+}));
 
 // --- email verification ---
 
-router.get('/verify-email', emailLimiter, async (req, res, next) => {
-  try {
-    const result = await service.verifyEmail(req.query.token);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
+router.get('/verify-email', emailLimiter, asyncHandler(async (req, res) => {
+  const result = await service.verifyEmail(req.query.token);
+  res.json(result);
+}));
 
-router.post('/resend-verification', emailLimiter, async (req, res, next) => {
-  try {
-    const result = await service.resendVerification(req.body.email);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/resend-verification', emailLimiter, asyncHandler(async (req, res) => {
+  const result = await service.resendVerification(req.body.email);
+  res.json(result);
+}));
 
 // Admin-only: resend verification for a specific user by id
-router.post('/users/:id/resend-verification', authenticate, authorize('admin'), writeLimiter, async (req, res, next) => {
-  try {
-    const target = await service.me(req.params.id);
-    if (!target || target.restaurant_id !== req.user.restaurantId) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const result = await service.resendVerification(target.email);
-    res.json(result);
-  } catch (e) {
-    next(e);
+router.post('/users/:id/resend-verification', authenticate, authorize('admin'), writeLimiter, asyncHandler(async (req, res) => {
+  const target = await service.me(req.params.id);
+  if (!target || target.restaurant_id !== req.user.restaurantId) {
+    return res.status(404).json({ error: 'User not found' });
   }
-});
+  const result = await service.resendVerification(target.email);
+  res.json(result);
+}));
 
 // --- password reset ---
 
-router.post('/forgot-password', emailLimiter, async (req, res, next) => {
-  try {
-    const result = await service.forgotPassword(req.body.email);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/forgot-password', emailLimiter, asyncHandler(async (req, res) => {
+  const result = await service.forgotPassword(req.body.email);
+  res.json(result);
+}));
 
-router.post('/reset-password', writeLimiter, async (req, res, next) => {
-  try {
-    const { token, password } = req.body;
-    const result = await service.resetPassword(token, password);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
+router.post('/reset-password', writeLimiter, asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
+  const result = await service.resetPassword(token, password);
+  res.json(result);
+}));
 
 // --- Google OAuth ---
 

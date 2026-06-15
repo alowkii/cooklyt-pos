@@ -5,7 +5,7 @@ import { useIngredients } from '../hooks/useIngredients';
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
-import { escCsv, firstOfMonth } from '../utils/dateUtils';
+import { escCsv, firstOfMonth, fmtDateTime } from '../utils/dateUtils';
 
 const TYPE_CFG = {
   PURCHASE:   { label: 'Purchase',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
@@ -72,9 +72,6 @@ function parseCSV(text) {
 }
 
 function today()        { return new Date().toISOString().slice(0, 10); }
-function fmtDateTime(ts) {
-  return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
 function refLabel(row) {
   if (!row.ref_id) return '—';
   if (row.txn_type === 'SALE' || row.txn_type === 'RETURN')

@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { db, dbMeta } from '../db';
 import api from '../api/client';
 import { enqueue } from '../store/syncQueue';
-import { queryClient } from '../lib/queryClient';
+import { invalidate } from '../lib/queryClient';
 
 // Returns true when an axios error means "no response was received" — i.e. the
 // device is offline, the server refused the connection, or the request timed out.
@@ -125,11 +125,7 @@ export function useCreateOrder() {
 
       return { id: localOrderId, status: 'received', created_at: now };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-      queryClient.invalidateQueries({ queryKey: ['order-history'] });
-    },
+    onSuccess: invalidate('kitchen', 'tables', 'order-history'),
   });
 }
 
@@ -168,10 +164,7 @@ export function useCancelPendingItems() {
       await enqueue('orders', 'cancel-pending:POST', { orderId });
       return { orderId };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('kitchen', 'tables'),
   });
 }
 
@@ -190,10 +183,7 @@ export function useUpdateItemStatus() {
       await enqueue('orders', 'items:PATCH', { orderId, itemId, status, actionType, cancelReason });
       return { orderId, itemId, status };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('kitchen', 'tables'),
   });
 }
 
@@ -211,9 +201,7 @@ export function useAddItems() {
       await enqueue('orders', 'items:POST', { orderId, items });
       return { orderId, items };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-    },
+    onSuccess: invalidate('kitchen'),
   });
 }
 
@@ -223,10 +211,7 @@ export function useAssignStaff() {
       const { data } = await api.patch(`/orders/${orderId}/assign`, { staffId: staffId ?? null });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['orders', 'table'] });
-    },
+    onSuccess: invalidate('kitchen', ['orders', 'table']),
   });
 }
 
@@ -236,9 +221,7 @@ export function useLinkCustomerToOrder() {
       const { data } = await api.patch(`/orders/${orderId}/customer`, { loyaltyCustomerId: loyaltyCustomerId || null });
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-    },
+    onSuccess: invalidate('kitchen'),
   });
 }
 
@@ -256,10 +239,6 @@ export function useUpdateOrderStatus() {
       await enqueue('orders', 'PATCH', { id, status });
       return { id, status };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-    },
+    onSuccess: invalidate('kitchen', 'orders', 'tables'),
   });
 }
