@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # /var/www/krilok-pos/deploy.sh
 set -euo pipefail
 cd /var/www/krilok-pos
