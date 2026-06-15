@@ -41,11 +41,8 @@ const getItemsByOrderId = (orderId) =>
     )
     .then((r) => r.rows);
 
-const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
-
+const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) =>
+  db.withTransaction(async (client) => {
     // Reuse the session ID if this table already has active orders; otherwise start a new session.
     let sessionId = null;
     if (tableId) {
@@ -86,34 +83,18 @@ const create = async ({ restaurantId, tableId, createdBy, items, channel = 'dini
       );
     }
 
-    await client.query('COMMIT');
     return order;
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+  });
 
-const addItems = async (orderId, items) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
+const addItems = (orderId, items) =>
+  db.withTransaction(async (client) => {
     for (const item of items) {
       await client.query(
         'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
         [orderId, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+  });
 
 const updateStatus = (id, status) =>
   db
