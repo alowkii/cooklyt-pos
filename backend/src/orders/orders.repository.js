@@ -41,6 +41,37 @@ const getItemsByOrderId = (orderId) =>
     )
     .then((r) => r.rows);
 
+// Assembles exactly the shape the dashboard's KOT ticket builder expects:
+// order ref + location fields + non-cancelled items with category/customizations.
+// Used by the kitchen-terminal auto-print on customer-placed orders.
+const getKotData = (orderId, restaurantId) =>
+  db
+    .query(
+      `SELECT o.id, o.order_ref, o.channel, o.customer_ref, o.created_at,
+              t.number AS table_number,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'item_name',      mi.name,
+                    'category',       mi.category,
+                    'quantity',       oi.quantity,
+                    'notes',          oi.notes,
+                    'customizations', oi.customizations,
+                    'item_status',    oi.status
+                  ) ORDER BY mi.category, mi.name
+                ) FILTER (WHERE oi.id IS NOT NULL AND oi.status <> 'cancelled'),
+                '[]'::json
+              ) AS items
+       FROM orders o
+       LEFT JOIN tables      t  ON t.id  = o.table_id
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
+       WHERE o.id = $1 AND o.restaurant_id = $2
+       GROUP BY o.id, t.number`,
+      [orderId, restaurantId],
+    )
+    .then((r) => r.rows[0] || null);
+
 const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) =>
   db.withTransaction(async (client) => {
     // Reuse the session ID if this table already has active orders; otherwise start a new session.
@@ -261,6 +292,7 @@ module.exports = {
   getById,
   getActiveByTable,
   getItemsByOrderId,
+  getKotData,
   create,
   addItems,
   updateStatus,
