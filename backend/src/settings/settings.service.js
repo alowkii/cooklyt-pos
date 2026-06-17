@@ -1,5 +1,5 @@
 const repo = require('./settings.repository');
-const { ValidationError } = require('../shared/errors');
+const { ValidationError, AppError } = require('../shared/errors');
 
 const ALLOWED_KEYS = new Set([
   'timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee',
@@ -30,6 +30,45 @@ function validateRate(value, name) {
 
 async function getAll(restaurantId) {
   return repo.getAll(restaurantId);
+}
+
+/* ── Exchange rates (USD base) ──────────────────────────────────────────────
+ * Fetched server-side from Frankfurter and cached in-process. The upstream
+ * publishes once per working day, so we refetch at most every few hours and
+ * fall back to the last known good rate if it's unreachable — the Settings
+ * page degrades to a slightly stale figure rather than a hard error.            */
+const FX_BASE   = 'USD';
+const FX_API    = 'https://api.frankfurter.dev/v1';
+const FX_TTL_MS = 6 * 60 * 60 * 1000;        // refetch after 6h
+const fxCache   = new Map();                  // currency -> { rate, date, fetchedAt }
+
+async function getFxRate(to) {
+  validateCurrency(to);
+  if (to === FX_BASE) {
+    return { base: FX_BASE, rate: 1, date: new Date().toISOString().slice(0, 10) };
+  }
+
+  const cached = fxCache.get(to);
+  if (cached && Date.now() - cached.fetchedAt < FX_TTL_MS) {
+    return { base: FX_BASE, rate: cached.rate, date: cached.date };
+  }
+
+  try {
+    const res = await fetch(`${FX_API}/latest?from=${FX_BASE}&to=${to}`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const rate = json.rates?.[to];
+    if (!rate) throw new Error('rate missing from upstream response');
+    fxCache.set(to, { rate, date: json.date, fetchedAt: Date.now() });
+    return { base: FX_BASE, rate, date: json.date };
+  } catch (err) {
+    // Upstream down — serve last known good rather than failing the UI
+    if (cached) return { base: FX_BASE, rate: cached.rate, date: cached.date, stale: true };
+    console.error('[fx] rate fetch failed:', err.message);
+    throw new AppError('Could not fetch exchange rate', 502);
+  }
 }
 
 async function update(key, value, restaurantId) {
@@ -80,4 +119,4 @@ async function update(key, value, restaurantId) {
   return repo.getAll(restaurantId);
 }
 
-module.exports = { getAll, update };
+module.exports = { getAll, update, getFxRate };

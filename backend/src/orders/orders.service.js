@@ -87,7 +87,9 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
   ).catch((err) => console.error('[inventory] deductForOrder failed for order', order.id, err?.message));
 
-  const newOrderPayload = { orderId: order.id, tableId: order.table_id, channel };
+  // customerPlaced lets a designated kitchen terminal auto-print KOTs only for
+  // orders placed from the customer QR menu (no staff at a terminal to print).
+  const newOrderPayload = { orderId: order.id, tableId: order.table_id, channel, customerPlaced: !createdBy };
 
   if (channel === 'dining' && assignedStaffId) {
     // Dine-in with a specific staff assigned — only that staff + every admin and kitchen screen
@@ -305,6 +307,12 @@ async function getItems(orderId, restaurantId) {
   return repo.getItemsByOrderId(orderId);
 }
 
+async function getKotData(orderId, restaurantId) {
+  const data = await repo.getKotData(orderId, restaurantId);
+  if (!data) throw new NotFoundError('Order');
+  return data;
+}
+
 async function assignStaff(orderId, staffId, restaurantId) {
   const order = await getById(orderId, restaurantId);
   if (staffId !== null) {
@@ -414,6 +422,7 @@ module.exports = {
   calculateTotal,
   markOrderPaid,
   getItems,
+  getKotData,
   applyDiscount,
   applyCoupon,
   removeCoupon,

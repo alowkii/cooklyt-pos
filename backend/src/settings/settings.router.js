@@ -11,6 +11,10 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   res.json(await service.getAll(req.user.restaurantId));
 }));
 
+router.get('/fx-rate', authenticate, asyncHandler(async (req, res) => {
+  res.json(await service.getFxRate(String(req.query.to || '').toUpperCase()));
+}));
+
 router.patch('/', authenticate, authorize('admin'), asyncHandler(async (req, res) => {
   const { key, value } = req.body;
   const result = await service.update(key, value, req.user.restaurantId);

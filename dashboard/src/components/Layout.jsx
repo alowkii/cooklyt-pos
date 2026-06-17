@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -32,10 +32,12 @@ import {
   Maximize2,
   Minimize2,
   Plus,
+  Printer,
   Sparkles,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
+import { printKOTSilent } from '../utils/printReceipt';
 import OfflineBanner from './OfflineBanner';
 import SyncBadge from './SyncBadge';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -214,6 +216,19 @@ export default function Layout() {
   const setUserPresent = useSetUserPresent();
   const staffAssignmentEnabled = settings?.staff_assignment_enabled === 'true';
 
+  // Device-local: when this terminal is the designated kitchen printer, auto-print
+  // KOTs for customer/QR-placed orders (staff-placed orders still print manually).
+  const [kotAutoPrint, setKotAutoPrint] = useState(() => localStorage.getItem('pos_kot_autoprint') === '1');
+  const printedKotsRef = useRef(new Set()); // orderIds already auto-printed — guards duplicate NEW_ORDER events
+
+  function toggleKotAutoPrint() {
+    setKotAutoPrint((on) => {
+      const next = !on;
+      localStorage.setItem('pos_kot_autoprint', next ? '1' : '0');
+      return next;
+    });
+  }
+
   useWebSocket({
     onEvent(event, payload) {
       if (!NOTIFIABLE.has(event)) return;
@@ -256,6 +271,15 @@ export default function Layout() {
       addToast({ id: Date.now() + Math.random(), event, token, channel, orderId, ts: Date.now() });
       if (event === 'NEW_ORDER' && channel === 'delivery') {
         addDeliveryAlert({ id: Date.now() + Math.random(), orderId });
+      }
+      // Auto-print KOT for customer/QR-placed orders when this is the designated
+      // kitchen-printer terminal. Dedup so a duplicate NEW_ORDER never double-prints.
+      if (event === 'NEW_ORDER' && kotAutoPrint && payload?.customerPlaced && orderId
+          && !printedKotsRef.current.has(orderId)) {
+        printedKotsRef.current.add(orderId);
+        api.get(`/orders/${orderId}/kot`)
+          .then(({ data }) => { if (data) printKOTSilent(data); })
+          .catch(() => { printedKotsRef.current.delete(orderId); }); // allow retry on next event
       }
     },
   });
@@ -702,6 +726,24 @@ export default function Layout() {
                 <span className="hidden sm:inline">New Order</span>
               </button>
             )}
+            <button
+              onClick={toggleKotAutoPrint}
+              title={kotAutoPrint
+                ? 'Auto-print KOT is ON for this terminal — new QR/customer orders print automatically. Click to turn off.'
+                : 'Auto-print KOT is OFF. Turn on to make this terminal print KOTs for new QR/customer orders.'}
+              aria-pressed={kotAutoPrint}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, borderRadius: 6, border: 0, cursor: 'pointer',
+                background: kotAutoPrint ? 'rgba(31,138,91,.12)' : 'transparent',
+                color: kotAutoPrint ? 'var(--ok)' : 'var(--mute)',
+                transition: 'background .08s, color .08s',
+              }}
+              onMouseEnter={(e) => { if (!kotAutoPrint) { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.color = 'var(--ink)'; } }}
+              onMouseLeave={(e) => { if (!kotAutoPrint) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; } }}
+            >
+              <Printer size={15} />
+            </button>
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
