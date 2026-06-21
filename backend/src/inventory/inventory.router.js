@@ -13,6 +13,7 @@ router.get('/transactions', asyncHandler(async (req, res) => {
       from:         req.query.from         || null,
       to:           req.query.to           || null,
       limit:        parseInt(req.query.limit, 10) || 100,
+      tz:           req.query.tz,
     }),
   );
 }));
@@ -42,6 +43,7 @@ router.get('/waste-report', asyncHandler(async (req, res) => {
     await service.getWasteReport(req.user.restaurantId, {
       from: req.query.from || null,
       to:   req.query.to   || null,
+      tz:   req.query.tz,
     }),
   );
 }));
