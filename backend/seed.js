@@ -7,7 +7,8 @@ const DB_URL =
   'postgres://pos_user:pos_password@localhost:5434/pos_dev';
 
 // Fixed but UNGUESSABLE ids. They stay constant so re-seeding is idempotent
-// (cleanup deletes by RESTAURANT_ID; users upsert ON CONFLICT (id)), but they're
+// (cleanup deletes this restaurant's rows by RESTAURANT_ID and reclaims any seed
+// emails still held by a stale earlier-seed restaurant — see main()), but they're
 // random UUIDs rather than 0001/0002/… — seeded ids must never be guessable
 // (the restaurant id is reachable through the public menu endpoint, and a
 // sequential-id habit is exactly what caused the table-enumeration bug).
@@ -735,6 +736,32 @@ async function main() {
 
   // ── 1. Clear existing seed data scoped to this restaurant ──────────────────
   console.log('Clearing existing data…');
+
+  // Reclaim demo emails held by a stale earlier seed. users.email is globally
+  // unique, so a pre-fixed-id seed (sequential ids under a different restaurant id)
+  // would collide with the user insert below. Every restaurant_id FK cascades, so
+  // dropping the stale restaurant clears its users + orders — but recipe_ingredients
+  // and combo_items are join tables with no restaurant_id, and their NO ACTION FK to
+  // ingredients/menu_items can fire mid-cascade, so delete those two explicitly first.
+  const SEED_EMAILS = SEED_USERS.map((u) => u.email);
+  const { rows: staleRestaurants } = await client.query(
+    `SELECT DISTINCT restaurant_id AS id FROM users
+     WHERE restaurant_id IS NOT NULL AND restaurant_id <> $1 AND email = ANY($2)`,
+    [RESTAURANT_ID, SEED_EMAILS],
+  );
+  for (const { id: staleId } of staleRestaurants) {
+    await client.query(
+      'DELETE FROM recipe_ingredients WHERE recipe_id IN (SELECT id FROM recipes WHERE restaurant_id = $1)',
+      [staleId],
+    );
+    await client.query(
+      'DELETE FROM combo_items WHERE combo_id IN (SELECT id FROM combo_meals WHERE restaurant_id = $1)',
+      [staleId],
+    );
+    await client.query('DELETE FROM restaurants WHERE id = $1', [staleId]);
+    console.log(`  reclaimed stale demo restaurant ${staleId}`);
+  }
+
   // Recipe / inventory tables first (FK order)
   await client.query('DELETE FROM cost_snapshots       WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM inventory_transactions WHERE restaurant_id = $1', [RESTAURANT_ID]);
