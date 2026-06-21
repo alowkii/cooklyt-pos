@@ -34,6 +34,8 @@ import {
   Plus,
   Printer,
   Sparkles,
+  Scale,
+  ClipboardCheck,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -83,8 +85,8 @@ function darkenHex(hex, delta) {
 }
 
 const GROUP_PATHS = {
-  analytics:  ['/reports', '/history', '/waste-log', '/costing'],
-  rms:        ['/ingredients', '/inventory', '/recipes', '/combos'],
+  analytics:  ['/reports', '/history', '/waste-log', '/costing', '/variance'],
+  rms:        ['/ingredients', '/inventory', '/recipes', '/combos', '/stocktake'],
   marketing:  ['/coupons', '/loyalty', '/reviews'],
 };
 
@@ -102,6 +104,7 @@ const ALL_NAV = [
       { to: '/history',  label: 'History',   Icon: ScrollText },
       { to: '/waste-log',    label: 'Waste Log', Icon: Trash2     },
       { to: '/costing',  label: 'Costing',   Icon: TrendingUp },
+      { to: '/variance', label: 'Variance',  Icon: Scale      },
     ],
   },
   {
@@ -111,6 +114,7 @@ const ALL_NAV = [
       { to: '/inventory',   label: 'Ledger',       Icon: Layers      },
       { to: '/recipes',     label: 'Recipes',      Icon: BookOpen    },
       { to: '/combos',      label: 'Combos',       Icon: Package     },
+      { to: '/stocktake',   label: 'Stocktake',    Icon: ClipboardCheck },
     ],
   },
   {

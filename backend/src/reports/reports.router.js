@@ -61,4 +61,10 @@ router.get('/nc-sales', ...adminOnly, asyncHandler(async (req, res) => {
   res.json(await service.getNCSalesReport(from, to, tz, req.user.restaurantId, channel));
 }));
 
+// Theoretical-vs-actual food-cost variance between two finalized stock counts.
+router.get('/food-cost-variance', ...adminOnly, asyncHandler(async (req, res) => {
+  const { closingCountId, openingCountId } = req.query;
+  res.json(await service.getFoodCostVariance(closingCountId, openingCountId, req.user.restaurantId));
+}));
+
 module.exports = router;
