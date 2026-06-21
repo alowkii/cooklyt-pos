@@ -6,6 +6,8 @@ const { createTestUser, createRestaurant, deleteRestaurant, resetBuckets } = req
 let token;
 let orderId;
 let restaurantId;
+let tableId;
+let menuItemId;
 
 beforeAll(async () => {
   resetBuckets();
@@ -16,11 +18,13 @@ beforeAll(async () => {
     `INSERT INTO tables (number, seats, restaurant_id) VALUES (98, 4, $1) RETURNING *`,
     [restaurantId],
   );
+  tableId = table.id;
 
   const { rows: [item] } = await db.query(
     `INSERT INTO menu_items (name, price, category, restaurant_id) VALUES ('Payment Test Item', 15.00, 'mains', $1) RETURNING *`,
     [restaurantId],
   );
+  menuItemId = item.id;
 
   const orderRes = await request(app)
     .post("/api/orders")
@@ -60,5 +64,37 @@ describe("POST /api/payments/:orderId", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ method: "bitcoin" });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("concurrent payments on the same order", () => {
+  // The order-row lock must serialize two simultaneous payments so the order is
+  // charged exactly once — without it both requests could pass the status check
+  // and double-charge.
+  it("lets only one of two simultaneous payments succeed", async () => {
+    const orderRes = await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tableId, items: [{ menuItemId, quantity: 1 }] });
+    expect(orderRes.status).toBe(201);
+    const newOrderId = orderRes.body.id;
+
+    const pay = () =>
+      request(app)
+        .post(`/api/payments/${newOrderId}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ method: "cash", amountTendered: 20.0 });
+
+    const [a, b] = await Promise.all([pay(), pay()]);
+
+    // Exactly one success (200) and one rejection (400).
+    expect([a.status, b.status].sort()).toEqual([200, 400]);
+
+    // And exactly one completed payment row exists for the order.
+    const { rows } = await db.query(
+      "SELECT COUNT(*)::int AS n FROM payments WHERE order_id = $1 AND status = 'completed'",
+      [newOrderId],
+    );
+    expect(rows[0].n).toBe(1);
   });
 });

@@ -766,7 +766,7 @@ function BrandingModal({ restaurantId, settings, onClose }) {
                   <div className="space-y-1.5" style={{ flex: 1 }}>
                     <label className="btn btn-sm" style={{ cursor: 'pointer', display: 'inline-flex' }}>
                       <ImagePlus size={12} /> Replace file
-                      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" style={{ display: 'none' }} onChange={handleLogoFile} />
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoFile} />
                     </label>
                     <button className="btn btn-sm" onClick={() => deleteLogo.mutate()} disabled={deleteLogo.isPending} style={{ color: 'var(--bad)', display: 'flex' }}>
                       <Trash2 size={12} /> {deleteLogo.isPending ? 'Removing…' : 'Remove'}
@@ -784,8 +784,8 @@ function BrandingModal({ restaurantId, settings, onClose }) {
                 >
                   <ImagePlus size={18} style={{ color: 'var(--mute-2)' }} />
                   <span style={{ fontSize: 12, color: 'var(--mute)', fontWeight: 500 }}>Upload a file</span>
-                  <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>PNG · JPG · SVG · max 2 MB</span>
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" style={{ display: 'none' }} onChange={handleLogoFile} />
+                  <span style={{ fontSize: 11, color: 'var(--mute-2)' }}>PNG · JPG · WebP · max 2 MB</span>
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoFile} />
                 </label>
               )}
 

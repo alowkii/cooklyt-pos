@@ -116,10 +116,10 @@ async function addItems(orderId, items, restaurantId) {
     }
   }
 
-  await repo.addItems(orderId, items);
+  await repo.addItems(orderId, items, restaurantId);
   // New items on a served order go back to kitchen — reset to received
   if (order.status === 'served') {
-    await repo.updateStatus(orderId, 'received');
+    await repo.updateStatus(orderId, 'received', restaurantId);
   }
 
   inventoryService.deductForOrder(
@@ -152,7 +152,7 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
     if (['paid', 'cancelled'].includes(order.status))
       throw new ValidationError('Cannot update items on a paid or cancelled order');
 
-    const [itemRow] = await repo.getItemStatuses(orderId).then((rows) => rows.filter((r) => r.id === itemId));
+    const [itemRow] = await repo.getItemStatuses(orderId, restaurantId).then((rows) => rows.filter((r) => r.id === itemId));
     if (!itemRow) throw new NotFoundError('Order item');
     const currentStatus = itemRow.status ?? 'pending';
 
@@ -160,7 +160,7 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
     if (!allowed.includes(currentStatus))
       throw new ValidationError(`Cannot ${actionType} an item that is already ${currentStatus}`);
 
-    const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled', cancelReason || null);
+    const updated = await repo.updateItemStatus(itemId, orderId, 'cancelled', cancelReason || null, restaurantId);
     if (!updated) throw new NotFoundError('Order item');
 
     if (actionType === 'wastage') {
@@ -198,7 +198,7 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
       .catch((err) => console.error('[notify]', notifEvent, 'failed', err?.message));
 
     // Re-evaluate order status now that this item is gone.
-    const allItems  = await repo.getItemStatuses(orderId);
+    const allItems  = await repo.getItemStatuses(orderId, restaurantId);
     const remaining = allItems.filter((i) => i.status !== 'cancelled');
     let nextOrderStatus = null;
     if (remaining.length === 0) {
@@ -209,7 +209,7 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
       nextOrderStatus = 'ready';
     }
     if (nextOrderStatus) {
-      await repo.updateStatus(orderId, nextOrderStatus);
+      await repo.updateStatus(orderId, nextOrderStatus, restaurantId);
       if (nextOrderStatus === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
     }
 
@@ -221,11 +221,11 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot update items on a paid or cancelled order');
 
-  const updated = await repo.updateItemStatus(itemId, orderId, status);
+  const updated = await repo.updateItemStatus(itemId, orderId, status, null, restaurantId);
   if (!updated) throw new NotFoundError('Order item');
 
   // Auto-advance order status based on collective item state (ignore cancelled)
-  const allItems = await repo.getItemStatuses(orderId);
+  const allItems = await repo.getItemStatuses(orderId, restaurantId);
   const statuses = allItems.filter((i) => i.status !== 'cancelled').map((i) => i.status ?? 'pending');
   const allAtLeast = (min) => statuses.every((s) => ITEM_STATUS_ORDER.indexOf(s) >= ITEM_STATUS_ORDER.indexOf(min));
 
@@ -234,7 +234,7 @@ async function updateItemStatus(orderId, itemId, status, restaurantId, actionTyp
   else if (allAtLeast('ready')    && order.status === 'preparing') nextOrderStatus = 'ready';
   else if (statuses.some((s) => s === 'preparing') && order.status === 'received') nextOrderStatus = 'preparing';
 
-  if (nextOrderStatus) await repo.updateStatus(orderId, nextOrderStatus);
+  if (nextOrderStatus) await repo.updateStatus(orderId, nextOrderStatus, restaurantId);
 
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
@@ -245,7 +245,7 @@ async function cancelPendingItems(orderId, restaurantId) {
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot cancel a paid or already-cancelled order');
 
-  const allItems = await repo.getItemStatuses(orderId);
+  const allItems = await repo.getItemStatuses(orderId, restaurantId);
   const toCancelIds = allItems
     .filter((i) => CANCELLABLE_ITEM_STATUSES.includes(i.status))
     .map((i) => i.id);
@@ -254,7 +254,7 @@ async function cancelPendingItems(orderId, restaurantId) {
     throw new ValidationError('No pending or preparing items to cancel');
 
   for (const itemId of toCancelIds) {
-    await repo.updateItemStatus(itemId, orderId, 'cancelled');
+    await repo.updateItemStatus(itemId, orderId, 'cancelled', null, restaurantId);
   }
 
   inventoryService.returnStock(
@@ -275,7 +275,7 @@ async function cancelPendingItems(orderId, restaurantId) {
   } else {
     nextStatus = 'ready';
   }
-  await repo.updateStatus(orderId, nextStatus);
+  await repo.updateStatus(orderId, nextStatus, restaurantId);
   if (nextStatus === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
 
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
@@ -287,7 +287,7 @@ async function updateStatus(orderId, status, restaurantId) {
   if (!VALID.includes(status))
     throw new ValidationError(`Invalid status: ${status}`);
   const order = await getById(orderId, restaurantId);
-  const updated = await repo.updateStatus(orderId, status);
+  const updated = await repo.updateStatus(orderId, status, restaurantId);
   ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status }, restaurantId);
   if (status === 'cancelled') await _resetTableIfEmpty(order.table_id, restaurantId);
   return updated;
@@ -295,7 +295,7 @@ async function updateStatus(orderId, status, restaurantId) {
 
 async function calculateTotal(orderId, restaurantId) {
   await getById(orderId, restaurantId);
-  return repo.calculateTotal(orderId);
+  return repo.calculateTotal(orderId, restaurantId);
 }
 
 async function markOrderPaid(orderId, restaurantId) {
@@ -304,7 +304,7 @@ async function markOrderPaid(orderId, restaurantId) {
 
 async function getItems(orderId, restaurantId) {
   await getById(orderId, restaurantId);
-  return repo.getItemsByOrderId(orderId);
+  return repo.getItemsByOrderId(orderId, restaurantId);
 }
 
 async function getKotData(orderId, restaurantId) {
@@ -354,24 +354,24 @@ async function applyDiscount(orderId, discountType, discountValue, restaurantId)
     throw new ValidationError('Cannot modify a paid or cancelled order');
 
   if (discountType === 'flat') {
-    const subtotal = await require('./orders.repository').calculateTotal(orderId);
+    const subtotal = await require('./orders.repository').calculateTotal(orderId, restaurantId);
     if (value > parseFloat(subtotal)) {
       throw new ValidationError('Flat discount cannot exceed the order subtotal');
     }
   }
 
-  return repo.setDiscount(orderId, discountType, value);
+  return repo.setDiscount(orderId, discountType, value, restaurantId);
 }
 
 async function applyCoupon(orderId, code, restaurantId) {
   const order = await getById(orderId, restaurantId);
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
-  const subtotal = await repo.calculateTotal(orderId);
+  const subtotal = await repo.calculateTotal(orderId, restaurantId);
   const { couponId, discountAmount } = await couponsInterface.validateAndApplyCoupon(
     restaurantId, code, subtotal, orderId,
   );
-  return repo.setCoupon(orderId, couponId, discountAmount);
+  return repo.setCoupon(orderId, couponId, discountAmount, restaurantId);
 }
 
 async function removeCoupon(orderId, restaurantId) {
@@ -379,7 +379,7 @@ async function removeCoupon(orderId, restaurantId) {
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
   await couponsInterface.removeCouponFromOrder(orderId);
-  return repo.clearCoupon(orderId);
+  return repo.clearCoupon(orderId, restaurantId);
 }
 
 async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
@@ -389,7 +389,7 @@ async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
 
   const [settings, subtotal] = await Promise.all([
     settingsRepo.getAll(restaurantId),
-    repo.calculateTotal(orderId),
+    repo.calculateTotal(orderId, restaurantId),
   ]);
 
   const customer = await loyaltyInterface.lookupCustomer(restaurantId, phone);
@@ -400,14 +400,14 @@ async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
   if (n > 0) {
     ({ redemptionValue } = loyaltyInterface.validateRedemption(customer, n, subtotal, settings));
   }
-  return repo.setLoyalty(orderId, customer.id, n, redemptionValue);
+  return repo.setLoyalty(orderId, customer.id, n, redemptionValue, restaurantId);
 }
 
 async function removeLoyalty(orderId, restaurantId) {
   const order = await getById(orderId, restaurantId);
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
-  return repo.clearLoyalty(orderId);
+  return repo.clearLoyalty(orderId, restaurantId);
 }
 
 module.exports = {
