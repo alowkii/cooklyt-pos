@@ -3,6 +3,7 @@ const app = require("./app");
 const ws = require("./shared/websocket");
 const db = require("./shared/db");
 const reservationScheduler = require("./scheduler/reservations.scheduler");
+const wasteInsightsScheduler = require("./scheduler/waste-insights.scheduler");
 
 const PORT = process.env.PORT || 3000;
 
@@ -28,6 +29,7 @@ if (process.env.NODE_ENV === "production" && !process.env.TRUST_PROXY) {
 const server = http.createServer(app);
 ws.init(server);
 reservationScheduler.start();
+wasteInsightsScheduler.start();
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

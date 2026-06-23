@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck } from 'lucide-react';
-import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview } from '../hooks/useWaste';
+import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, Sparkles, RefreshCw, Lightbulb } from 'lucide-react';
+import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview, useWasteInsights, useGenerateWasteInsight } from '../hooks/useWaste';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import { useRecipes } from '../hooks/useRecipes';
@@ -484,6 +484,114 @@ function PendingReviews({ format, isAdmin }) {
   );
 }
 
+// ── AI Insights ───────────────────────────────────────────────────────────────
+
+function Stat({ label, value }) {
+  return (
+    <div style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+      <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{label}</p>
+      <p className="mono num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>{value}</p>
+    </div>
+  );
+}
+
+function WasteInsights({ format }) {
+  const { data: insight, isLoading } = useWasteInsights();
+  const generate = useGenerateWasteInsight();
+
+  const cs = insight?.correlation_scores;
+  const worstDay = cs?.weekday ? [...cs.weekday].sort((a, b) => b.avg_cost - a.avg_cost)[0] : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <p style={{ fontSize: 12.5, color: 'var(--mute)' }}>
+          {insight
+            ? `Analysis for ${String(insight.period_start).slice(0, 10)} – ${String(insight.period_end).slice(0, 10)} · ${insight.generated_by === 'manual' ? 'manual run' : 'weekly'}`
+            : 'Weekly AI analysis of your waste patterns — root causes, worst days, and (with location set) weather correlation.'}
+        </p>
+        <button onClick={() => generate.mutate()} disabled={generate.isPending} className="ml-auto btn btn-sm disabled:opacity-50" style={{ gap: 5 }}>
+          <RefreshCw size={12} className={generate.isPending ? 'animate-spin' : ''} />
+          {generate.isPending ? 'Analysing…' : insight ? 'Refresh analysis' : 'Generate analysis'}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
+      ) : !insight ? (
+        <div className="py-16 text-center rounded-[8px]" style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}>
+          No analysis yet — click <strong>Generate analysis</strong> to run it.
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2 rounded-[8px] p-3" style={{ background: 'var(--paper-2)', border: '1px solid var(--line-2)' }}>
+            <Sparkles size={15} style={{ color: 'var(--ok)', flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, margin: 0 }}>{insight.analysis}</p>
+          </div>
+
+          {insight.recommendations?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', marginBottom: 8 }}>Recommendations</h3>
+              <div className="space-y-2">
+                {insight.recommendations.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-[6px] p-2.5" style={{ border: '1px solid var(--line)' }}>
+                    <Lightbulb size={13} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <p style={{ fontSize: 12.5, color: 'var(--ink)', margin: 0 }}>
+                        {r.ingredient ? <strong>{r.ingredient}: </strong> : null}{r.action}
+                      </p>
+                      {r.quantified_impact != null && (
+                        <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 1 }}>~{format(r.quantified_impact)} at stake</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Stat label="Waste (28d)" value={format(cs?.total_cost ?? 0)} />
+            {worstDay && worstDay.avg_cost > 0 && <Stat label="Worst weekday" value={`${worstDay.weekday} · ${format(worstDay.avg_cost)}/day`} />}
+            {insight.weather_available && cs?.rainfall_r != null && <Stat label="Rain ↔ waste" value={`r = ${cs.rainfall_r}`} />}
+            {insight.weather_available && cs?.temp_r != null && <Stat label="Temp ↔ waste" value={`r = ${cs.temp_r}`} />}
+          </div>
+
+          {cs?.top_items?.length > 0 && (
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+                <thead>
+                  <tr style={{ background: 'var(--paper-2)', borderBottom: '1px solid var(--line)' }}>
+                    {['Top wasted item', 'Qty', 'Events', 'Cost'].map((h) => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cs.top_items.slice(0, 6).map((t, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '7px 14px', fontSize: 13, color: 'var(--ink)' }}>{t.ingredient}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 12, color: 'var(--mute)' }}>{t.quantity} {t.unit}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 12, color: 'var(--mute)' }}>{t.events}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 13, color: 'var(--ink)' }}>{format(t.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!insight.weather_available && (
+            <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>
+              Set your outlet's coordinates in <strong>Settings → Location</strong> to add rainfall/temperature correlation.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function WasteLog() {
@@ -493,7 +601,8 @@ export default function WasteLog() {
   const [from, setFrom] = useState(() => searchParams.get('from') || today());
   const [to,   setTo]   = useState(() => searchParams.get('to') || today());
   const [modal, setModal] = useState(false);
-  const [tab,   setTab]   = useState('item'); // 'item' | 'ingredient'
+  const [view,  setView]  = useState('log'); // page tabs: 'log' | 'insights'
+  const [tab,   setTab]   = useState('item'); // modal tabs: 'item' | 'ingredient'
   const [ingForm,  setIngForm]  = useState(EMPTY_ING_FORM);
   const [itemForm, setItemForm] = useState(EMPTY_ITEM_FORM);
 
@@ -589,25 +698,48 @@ export default function WasteLog() {
             {logs.length} entries · total cost <strong style={{ color: 'var(--ink)' }}>{format(totalCost)}</strong>
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
-            <span style={{ fontSize: 12, color: 'var(--mute)' }}>–</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+        {view === 'log' && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+              <span style={{ fontSize: 12, color: 'var(--mute)' }}>–</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+            </div>
+            <button onClick={openModal} className="btn-primary">
+              <Plus size={13} /> Log waste
+            </button>
           </div>
-          <button onClick={openModal} className="btn-primary">
-            <Plus size={13} /> Log waste
-          </button>
-        </div>
+        )}
       </div>
 
+      {/* Page tabs */}
+      <div className="flex gap-0" style={{ borderBottom: '1px solid var(--line)' }}>
+        {[['log', 'Log'], ['insights', 'AI Insights']].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setView(k)}
+            className="flex items-center gap-1.5"
+            style={{
+              height: 34, padding: '0 16px', background: 'transparent', border: 0,
+              borderBottom: view === k ? '2px solid var(--ink)' : '2px solid transparent',
+              marginBottom: -1, fontSize: 13, fontWeight: view === k ? 600 : 400,
+              color: view === k ? 'var(--ink)' : 'var(--mute)', cursor: 'pointer',
+            }}
+          >
+            {k === 'insights' && <Sparkles size={13} />}{label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'insights' && <WasteInsights format={format} />}
+
       {/* Pending wastage reviews — visible to all staff, resolvable by admin only */}
-      <PendingReviews format={format} isAdmin={isAdmin} />
+      {view === 'log' && <PendingReviews format={format} isAdmin={isAdmin} />}
 
       {/* Table */}
-      {isLoading ? (
+      {view === 'log' && (isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
       ) : grouped.length === 0 ? (
         <div className="py-16 text-center rounded-[8px]" style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}>
@@ -636,7 +768,7 @@ export default function WasteLog() {
             </table>
           </div>
         </div>
-      )}
+      ))}
 
       {/* Log Waste Modal */}
       {modal && (

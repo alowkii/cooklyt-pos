@@ -62,3 +62,18 @@ export function useLogWasteByMenuItem() {
     onSuccess: invalidate('waste', 'ingredients'),
   });
 }
+
+// AI waste insights (admin) — latest stored analysis + on-demand regeneration
+export function useWasteInsights() {
+  return useQuery({
+    queryKey: ['waste-insights'],
+    queryFn: async () => (await api.get('/waste/insights')).data,
+  });
+}
+
+export function useGenerateWasteInsight() {
+  return useMutation({
+    mutationFn: async () => (await api.post('/waste/insights/generate')).data,
+    onSuccess: invalidate('waste-insights'),
+  });
+}
