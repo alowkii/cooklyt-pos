@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
 import { invalidate } from '../lib/queryClient';
+import { useTimezone } from '../context/TimezoneContext';
 
 export function useWastageReviews(status) {
   return useQuery({
@@ -25,12 +26,17 @@ export function useResolveWastageReview() {
 }
 
 export function useWasteLogs(from, to) {
+  // from/to are local (restaurant-tz) calendar dates, so the backend must filter
+  // logged_at in the same zone — otherwise early-local-morning waste (when UTC is
+  // still "yesterday") drops out of a [today, today] window.
+  const { iana } = useTimezone();
   return useQuery({
-    queryKey: ['waste', from, to],
+    queryKey: ['waste', from, to, iana],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (from) params.set('from', from);
       if (to)   params.set('to', to);
+      params.set('tz', iana);
       const { data } = await api.get(`/waste?${params}`);
       return data;
     },

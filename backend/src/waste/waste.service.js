@@ -8,8 +8,16 @@ const { NotFoundError, ValidationError } = require('../shared/errors');
 
 const VALID_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
 
-async function getAll(restaurantId, filters) {
-  return repo.getAll(restaurantId, filters);
+function validateTz(tz) {
+  if (tz == null || tz === '') return 'UTC';
+  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
+    throw new ValidationError('Invalid timezone identifier');
+  }
+  return tz;
+}
+
+async function getAll(restaurantId, { from, to, tz } = {}) {
+  return repo.getAll(restaurantId, { from, to, tz: validateTz(tz) });
 }
 
 async function logWaste({ restaurantId, ingredientId, quantity, unit, reason, notes, loggedBy }) {

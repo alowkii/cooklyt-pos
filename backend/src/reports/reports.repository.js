@@ -401,7 +401,60 @@ const getNCSales = (from, to, tz = 'UTC', restaurantId, channel = null) =>
   `, [from, to, tz, restaurantId, channel])
   .then((r) => r.rows);
 
+// ── Food-cost variance (theoretical vs actual) ───────────────────────────────
+// The window is bounded by two finalized stock counts' timestamps (t0, t1].
+
+// Theoretical ingredient usage: recipe quantity × units sold (paid orders),
+// rolled up to ingredient. Mirrors inventory.service.deductForOrder's explosion
+// (menu_items.recipe_id → recipe_ingredients) so theoretical matches what the
+// ledger deducts.
+const getTheoreticalUsage = (restaurantId, t0, t1) =>
+  db.query(`
+    SELECT ri.ingredient_id, SUM(oi.quantity * ri.quantity) AS theo_qty
+    FROM order_items oi
+    JOIN orders o            ON o.id = oi.order_id
+    JOIN payments p          ON p.order_id = o.id AND p.status = 'completed'
+    JOIN menu_items mi       ON mi.id = oi.menu_item_id
+    JOIN recipe_ingredients ri ON ri.recipe_id = mi.recipe_id
+    WHERE o.restaurant_id = $1
+      AND o.created_at > $2 AND o.created_at <= $3
+      AND oi.status <> 'cancelled'
+    GROUP BY ri.ingredient_id
+  `, [restaurantId, t0, t1]).then((r) => r.rows);
+
+// Purchases in the window: quantity received and weighted-average actual price.
+const getPurchasesByIngredient = (restaurantId, t0, t1) =>
+  db.query(`
+    SELECT ingredient_id,
+           SUM(quantity_delta) AS purch_qty,
+           CASE WHEN SUM(quantity_delta) > 0
+                THEN SUM(quantity_delta * unit_cost) / SUM(quantity_delta) END AS avg_cost
+    FROM inventory_transactions
+    WHERE restaurant_id = $1 AND txn_type = 'PURCHASE'
+      AND created_at > $2 AND created_at <= $3
+    GROUP BY ingredient_id
+  `, [restaurantId, t0, t1]).then((r) => r.rows);
+
+const getSalesTotal = (restaurantId, t0, t1) =>
+  db.query(`
+    SELECT COALESCE(SUM(p.total_charged), 0) AS total_sales
+    FROM orders o
+    JOIN payments p ON p.order_id = o.id AND p.status = 'completed'
+    WHERE o.restaurant_id = $1 AND o.created_at > $2 AND o.created_at <= $3
+  `, [restaurantId, t0, t1]).then((r) => parseFloat(r.rows[0].total_sales));
+
+const getLatestFinalizedCountBefore = (restaurantId, ts) =>
+  db.query(`
+    SELECT * FROM stock_counts
+    WHERE restaurant_id = $1 AND status = 'finalized' AND counted_at < $2
+    ORDER BY counted_at DESC LIMIT 1
+  `, [restaurantId, ts]).then((r) => r.rows[0] || null);
+
 module.exports = {
+  getTheoreticalUsage,
+  getPurchasesByIngredient,
+  getSalesTotal,
+  getLatestFinalizedCountBefore,
   getDailySummary,
   getDailyCancelled,
   getRevenueByCategory,

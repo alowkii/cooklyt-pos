@@ -3,6 +3,7 @@ import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, Calendar
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
+import api from '../api/client';
 
 /* ── Searchable dropdown ────────────────────────────────────── */
 
@@ -202,7 +203,8 @@ export default function Settings() {
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
 
-  /* Exchange rate — fetches from Frankfurter, cached per currency per day */
+  /* Exchange rate — fetched via our backend (which caches + handles the
+     upstream), with a local per-currency-per-day cache on top */
   async function fetchRate(currencyCode) {
     if (currencyCode === 'USD') { setFxRate(1); setFxDate(new Date().toISOString().slice(0, 10)); return; }
     const cacheKey = `pos_fx_${currencyCode}`;
@@ -214,11 +216,10 @@ export default function Settings() {
     } catch { /* bad cache */ }
     setFxLoading(true); setFxError(false);
     try {
-      const res  = await fetch(`/frankfurter/latest?from=USD&to=${currencyCode}`);
-      const json = await res.json();
-      const rate = json.rates?.[currencyCode];
+      const { data } = await api.get('/settings/fx-rate', { params: { to: currencyCode } });
+      const rate = data.rate;
       if (!rate) throw new Error('no rate');
-      const date = json.date;
+      const date = data.date;
       localStorage.setItem(cacheKey, JSON.stringify({ rate, date }));
       setFxRate(rate); setFxDate(date);
     } catch {

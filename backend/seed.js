@@ -7,7 +7,8 @@ const DB_URL =
   'postgres://pos_user:pos_password@localhost:5434/pos_dev';
 
 // Fixed but UNGUESSABLE ids. They stay constant so re-seeding is idempotent
-// (cleanup deletes by RESTAURANT_ID; users upsert ON CONFLICT (id)), but they're
+// (cleanup deletes this restaurant's rows by RESTAURANT_ID and reclaims any seed
+// emails still held by a stale earlier-seed restaurant — see main()), but they're
 // random UUIDs rather than 0001/0002/… — seeded ids must never be guessable
 // (the restaurant id is reachable through the public menu endpoint, and a
 // sequential-id habit is exactly what caused the table-enumeration bug).
@@ -735,6 +736,36 @@ async function main() {
 
   // ── 1. Clear existing seed data scoped to this restaurant ──────────────────
   console.log('Clearing existing data…');
+
+  // Reclaim demo emails held by a stale earlier seed. users.email is globally
+  // unique, so a pre-fixed-id seed (sequential ids under a different restaurant id)
+  // would collide with the user insert below. Every restaurant_id FK cascades, so
+  // dropping the stale restaurant clears its users + orders — but recipe_ingredients
+  // and combo_items are join tables with no restaurant_id, and their NO ACTION FK to
+  // ingredients/menu_items can fire mid-cascade, so delete those two explicitly first.
+  const SEED_EMAILS = SEED_USERS.map((u) => u.email);
+  const { rows: staleRestaurants } = await client.query(
+    `SELECT DISTINCT restaurant_id AS id FROM users
+     WHERE restaurant_id IS NOT NULL AND restaurant_id <> $1 AND email = ANY($2)`,
+    [RESTAURANT_ID, SEED_EMAILS],
+  );
+  for (const { id: staleId } of staleRestaurants) {
+    await client.query(
+      'DELETE FROM stock_count_lines WHERE stock_count_id IN (SELECT id FROM stock_counts WHERE restaurant_id = $1)',
+      [staleId],
+    );
+    await client.query(
+      'DELETE FROM recipe_ingredients WHERE recipe_id IN (SELECT id FROM recipes WHERE restaurant_id = $1)',
+      [staleId],
+    );
+    await client.query(
+      'DELETE FROM combo_items WHERE combo_id IN (SELECT id FROM combo_meals WHERE restaurant_id = $1)',
+      [staleId],
+    );
+    await client.query('DELETE FROM restaurants WHERE id = $1', [staleId]);
+    console.log(`  reclaimed stale demo restaurant ${staleId}`);
+  }
+
   // Recipe / inventory tables first (FK order)
   await client.query('DELETE FROM cost_snapshots       WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM inventory_transactions WHERE restaurant_id = $1', [RESTAURANT_ID]);
@@ -749,6 +780,8 @@ async function main() {
   `, [RESTAURANT_ID]);
   await client.query('DELETE FROM combo_meals          WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM recipes              WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM stock_count_lines WHERE stock_count_id IN (SELECT id FROM stock_counts WHERE restaurant_id = $1)', [RESTAURANT_ID]);
+  await client.query('DELETE FROM stock_counts         WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM ingredients          WHERE restaurant_id = $1', [RESTAURANT_ID]);
   // Reservations
   await client.query('DELETE FROM reservations WHERE restaurant_id = $1', [RESTAURANT_ID]);
@@ -955,6 +988,17 @@ async function main() {
     );
   }
 
+  // Stocktake window for the food-cost variance demo: the opening physical count
+  // sits a day before the earliest order; the opening-stock purchase sits before
+  // that so it isn't double-counted as an in-period purchase; the closing count
+  // is "now" so every seeded order falls inside (opening, closing].
+  const minOrderMs = ordersCreated.length
+    ? Math.min(...ordersCreated.map((o) => new Date(o.ts).getTime()))
+    : nowMs - 14 * 86400_000;
+  const OPENING_STOCK_TS = new Date(minOrderMs - 2 * 86400_000).toISOString();
+  const OPENING_COUNT_TS = new Date(minOrderMs - 1 * 86400_000).toISOString();
+  const CLOSING_COUNT_TS = new Date(nowMs).toISOString();
+
   // ── 8. Ingredients ─────────────────────────────────────────────────────────
   console.log('Seeding ingredients…');
   const ingredientIdByName = {};
@@ -977,9 +1021,9 @@ async function main() {
   for (const [name, , stock, , , cost] of INGREDIENTS) {
     await client.query(`
       INSERT INTO inventory_transactions
-        (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by)
-      VALUES ($1, $2, 'PURCHASE', $3, $4, 'SEED-OPENING-STOCK', $5)
-    `, [RESTAURANT_ID, ingredientIdByName[name], stock, cost, ADMIN_ID]);
+        (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by, created_at)
+      VALUES ($1, $2, 'PURCHASE', $3, $4, 'SEED-OPENING-STOCK', $5, $6)
+    `, [RESTAURANT_ID, ingredientIdByName[name], stock, cost, ADMIN_ID, OPENING_STOCK_TS]);
   }
 
   // ── 10. Recipes ────────────────────────────────────────────────────────────
@@ -1108,6 +1152,26 @@ async function main() {
   }
   console.log(`  ${WASTE_ENTRIES.length} waste entries inserted`);
 
+  // ── 13.6. Mid-period restocks at a higher price ───────────────────────────
+  // Bought during the count window above the current standard cost, so the
+  // variance report shows a price-variance component (not just usage).
+  console.log('Seeding mid-period restocks…');
+  const RESTOCKS = [
+    // [ingredientName, qty, unitCost, daysAgo]
+    ['Chicken',           6.0, 320.0, 5],
+    ['Fish Fillet',       3.0, 600.0, 6],
+    ['Mozzarella Cheese', 2.0, 520.0, 4],
+  ];
+  for (const [ingName, qty, cost, daysAgo] of RESTOCKS) {
+    const ingId = ingredientIdByName[ingName];
+    if (!ingId) continue;
+    await client.query(`
+      INSERT INTO inventory_transactions
+        (restaurant_id, ingredient_id, txn_type, quantity_delta, unit_cost, ref_id, performed_by, created_at)
+      VALUES ($1, $2, 'PURCHASE', $3, $4, 'SEED-RESTOCK', $5, $6)
+    `, [RESTAURANT_ID, ingId, qty, cost, ADMIN_ID, new Date(nowMs - daysAgo * 86400_000).toISOString()]);
+  }
+
   // ── 13.5. Reconcile stock_on_hand from transaction ledger ─────────────────
   console.log('Reconciling stock_on_hand…');
   await client.query(`
@@ -1120,6 +1184,67 @@ async function main() {
     ), 0)
     WHERE i.restaurant_id = $1
   `, [RESTAURANT_ID]);
+
+  // ── 13.7. Stocktakes (opening + closing) for the variance report ──────────
+  // Opening count = the physical stock at the start (= seeded opening stock).
+  // Closing count = current system stock, minus a deliberate discrepancy on a
+  // few items: positive = simulated over-portioning/loss (usage variance);
+  // negative = simulated unlogged delivery / miscount (a data-integrity flag).
+  console.log('Seeding stock counts…');
+  // Counted lower than the system predicts = simulated over-portioning/loss
+  // (positive usage variance); negative = simulated unlogged delivery/miscount
+  // (a data-integrity flag).
+  const COUNT_DISCREPANCY = {
+    'Chicken':           1.2,
+    'Mozzarella Cheese': 0.5,
+    'Paneer':            0.4,
+    'Basmati Rice':      0.8,
+    'Onions':           -1.5,
+  };
+
+  // Derive counts from the ledger so the books balance: opening stock covers the
+  // period's theoretical usage + waste + a small leftover, minus mid-period
+  // restocks. Then actual usage (opening + purchases − closing) lands at
+  // theoretical + waste + discrepancy, i.e. variance = waste + simulated loss,
+  // plus a price variance from the higher-priced restocks.
+  const { rows: led } = await client.query(`
+    SELECT i.id, i.name, i.unit, i.reorder_qty,
+      COALESCE(-SUM(it.quantity_delta) FILTER (WHERE it.txn_type = 'SALE'),  0) AS theo,
+      COALESCE(-SUM(it.quantity_delta) FILTER (WHERE it.txn_type = 'WASTE'), 0) AS waste,
+      COALESCE( SUM(it.quantity_delta) FILTER (WHERE it.txn_type = 'PURCHASE' AND it.ref_id = 'SEED-RESTOCK'), 0) AS purch
+    FROM ingredients i
+    LEFT JOIN inventory_transactions it ON it.ingredient_id = i.id
+    WHERE i.restaurant_id = $1 AND i.is_active = true
+    GROUP BY i.id, i.name, i.unit, i.reorder_qty
+  `, [RESTAURANT_ID]);
+
+  const countRows = led.map((r) => {
+    const theo  = Number(r.theo), waste = Number(r.waste), purch = Number(r.purch);
+    const disc  = COUNT_DISCREPANCY[r.name] ?? 0;
+    const closing = Number(r.reorder_qty) || 1;              // plausible leftover on the shelf
+    const opening = Math.max(0, theo + waste + disc + closing - purch);
+    return { id: r.id, unit: r.unit, opening, closing, systemClosing: closing + disc };
+  });
+
+  async function seedCount(label, countedAt, pick) {
+    const { rows: [count] } = await client.query(
+      `INSERT INTO stock_counts (restaurant_id, label, status, counted_at, created_by)
+       VALUES ($1, $2, 'finalized', $3, $4) RETURNING id`,
+      [RESTAURANT_ID, label, countedAt, ADMIN_ID],
+    );
+    for (const r of countRows) {
+      const { counted, system } = pick(r);
+      await client.query(
+        `INSERT INTO stock_count_lines (stock_count_id, ingredient_id, counted_qty, system_qty, unit)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [count.id, r.id, counted.toFixed(3), system.toFixed(3), r.unit],
+      );
+    }
+  }
+
+  await seedCount('Opening count', OPENING_COUNT_TS, (r) => ({ counted: r.opening, system: r.opening }));
+  await seedCount('Weekly close', CLOSING_COUNT_TS, (r) => ({ counted: r.closing, system: r.systemClosing }));
+  console.log('  2 stock counts inserted (opening + close)');
 
   // ── 14. Cost snapshots ─────────────────────────────────────────────────────
   console.log('Seeding cost snapshots…');

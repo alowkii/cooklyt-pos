@@ -9,12 +9,16 @@ const BASE_SELECT = `
   LEFT JOIN tables t ON t.id = r.table_id
 `;
 
-const getAll = (restaurantId, { date, status } = {}) => {
+const getAll = (restaurantId, { date, status, tz = 'UTC' } = {}) => {
   const params = [restaurantId];
   let where = 'WHERE r.restaurant_id = $1';
   if (date) {
+    // Match by calendar day in the restaurant's timezone — a reservation at,
+    // say, 00:30 local would otherwise compare under the previous UTC date.
+    params.push(tz);
+    const tzIdx = params.length;
     params.push(date);
-    where += ` AND r.reserved_at::date = $${params.length}::date`;
+    where += ` AND (r.reserved_at AT TIME ZONE $${tzIdx})::date = $${params.length}::date`;
   }
   if (status) {
     params.push(status);

@@ -5,7 +5,8 @@ import { useIngredients } from '../hooks/useIngredients';
 import { useCurrency } from '../context/CurrencyContext';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
-import { escCsv, firstOfMonth, fmtDateTime } from '../utils/dateUtils';
+import { escCsv, startOfMonth, fmtDateTime } from '../utils/dateUtils';
+import { useTimezone } from '../context/TimezoneContext';
 
 const TYPE_CFG = {
   PURCHASE:   { label: 'Purchase',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
@@ -71,7 +72,6 @@ function parseCSV(text) {
   });
 }
 
-function today()        { return new Date().toISOString().slice(0, 10); }
 function refLabel(row) {
   if (!row.ref_id) return '—';
   if (row.txn_type === 'SALE' || row.txn_type === 'RETURN')
@@ -82,8 +82,9 @@ function refLabel(row) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InventoryLedger() {
-  const [from,         setFrom]         = useState(firstOfMonth());
-  const [to,           setTo]           = useState(today());
+  const { todayLocal } = useTimezone();
+  const [from,         setFrom]         = useState(() => startOfMonth(todayLocal()));
+  const [to,           setTo]           = useState(() => todayLocal());
   const [ingredientId, setIngredientId] = useState('');
   const [txnType,      setTxnType]      = useState('');
 

@@ -43,6 +43,8 @@ const Combos          = lazy(() => import('./pages/Combos'));
 const WasteLog        = lazy(() => import('./pages/WasteLog'));
 const CostingReports  = lazy(() => import('./pages/CostingReports'));
 const InventoryLedger = lazy(() => import('./pages/InventoryLedger'));
+const Stocktake       = lazy(() => import('./pages/Stocktake'));
+const FoodCostVariance = lazy(() => import('./pages/FoodCostVariance'));
 const Reservations    = lazy(() => import('./pages/Reservations'));
 const Coupons         = lazy(() => import('./pages/Coupons'));
 const Loyalty         = lazy(() => import('./pages/Loyalty'));
@@ -161,6 +163,8 @@ export default function App() {
             <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
             <Route path="/waste-log"   element={<RequireAdmin><WasteLog /></RequireAdmin>} />
             <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
+            <Route path="/variance"    element={<RequireAdmin><FoodCostVariance /></RequireAdmin>} />
+            <Route path="/stocktake"   element={<RequireAdmin><Stocktake /></RequireAdmin>} />
             <Route path="/coupons"     element={<RequireAdmin><Coupons /></RequireAdmin>} />
             <Route path="/loyalty"     element={<RequireAdmin><Loyalty /></RequireAdmin>} />
             <Route path="/reviews"     element={<RequireAdmin><Reviews /></RequireAdmin>} />

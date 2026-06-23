@@ -79,6 +79,7 @@ app.use('/api/modifiers',    require('./modifiers/modifiers.router'));
 app.use('/api/waste',            require('./waste/waste.router'));
 app.use('/api/wastage-reviews', require('./wastage-reviews/wastage-reviews.router'));
 app.use('/api/inventory',    require('./inventory/inventory.router'));
+app.use('/api/stocktake',    require('./stocktake/stocktake.router'));
 app.use('/api/notifications',  require('./notifications/notifications.router'));
 app.use('/api/reservations',  require('./reservations/reservations.router'));
 app.use('/api/loyalty',       require('./loyalty/loyalty.router'));

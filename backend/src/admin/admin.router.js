@@ -32,8 +32,11 @@ const logoUpload = multer({
   }),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    const ok = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.originalname);
-    if (!ok) { const e = new Error('Only image files are accepted'); e.statusCode = 400; return cb(e, false); }
+    // SVG is intentionally excluded: it can carry embedded <script> and, served
+    // same-origin from /uploads, would execute if opened directly — a stored XSS
+    // vector. Only raster formats are accepted for logos.
+    const ok = /\.(jpg|jpeg|png|webp|gif)$/i.test(file.originalname);
+    if (!ok) { const e = new Error('Only image files are accepted (JPG, PNG, WebP, GIF)'); e.statusCode = 400; return cb(e, false); }
     cb(null, true);
   },
 });

@@ -1,4 +1,9 @@
 /.vscode
 /node_modules
 /dist
-/.env
+
+# Environment files anywhere in the monorepo — keep real secrets out of git.
+# .env.example templates stay tracked.
+.env
+.env.*
+!.env.example

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, UserCheck, UserX, PhoneCall, CalendarClock, ChevronLeft, ChevronRight, Users, Clock, StickyNote, ArrowLeft } from 'lucide-react';
 import { useReservations, useCreateReservation, useUpdateReservation, useDeleteReservation, useSeatReservation, useCancelReservation, useNoShowReservation } from '../hooks/useReservations';
 import { useTables } from '../hooks/useTables';
+import { useTimezone } from '../context/TimezoneContext';
 import Modal from '../components/Modal';
 import SelectField from '../components/SelectField';
 
@@ -12,10 +13,6 @@ const STATUS_STYLES = {
   cancelled: { color: 'var(--mute)',   bg: 'var(--paper-2)',         label: 'Cancelled'  },
   no_show:   { color: 'var(--bad)',    bg: 'rgba(179,55,43,0.08)',   label: 'No-show'    },
 };
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function fmtTime(iso) {
   if (!iso) return '—';
@@ -35,7 +32,8 @@ const EMPTY_FORM = { tableId: '', guestName: '', guestPhone: '', partySize: '', 
 
 export default function Reservations() {
   const navigate = useNavigate();
-  const [date, setDate]             = useState(todayISO());
+  const { todayLocal } = useTimezone();
+  const [date, setDate]             = useState(() => todayLocal());
   const [formOpen, setFormOpen]     = useState(false);
   const [editing, setEditing]       = useState(null);
   const [form, setForm]             = useState(EMPTY_FORM);
@@ -102,7 +100,7 @@ export default function Reservations() {
   }
 
   const isPending = createR.isPending || updateR.isPending;
-  const isToday   = date === todayISO();
+  const isToday   = date === todayLocal();
 
   return (
     <div className="space-y-5">
@@ -147,7 +145,7 @@ export default function Reservations() {
             </button>
           </div>
           {!isToday && (
-            <button onClick={() => setDate(todayISO())} className="btn btn-sm" style={{ fontSize: 12, flexShrink: 0 }}>Today</button>
+            <button onClick={() => setDate(todayLocal())} className="btn btn-sm" style={{ fontSize: 12, flexShrink: 0 }}>Today</button>
           )}
           <button onClick={openAdd} className="btn-primary btn-sm" style={{ flexShrink: 0 }}>
             <Plus size={13} /><span className="hidden xs:inline"> Add</span><span className="hidden sm:inline"> Reservation</span>

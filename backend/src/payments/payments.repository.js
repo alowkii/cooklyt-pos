@@ -3,14 +3,16 @@ const db = require('../shared/db');
 const getByOrderId = (orderId) =>
   db.query('SELECT * FROM payments WHERE order_id = $1', [orderId]).then((r) => r.rows);
 
+// `runner` defaults to the pool but accepts a transaction client so the payment
+// insert can be made atomic with the order-status flip (see payments.service).
 const create = ({
   orderId, amount, method,
   subtotal, taxRate, taxAmount,
   serviceChargeRate, serviceChargeAmount,
   discountAmount, couponDiscountAmount = 0, loyaltyDiscountAmount = 0,
   packagingFee = 0, totalCharged, tenders = null,
-}) =>
-  db.query(
+}, runner = db) =>
+  runner.query(
     `INSERT INTO payments
        (order_id, amount, method, status,
         subtotal, tax_rate, tax_amount,
@@ -29,8 +31,8 @@ const create = ({
     ],
   ).then((r) => r.rows[0]);
 
-const updateStatus = (id, status) =>
-  db.query('UPDATE payments SET status = $1 WHERE id = $2 RETURNING *', [status, id])
+const updateStatus = (id, status, runner = db) =>
+  runner.query('UPDATE payments SET status = $1 WHERE id = $2 RETURNING *', [status, id])
     .then((r) => r.rows[0]);
 
 const getReceiptData = (orderId, restaurantId) =>

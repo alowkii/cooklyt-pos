@@ -3,8 +3,16 @@ const tablesRepo  = require('../tables/tables.repository');
 const ws          = require('../shared/websocket');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
-async function getAll(restaurantId, query) {
-  return repo.getAll(restaurantId, query);
+function validateTz(tz) {
+  if (tz == null || tz === '') return 'UTC';
+  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
+    throw new ValidationError('Invalid timezone identifier');
+  }
+  return tz;
+}
+
+async function getAll(restaurantId, query = {}) {
+  return repo.getAll(restaurantId, { ...query, tz: validateTz(query.tz) });
 }
 
 async function create(restaurantId, { tableId, guestName, guestPhone, partySize, reservedAt, notes }) {

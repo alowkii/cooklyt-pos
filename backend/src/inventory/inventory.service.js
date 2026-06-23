@@ -3,8 +3,17 @@ const ingredientsRepo = require('../ingredients/ingredients.repository');
 const db             = require('../shared/db');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
-async function getTransactions(restaurantId, filters) {
-  return repo.getTransactions(restaurantId, filters);
+// Date filters are interpreted in the caller-supplied timezone (default UTC).
+function validateTz(tz) {
+  if (tz == null || tz === '') return 'UTC';
+  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
+    throw new ValidationError('Invalid timezone identifier');
+  }
+  return tz;
+}
+
+async function getTransactions(restaurantId, filters = {}) {
+  return repo.getTransactions(restaurantId, { ...filters, tz: validateTz(filters.tz) });
 }
 
 async function recordAdjustment({ restaurantId, ingredientId, quantityDelta, notes, performedBy }) {
@@ -25,8 +34,8 @@ async function recordAdjustment({ restaurantId, ingredientId, quantityDelta, not
   });
 }
 
-async function getWasteReport(restaurantId, filters) {
-  return repo.getWasteReport(restaurantId, filters);
+async function getWasteReport(restaurantId, filters = {}) {
+  return repo.getWasteReport(restaurantId, { ...filters, tz: validateTz(filters.tz) });
 }
 
 async function _applyRecipeStock(orderId, restaurantId, items, direction) {
