@@ -178,11 +178,11 @@ export function printReceipt(receipt, currency, win = null) {
   win.document.close();
 }
 
-function buildKOTBlock(order, restaurantName) {
+function buildKOTBlock(order, restaurantName, timezone = 'UTC') {
   const token    = order.order_ref || (order.id || '').slice(-6).toUpperCase();
   const placed   = new Date(order.created_at);
-  const timeStr  = placed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const dateStr  = placed.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+  const timeStr  = placed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+  const dateStr  = placed.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: timezone });
 
   const location = order.channel === 'dining'
     ? (order.table_number ? `TABLE ${order.table_number}` : 'DINE-IN')
@@ -249,25 +249,31 @@ function buildKOTBlock(order, restaurantName) {
   ${categoryBlocks}`;
 }
 
+// Shared 80mm thermal styles for a single KOT ticket — used by both the manual
+// popup print (printKOT) and the silent auto-print (printKOTSilent).
+const KOT_SINGLE_STYLE =
+  `*{margin:0;padding:0;box-sizing:border-box}` +
+  `body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}` +
+  `.c{text-align:center}` +
+  `hr{border:none;border-top:2px dashed #444;margin:8px 0}` +
+  `@media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}`;
+
 export function printKOT(order) {
   const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
   const restaurantName = restaurant.name || 'Kitchen';
+  // Restaurant timezone (set in TimezoneContext) — otherwise the ticket time
+  // renders in the print terminal's local zone, which may differ.
+  const timezone = localStorage.getItem('pos_timezone') || 'UTC';
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>KOT #${esc(order.order_ref || (order.id || '').slice(-6).toUpperCase())}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Courier New',Courier,monospace;font-size:13px;width:300px;margin:0 auto;padding:16px 10px;color:#111}
-    .c{text-align:center}
-    hr{border:none;border-top:2px dashed #444;margin:8px 0}
-    @media print{@page{margin:0;size:80mm auto}body{padding:6px 4px}}
-  </style>
+  <style>${KOT_SINGLE_STYLE}</style>
 </head>
 <body>
-  ${buildKOTBlock(order, restaurantName)}
+  ${buildKOTBlock(order, restaurantName, timezone)}
   <script>window.onload = function(){ window.focus(); window.print(); };</script>
 </body>
 </html>`;
@@ -285,10 +291,11 @@ export function printAllKOTs(orders) {
   if (!orders.length) return;
   const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
   const restaurantName = restaurant.name || 'Kitchen';
+  const timezone = localStorage.getItem('pos_timezone') || 'UTC';
 
   const blocks = orders.map((order) => `
     <div class="kot-page">
-      ${buildKOTBlock(order, restaurantName)}
+      ${buildKOTBlock(order, restaurantName, timezone)}
     </div>`).join('');
 
   const html = `<!DOCTYPE html>
@@ -319,4 +326,42 @@ export function printAllKOTs(orders) {
   }
   win.document.write(html);
   win.document.close();
+}
+
+// Auto-print a single KOT without any user gesture. Uses a hidden same-origin
+// iframe instead of window.open — a popup would be blocked when fired from a
+// WebSocket event (no user gesture). The order is the KOT shape from
+// GET /orders/:id/kot.
+export function printKOTSilent(order) {
+  const restaurant = JSON.parse(localStorage.getItem('pos_restaurant') || '{}');
+  const restaurantName = restaurant.name || 'Kitchen';
+  const timezone = localStorage.getItem('pos_timezone') || 'UTC';
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  Object.assign(iframe.style, {
+    position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0',
+  });
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>KOT</title>` +
+    `<style>${KOT_SINGLE_STYLE}</style></head><body>` +
+    `${buildKOTBlock(order, restaurantName, timezone)}</body></html>`,
+  );
+  doc.close();
+
+  let cleaned = false;
+  const cleanup = () => { if (!cleaned) { cleaned = true; iframe.remove(); } };
+  const win = iframe.contentWindow;
+  win.onafterprint = cleanup;
+
+  // Give the iframe a tick to lay out before printing.
+  setTimeout(() => {
+    try { win.focus(); win.print(); } catch { /* ignore — printing unavailable */ }
+    // Safety net if onafterprint never fires (some browsers/headless).
+    setTimeout(cleanup, 60_000);
+  }, 150);
 }

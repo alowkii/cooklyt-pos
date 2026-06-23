@@ -3,11 +3,8 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { useCostReport } from '../hooks/useRecipes';
 import { useWasteReport } from '../hooks/useInventory';
 import { useCurrency } from '../context/CurrencyContext';
-import { firstOfMonth } from '../utils/dateUtils';
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { useTimezone } from '../context/TimezoneContext';
+import { startOfMonth } from '../utils/dateUtils';
 
 function MarginBadge({ pct }) {
   if (pct === null || pct === undefined) {
@@ -26,9 +23,10 @@ function MarginBadge({ pct }) {
 const TABS = ['Cost Cards', 'Waste Report'];
 
 export default function CostingReports() {
+  const { todayLocal } = useTimezone();
   const [tab,  setTab]  = useState('Cost Cards');
-  const [from, setFrom] = useState(firstOfMonth());
-  const [to,   setTo]   = useState(today());
+  const [from, setFrom] = useState(() => startOfMonth(todayLocal()));
+  const [to,   setTo]   = useState(() => todayLocal());
 
   const { data: costReport = [], isLoading: loadingCost } = useCostReport();
   const { data: wasteRows  = [], isLoading: loadingWaste } = useWasteReport(from, to);

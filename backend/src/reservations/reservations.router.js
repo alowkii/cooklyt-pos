@@ -4,8 +4,8 @@ const { authenticate, authorize } = require('../shared/middleware/auth');
 const { asyncHandler } = require('../shared/asyncHandler');
 
 router.get('/', authenticate, asyncHandler(async (req, res) => {
-  const { date, status } = req.query;
-  res.json(await service.getAll(req.user.restaurantId, { date, status }));
+  const { date, status, tz } = req.query;
+  res.json(await service.getAll(req.user.restaurantId, { date, status, tz }));
 }));
 
 router.post('/', authenticate, authorize('admin'), asyncHandler(async (req, res) => {

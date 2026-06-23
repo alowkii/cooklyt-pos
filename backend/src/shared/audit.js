@@ -24,11 +24,9 @@ async function resolveRestaurantName(restaurantId) {
  * Failures are logged to stderr but never propagate to the caller.
  * Restaurant name is captured at write time so deletions/renames don't affect history.
  */
-function log({ restaurantId = null, restaurantName: providedName = null, actorType, actorId, action, resourceType, resourceId = null, description, meta = null }) {
-  // actor_id is NOT NULL in audit_logs; entries without a known actor (e.g.
-  // anonymous failed-login attempts) cannot be stored and are silently dropped.
-  if (!actorId) return;
-
+function log({ restaurantId = null, restaurantName: providedName = null, actorType, actorId = null, action, resourceType, resourceId = null, description, meta = null }) {
+  // actor_id is nullable (migration 061) so actor-less security events — chiefly
+  // failed login attempts — are recorded rather than silently dropped.
   (async () => {
     const restaurantName = providedName ?? await resolveRestaurantName(restaurantId);
 

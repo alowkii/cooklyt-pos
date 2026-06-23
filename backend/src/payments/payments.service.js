@@ -5,6 +5,7 @@ const settingsRepo = require('../settings/settings.repository');
 const loyaltyInterface = require('../loyalty/loyalty.interface');
 const couponsRepo = require('../coupons/coupons.repository');
 const ws = require('../shared/websocket');
+const db = require('../shared/db');
 const { NotFoundError, ValidationError, AppError } = require('../shared/errors');
 
 const VALID_METHODS = ['cash', 'card', 'mobile'];
@@ -134,17 +135,38 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     throw new ValidationError(`Amount tendered (${amountTendered}) is less than total (${total})`);
   }
 
-  const payment = await repo.create({
-    orderId, amount: total, method: effectiveMethod,
-    subtotal, taxRate, taxAmount,
-    serviceChargeRate, serviceChargeAmount,
-    discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
-    packagingFee, totalCharged: total,
-    tenders: effectiveTenders,
+  // Serialize against concurrent payments and keep the insert atomic with the
+  // status flip: lock the order row, re-check it isn't already paid under that
+  // lock, then write the payment and mark the order paid in one transaction.
+  // Without the lock two terminals could both pass the status check above and
+  // double-charge the order; without the transaction a mid-way failure could
+  // leave a completed payment against a still-unpaid order.
+  const payment = await db.withTransaction(async (client) => {
+    const { rows: [locked] } = await client.query(
+      'SELECT status FROM orders WHERE id = $1 AND restaurant_id = $2 FOR UPDATE',
+      [orderId, restaurantId],
+    );
+    if (!locked) throw new NotFoundError('Order');
+    if (locked.status === 'paid') throw new AppError('Order is already paid', 400);
+
+    const created = await repo.create({
+      orderId, amount: total, method: effectiveMethod,
+      subtotal, taxRate, taxAmount,
+      serviceChargeRate, serviceChargeAmount,
+      discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
+      packagingFee, totalCharged: total,
+      tenders: effectiveTenders,
+    }, client);
+    await repo.updateStatus(created.id, 'completed', client);
+    await client.query(
+      "UPDATE orders SET status = 'paid' WHERE id = $1 AND restaurant_id = $2",
+      [orderId, restaurantId],
+    );
+    return created;
   });
 
-  await repo.updateStatus(payment.id, 'completed');
-  await ordersInterface.markOrderPaid(orderId, restaurantId);
+  // Mirror the ORDER_STATUS_CHANGED broadcast markOrderPaid used to emit.
+  ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status: 'paid' }, restaurantId);
 
   // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
   if (order.loyalty_customer_id) {
@@ -216,7 +238,7 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
     }
   }
 
-  const payments = [];
+  const paymentPayloads = [];
 
   for (const split of splits) {
     const { items: splitItemDefs, tenders } = split;
@@ -265,19 +287,47 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
       ? tenders[0].method
       : tenders.map((t) => t.method).join('+');
 
-    const payment = await repo.create({
-      orderId, amount: total, method,
-      subtotal: splitSubtotal, taxRate, taxAmount,
-      serviceChargeRate, serviceChargeAmount,
-      discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
-      packagingFee, totalCharged: total,
-      tenders: tenders.length > 1 ? tenders : null,
+    paymentPayloads.push({
+      payload: {
+        orderId, amount: total, method,
+        subtotal: splitSubtotal, taxRate, taxAmount,
+        serviceChargeRate, serviceChargeAmount,
+        discountAmount, couponDiscountAmount, loyaltyDiscountAmount,
+        packagingFee, totalCharged: total,
+        tenders: tenders.length > 1 ? tenders : null,
+      },
+      charged: total,
+      method,
     });
-    await repo.updateStatus(payment.id, 'completed');
-    payments.push({ paymentId: payment.id, charged: total, method });
   }
 
-  await ordersInterface.markOrderPaid(orderId, restaurantId);
+  // Insert every split payment and flip the order to paid atomically, under the
+  // same order-row lock the single-payment path uses — guards against a
+  // concurrent full or split payment double-charging the same order.
+  const payments = await db.withTransaction(async (client) => {
+    const { rows: [locked] } = await client.query(
+      'SELECT status FROM orders WHERE id = $1 AND restaurant_id = $2 FOR UPDATE',
+      [orderId, restaurantId],
+    );
+    if (!locked) throw new NotFoundError('Order');
+    if (locked.status === 'paid') throw new AppError('Order is already paid', 400);
+
+    const created = [];
+    for (const { payload, charged, method } of paymentPayloads) {
+      const payment = await repo.create(payload, client);
+      await repo.updateStatus(payment.id, 'completed', client);
+      created.push({ paymentId: payment.id, charged, method });
+    }
+    await client.query(
+      "UPDATE orders SET status = 'paid' WHERE id = $1 AND restaurant_id = $2",
+      [orderId, restaurantId],
+    );
+    return created;
+  });
+
+  // Mirror the ORDER_STATUS_CHANGED broadcast markOrderPaid used to emit.
+  ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status: 'paid' }, restaurantId);
+
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
     await tablesInterface.setTableStaff(order.table_id, null, restaurantId);

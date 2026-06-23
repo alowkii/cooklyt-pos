@@ -1,12 +1,16 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
 import { invalidate } from '../lib/queryClient';
+import { useTimezone } from '../context/TimezoneContext';
 
 export function useReservations(date) {
+  // `date` is a local (restaurant-tz) calendar day; pass the zone so reserved_at
+  // is matched on the same day rather than its UTC date.
+  const { iana } = useTimezone();
   return useQuery({
-    queryKey: ['reservations', date],
+    queryKey: ['reservations', date, iana],
     queryFn: async () => {
-      const { data } = await api.get('/reservations', { params: date ? { date } : {} });
+      const { data } = await api.get('/reservations', { params: { ...(date ? { date } : {}), tz: iana } });
       return data;
     },
     refetchInterval: 30_000,

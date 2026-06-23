@@ -187,6 +187,20 @@ export function useTableWiseSales(from, to) {
   });
 }
 
+export function useFoodCostVariance(closingCountId, openingCountId) {
+  return useQuery({
+    queryKey: ['reports', 'food-cost-variance', closingCountId, openingCountId || null],
+    enabled: Boolean(closingCountId),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const params = new URLSearchParams({ closingCountId });
+      if (openingCountId) params.set('openingCountId', openingCountId);
+      const { data } = await api.get(`/reports/food-cost-variance?${params}`);
+      return data;
+    },
+  });
+}
+
 export function useNCSales(from, to, channel = 'all') {
   const { iana } = useTimezone();
   const enabled = Boolean(from && to);

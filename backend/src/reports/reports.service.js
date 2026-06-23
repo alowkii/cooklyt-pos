@@ -1,5 +1,13 @@
 const repo = require('./reports.repository');
-const { ValidationError } = require('../shared/errors');
+const stocktakeRepo = require('../stocktake/stocktake.repository');
+const { ValidationError, NotFoundError } = require('../shared/errors');
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const round3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+// A row is flagged when actual exceeds recipe by more than this %, or when it
+// consumed product with no corresponding sales at all.
+const FLAG_PCT_OF_THEO = 10;
 
 const VALID_GROUPS   = ['day', 'week', 'month'];
 const VALID_CHANNELS = new Set(['dining', 'takeaway', 'delivery']);
@@ -291,4 +299,123 @@ async function getNCSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId, cha
   };
 }
 
-module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance, getItemsByPeriod, getStaffByPeriod, getSalesSummaryReport, getCollectionReport, getItemGroupsReport, getTableWiseSalesReport, getNCSalesReport };
+// Theoretical-vs-actual food-cost variance, bounded by two finalized stock
+// counts. actual usage = opening count + purchases − closing count; theoretical
+// usage = recipe × units sold. Each ingredient's dollar variance is decomposed
+// into a price component (market/procurement) and a usage component
+// (over-portioning, waste, yield, theft) — they sum to the total.
+async function getFoodCostVariance(closingCountId, openingCountIdRaw, restaurantId) {
+  if (!UUID_RE.test(closingCountId || '')) throw new ValidationError('closingCountId is required');
+  const openingCountId = openingCountIdRaw && UUID_RE.test(openingCountIdRaw) ? openingCountIdRaw : null;
+
+  const closing = await stocktakeRepo.getCountHeader(closingCountId, restaurantId);
+  if (!closing) throw new NotFoundError('Closing stock count');
+  if (closing.status !== 'finalized') throw new ValidationError('Closing count must be finalized first');
+
+  let opening;
+  if (openingCountId) {
+    opening = await stocktakeRepo.getCountHeader(openingCountId, restaurantId);
+    if (!opening) throw new NotFoundError('Opening stock count');
+    if (opening.status !== 'finalized') throw new ValidationError('Opening count must be finalized first');
+  } else {
+    opening = await repo.getLatestFinalizedCountBefore(restaurantId, closing.counted_at);
+  }
+  if (!opening) throw new ValidationError('No earlier finalized count found — finalize an opening count before this one');
+  if (new Date(opening.counted_at) >= new Date(closing.counted_at)) {
+    throw new ValidationError('Opening count must be earlier than the closing count');
+  }
+
+  const t0 = opening.counted_at;
+  const t1 = closing.counted_at;
+
+  const [openLines, closeLines, theo, purchases, sales] = await Promise.all([
+    stocktakeRepo.getCountLines(opening.id),
+    stocktakeRepo.getCountLines(closing.id),
+    repo.getTheoreticalUsage(restaurantId, t0, t1),
+    repo.getPurchasesByIngredient(restaurantId, t0, t1),
+    repo.getSalesTotal(restaurantId, t0, t1),
+  ]);
+
+  const openMap  = new Map(openLines.map((l) => [l.ingredient_id, l]));
+  const theoMap  = new Map(theo.map((r) => [r.ingredient_id, parseFloat(r.theo_qty)]));
+  const purchMap = new Map(purchases.map((r) => [r.ingredient_id, {
+    qty: parseFloat(r.purch_qty), avgCost: r.avg_cost != null ? parseFloat(r.avg_cost) : null,
+  }]));
+
+  let uncounted = 0;
+  const rows = [];
+
+  // The closing count defines the ingredient universe (it pre-populates every
+  // active ingredient). Rows whose closing qty was never entered can't yield an
+  // actual figure, so they're reported as uncounted rather than guessed.
+  for (const line of closeLines) {
+    if (line.counted_qty == null) { uncounted += 1; continue; }
+
+    const standardPrice = parseFloat(line.latest_unit_cost) || 0;
+    const openQty   = openMap.get(line.ingredient_id)?.counted_qty != null
+      ? parseFloat(openMap.get(line.ingredient_id).counted_qty) : 0;
+    const closeQty  = parseFloat(line.counted_qty);
+    const purch     = purchMap.get(line.ingredient_id);
+    const purchQty  = purch?.qty ?? 0;
+    const actualPrice = purch?.avgCost ?? standardPrice;
+    const theoQty   = theoMap.get(line.ingredient_id) ?? 0;
+
+    const actualQty = openQty + purchQty - closeQty;
+    const theoCost   = theoQty * standardPrice;
+    const actualCost = actualQty * actualPrice;
+    const dollarVar  = actualCost - theoCost;
+    const usageVar   = (actualQty - theoQty) * standardPrice;
+    const priceVar   = (actualPrice - standardPrice) * actualQty;
+
+    const variancePctOfTheo = theoCost > 0 ? (dollarVar / theoCost) * 100 : null;
+    let flag = null;
+    if (dollarVar < -0.01) flag = 'negative';                                  // actual < theoretical → data-integrity alert
+    else if (variancePctOfTheo != null && variancePctOfTheo >= FLAG_PCT_OF_THEO) flag = 'high';
+    else if (theoCost <= 0 && actualCost > 0) flag = 'high';                   // consumed with no sales
+
+    rows.push({
+      ingredient_id:   line.ingredient_id,
+      ingredient_name: line.ingredient_name,
+      unit:            line.unit,
+      standard_price:  round2(standardPrice),
+      actual_price:    round2(actualPrice),
+      opening_qty:     round3(openQty),
+      purchase_qty:    round3(purchQty),
+      closing_qty:     round3(closeQty),
+      theoretical_qty: round3(theoQty),
+      actual_qty:      round3(actualQty),
+      theoretical_cost: round2(theoCost),
+      actual_cost:      round2(actualCost),
+      quantity_variance: round3(actualQty - theoQty),
+      dollar_variance:   round2(dollarVar),
+      price_variance:    round2(priceVar),
+      usage_variance:    round2(usageVar),
+      variance_pct_of_theo: variancePctOfTheo != null ? round2(variancePctOfTheo) : null,
+      flag,
+    });
+  }
+
+  rows.sort((a, b) => Math.abs(b.dollar_variance) - Math.abs(a.dollar_variance));
+
+  const theoreticalCost = round2(rows.reduce((s, r) => s + r.theoretical_cost, 0));
+  const actualCost      = round2(rows.reduce((s, r) => s + r.actual_cost, 0));
+  const totalVariance   = round2(actualCost - theoreticalCost);
+
+  return {
+    opening: { id: opening.id, label: opening.label, counted_at: opening.counted_at },
+    closing: { id: closing.id, label: closing.label, counted_at: closing.counted_at },
+    totals: {
+      sales:                round2(sales),
+      theoretical_cost:     theoreticalCost,
+      actual_cost:          actualCost,
+      total_variance:       totalVariance,
+      theoretical_pct:      sales > 0 ? round2((theoreticalCost / sales) * 100) : null,
+      actual_pct:           sales > 0 ? round2((actualCost / sales) * 100) : null,
+      variance_pct_of_sales: sales > 0 ? round2((totalVariance / sales) * 100) : null,
+      uncounted_ingredients: uncounted,
+    },
+    rows,
+  };
+}
+
+module.exports = { getDailySummary, getTrends, getItemProfitability, getStaffPerformance, getItemsByPeriod, getStaffByPeriod, getSalesSummaryReport, getCollectionReport, getItemGroupsReport, getTableWiseSalesReport, getNCSalesReport, getFoodCostVariance };

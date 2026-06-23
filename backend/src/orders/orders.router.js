@@ -23,6 +23,11 @@ router.get('/:id/items', authenticate, asyncHandler(async (req, res) => {
   res.json(await service.getItems(req.params.id, req.user.restaurantId));
 }));
 
+// KOT-shaped order data (ref + items with category) for kitchen-terminal printing
+router.get('/:id/kot', authenticate, asyncHandler(async (req, res) => {
+  res.json(await service.getKotData(req.params.id, req.user.restaurantId));
+}));
+
 router.get('/table/:tableId', authenticate, asyncHandler(async (req, res) => {
   res.json(await service.getActiveByTable(req.params.tableId, req.user.restaurantId));
 }));

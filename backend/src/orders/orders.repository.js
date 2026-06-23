@@ -30,16 +30,48 @@ const getActiveByTable = (tableId, restaurantId) =>
     )
     .then((r) => r.rows);
 
-const getItemsByOrderId = (orderId) =>
+const getItemsByOrderId = (orderId, restaurantId) =>
   db
     .query(
       `SELECT oi.*, mi.name, mi.price
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE oi.order_id = $1 AND oi.status != 'cancelled'`,
-      [orderId],
+       JOIN orders     o  ON o.id  = oi.order_id
+       WHERE oi.order_id = $1 AND o.restaurant_id = $2 AND oi.status != 'cancelled'`,
+      [orderId, restaurantId],
     )
     .then((r) => r.rows);
+
+// Assembles exactly the shape the dashboard's KOT ticket builder expects:
+// order ref + location fields + non-cancelled items with category/customizations.
+// Used by the kitchen-terminal auto-print on customer-placed orders.
+const getKotData = (orderId, restaurantId) =>
+  db
+    .query(
+      `SELECT o.id, o.order_ref, o.channel, o.customer_ref, o.created_at,
+              t.number AS table_number,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'item_name',      mi.name,
+                    'category',       mi.category,
+                    'quantity',       oi.quantity,
+                    'notes',          oi.notes,
+                    'customizations', oi.customizations,
+                    'item_status',    oi.status
+                  ) ORDER BY mi.category, mi.name
+                ) FILTER (WHERE oi.id IS NOT NULL AND oi.status <> 'cancelled'),
+                '[]'::json
+              ) AS items
+       FROM orders o
+       LEFT JOIN tables      t  ON t.id  = o.table_id
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN menu_items  mi ON mi.id = oi.menu_item_id
+       WHERE o.id = $1 AND o.restaurant_id = $2
+       GROUP BY o.id, t.number`,
+      [orderId, restaurantId],
+    )
+    .then((r) => r.rows[0] || null);
 
 const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) =>
   db.withTransaction(async (client) => {
@@ -86,8 +118,16 @@ const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', c
     return order;
   });
 
-const addItems = (orderId, items) =>
+const addItems = (orderId, items, restaurantId) =>
   db.withTransaction(async (client) => {
+    // Defence in depth: confirm the order belongs to this restaurant (and lock it)
+    // before inserting, so a stray orderId can never graft items onto another
+    // tenant's order even if a caller skipped the service-layer ownership check.
+    const { rowCount } = await client.query(
+      'SELECT 1 FROM orders WHERE id = $1 AND restaurant_id = $2 FOR UPDATE',
+      [orderId, restaurantId],
+    );
+    if (rowCount === 0) return;
     for (const item of items) {
       await client.query(
         'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
@@ -96,9 +136,9 @@ const addItems = (orderId, items) =>
     }
   });
 
-const updateStatus = (id, status) =>
+const updateStatus = (id, status, restaurantId) =>
   db
-    .query('UPDATE orders SET status = $1 WHERE id = $2 RETURNING *', [status, id])
+    .query('UPDATE orders SET status = $1 WHERE id = $2 AND restaurant_id = $3 RETURNING *', [status, id, restaurantId])
     .then((r) => r.rows[0]);
 
 const assignStaff = (orderId, staffId, restaurantId) =>
@@ -111,44 +151,48 @@ const assignStaff = (orderId, staffId, restaurantId) =>
     )
     .then((r) => r.rows[0]);
 
-const updateItemStatus = (itemId, orderId, status, cancelReason = null) =>
+const updateItemStatus = (itemId, orderId, status, cancelReason, restaurantId) =>
   db
     .query(
       `UPDATE order_items
        SET status        = $1,
            cancel_reason = CASE WHEN $4::varchar IS NOT NULL THEN $4 ELSE cancel_reason END
-       WHERE id = $2 AND order_id = $3 RETURNING *`,
-      [status, itemId, orderId, cancelReason],
+       WHERE id = $2 AND order_id = $3
+         AND EXISTS (SELECT 1 FROM orders o WHERE o.id = $3 AND o.restaurant_id = $5)
+       RETURNING *`,
+      [status, itemId, orderId, cancelReason ?? null, restaurantId],
     )
     .then((r) => r.rows[0]);
 
-const getItemStatuses = (orderId) =>
+const getItemStatuses = (orderId, restaurantId) =>
   db
     .query(
       `SELECT oi.id, oi.status, oi.menu_item_id, oi.quantity, mi.name AS menu_item_name
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE oi.order_id = $1`,
-      [orderId],
+       JOIN orders     o  ON o.id  = oi.order_id
+       WHERE oi.order_id = $1 AND o.restaurant_id = $2`,
+      [orderId, restaurantId],
     )
     .then((r) => r.rows);
 
-const setDiscount = (id, discountType, discountValue) =>
+const setDiscount = (id, discountType, discountValue, restaurantId) =>
   db
     .query(
-      'UPDATE orders SET discount_type = $1, discount_value = $2 WHERE id = $3 RETURNING *',
-      [discountType, discountValue, id],
+      'UPDATE orders SET discount_type = $1, discount_value = $2 WHERE id = $3 AND restaurant_id = $4 RETURNING *',
+      [discountType, discountValue, id, restaurantId],
     )
     .then((r) => r.rows[0]);
 
-const calculateTotal = (orderId) =>
+const calculateTotal = (orderId, restaurantId) =>
   db
     .query(
       `SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE oi.order_id = $1 AND oi.status != 'cancelled'`,
-      [orderId],
+       JOIN orders     o  ON o.id  = oi.order_id
+       WHERE oi.order_id = $1 AND o.restaurant_id = $2 AND oi.status != 'cancelled'`,
+      [orderId, restaurantId],
     )
     .then((r) => parseFloat(r.rows[0].total));
 
@@ -231,36 +275,37 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
     [restaurantId, timezone, from, to, status || null, channel || null],
   ).then((r) => r.rows);
 
-const setCoupon = (id, couponId, couponDiscountAmount) =>
+const setCoupon = (id, couponId, couponDiscountAmount, restaurantId) =>
   db.query(
-    'UPDATE orders SET coupon_id = $1, coupon_discount_amount = $2 WHERE id = $3 RETURNING *',
-    [couponId, couponDiscountAmount, id],
+    'UPDATE orders SET coupon_id = $1, coupon_discount_amount = $2 WHERE id = $3 AND restaurant_id = $4 RETURNING *',
+    [couponId, couponDiscountAmount, id, restaurantId],
   ).then((r) => r.rows[0]);
 
-const clearCoupon = (id) =>
+const clearCoupon = (id, restaurantId) =>
   db.query(
-    'UPDATE orders SET coupon_id = NULL, coupon_discount_amount = 0 WHERE id = $1 RETURNING *',
-    [id],
+    'UPDATE orders SET coupon_id = NULL, coupon_discount_amount = 0 WHERE id = $1 AND restaurant_id = $2 RETURNING *',
+    [id, restaurantId],
   ).then((r) => r.rows[0]);
 
-const setLoyalty = (id, customerId, pointsRedeemed, discountAmount) =>
+const setLoyalty = (id, customerId, pointsRedeemed, discountAmount, restaurantId) =>
   db.query(
     `UPDATE orders SET loyalty_customer_id = $1, loyalty_points_redeemed = $2, loyalty_discount_amount = $3
-     WHERE id = $4 RETURNING *`,
-    [customerId, pointsRedeemed, discountAmount, id],
+     WHERE id = $4 AND restaurant_id = $5 RETURNING *`,
+    [customerId, pointsRedeemed, discountAmount, id, restaurantId],
   ).then((r) => r.rows[0]);
 
-const clearLoyalty = (id) =>
+const clearLoyalty = (id, restaurantId) =>
   db.query(
     `UPDATE orders SET loyalty_customer_id = NULL, loyalty_points_redeemed = 0, loyalty_discount_amount = 0
-     WHERE id = $1 RETURNING *`,
-    [id],
+     WHERE id = $1 AND restaurant_id = $2 RETURNING *`,
+    [id, restaurantId],
   ).then((r) => r.rows[0]);
 
 module.exports = {
   getById,
   getActiveByTable,
   getItemsByOrderId,
+  getKotData,
   create,
   addItems,
   updateStatus,
