@@ -104,10 +104,16 @@ async function narrate(scores, currency, hasWeather) {
   const sys = 'You are a restaurant waste analyst. Given the stats, write a concise 2–3 sentence plain-English analysis and up to 3 concrete recommendations. '
     + 'Respond ONLY as JSON: {"analysis":"...","recommendations":[{"ingredient":"...","action":"...","quantified_impact":<number>}]}. No prose outside the JSON.';
   const user = `Currency: ${currency || 'local'}. Stats:\n${JSON.stringify(scores)}`;
+
+  // Narration is non-critical (deterministic fallback exists), so don't block
+  // Generate when the model is down: probe quickly first, then skip straight to
+  // the fallback if it's unreachable. A single attempt covers the healthy case.
+  if (!(await llm.reachable(1500))) return fallbackNarration(scores, hasWeather);
+
   try {
     const { content } = await llm.chat(
       [{ role: 'system', content: sys }, { role: 'user', content: user }],
-      { temperature: 0.3, maxTokens: 400 },
+      { temperature: 0.3, maxTokens: 400, retries: 1 },
     );
     const parsed = parseLlmJson(content);
     if (parsed && parsed.analysis) {
