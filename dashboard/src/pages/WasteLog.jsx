@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, Sparkles, RefreshCw, Lightbulb } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, Sparkles, RefreshCw, Lightbulb, MapPin } from 'lucide-react';
 import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview, useWasteInsights, useGenerateWasteInsight } from '../hooks/useWaste';
+import { useUpdateSetting } from '../hooks/useSettings';
+import { useGeolocation } from '../hooks/useGeolocation';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import { useRecipes } from '../hooks/useRecipes';
@@ -495,14 +497,53 @@ function Stat({ label, value }) {
   );
 }
 
+const linkBtn = {
+  background: 'none', border: 'none', padding: 0, font: 'inherit',
+  color: '#2563eb', textDecoration: 'underline', cursor: 'pointer',
+};
+
 function WasteInsights({ format }) {
   const { data: insight, isLoading } = useWasteInsights();
   const generate = useGenerateWasteInsight();
+  const geo = useGeolocation();
+  const updateSetting = useUpdateSetting();
 
   const cs = insight?.correlation_scores;
   const worst = cs?.worst_weekday;            // null unless statistically distinguishable
   const w = cs?.weather;
   const noWeatherSignal = w && !w.rainfall?.significant && !w.temperature?.significant;
+  const needsLocation = insight && !insight.weather_available;
+
+  const [locBusy, setLocBusy] = useState(false);
+  const [locMsg, setLocMsg] = useState(null);
+  const autoTried = useRef(false);
+
+  // Capture coordinates the moment we have permission, then re-run with weather.
+  const enableLocation = useCallback(async () => {
+    setLocBusy(true);
+    setLocMsg(null);
+    try {
+      const { latitude, longitude } = await geo.request();
+      await updateSetting.mutateAsync({ key: 'latitude', value: String(latitude) });
+      await updateSetting.mutateAsync({ key: 'longitude', value: String(longitude) });
+      setLocMsg('Location saved — refreshing insights with weather…');
+      generate.mutate();
+    } catch {
+      /* geo.permission now reflects denied/unsupported; the UI reacts to it */
+    } finally {
+      setLocBusy(false);
+    }
+  }, [geo, updateSetting, generate]);
+
+  // If the browser already holds the permission but we never stored coordinates,
+  // grab them once automatically — no extra click needed.
+  useEffect(() => {
+    if (autoTried.current) return;
+    if (needsLocation && geo.permission === 'granted') {
+      autoTried.current = true;
+      enableLocation();
+    }
+  }, [needsLocation, geo.permission, enableLocation]);
 
   return (
     <div className="space-y-4">
@@ -586,10 +627,37 @@ function WasteInsights({ format }) {
             </div>
           )}
 
-          {!insight.weather_available && (
-            <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>
-              Set your outlet's coordinates in <strong>Settings → Location</strong> to add rainfall/temperature correlation.
-            </p>
+          {needsLocation && (
+            <div className="rounded-[8px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+              <div className="flex items-start gap-2">
+                <MapPin size={15} style={{ color: '#2563eb', flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Add your location for weather insights</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '2px 0 0' }}>
+                    Rainfall and temperature are strong drivers of perishable waste. Enabling location lets us correlate them with your daily waste.
+                  </p>
+
+                  {geo.permission === 'denied' ? (
+                    <p style={{ fontSize: 11.5, color: 'var(--bad)', margin: '8px 0 0', lineHeight: 1.5 }}>
+                      Location is blocked for this site. Allow it from your browser (address-bar lock icon → Location → Allow), then{' '}
+                      <button type="button" onClick={enableLocation} disabled={locBusy} style={linkBtn}>try again</button>
+                      {' '}— or enter coordinates manually in <strong>Settings → Location</strong>.
+                    </p>
+                  ) : geo.permission === 'unsupported' ? (
+                    <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '8px 0 0' }}>
+                      This device can't share location automatically — enter coordinates in <strong>Settings → Location</strong>.
+                    </p>
+                  ) : (
+                    <button type="button" onClick={enableLocation} disabled={locBusy} className="btn btn-sm disabled:opacity-50" style={{ gap: 5, marginTop: 8 }}>
+                      <MapPin size={12} className={locBusy ? 'animate-pulse' : ''} />
+                      {locBusy ? 'Enabling…' : 'Enable location'}
+                    </button>
+                  )}
+
+                  {locMsg && <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '6px 0 0' }}>{locMsg}</p>}
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}
