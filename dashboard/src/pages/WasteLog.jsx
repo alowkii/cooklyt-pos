@@ -500,7 +500,9 @@ function WasteInsights({ format }) {
   const generate = useGenerateWasteInsight();
 
   const cs = insight?.correlation_scores;
-  const worstDay = cs?.weekday ? [...cs.weekday].sort((a, b) => b.avg_cost - a.avg_cost)[0] : null;
+  const worst = cs?.worst_weekday;            // null unless statistically distinguishable
+  const w = cs?.weather;
+  const noWeatherSignal = w && !w.rainfall?.significant && !w.temperature?.significant;
 
   return (
     <div className="space-y-4">
@@ -552,10 +554,13 @@ function WasteInsights({ format }) {
 
           <div className="flex flex-wrap gap-3">
             <Stat label="Waste (28d)" value={format(cs?.total_cost ?? 0)} />
-            {worstDay && worstDay.avg_cost > 0 && <Stat label="Worst weekday" value={`${worstDay.weekday} · ${format(worstDay.avg_cost)}/day`} />}
-            {insight.weather_available && cs?.rainfall_r != null && <Stat label="Rain ↔ waste" value={`r = ${cs.rainfall_r}`} />}
-            {insight.weather_available && cs?.temp_r != null && <Stat label="Temp ↔ waste" value={`r = ${cs.temp_r}`} />}
+            {worst && <Stat label="Worst weekday" value={`${worst.weekday} · ${format(worst.avg_cost)}/day ±${format(worst.sd)}`} />}
+            {w?.rainfall?.significant && <Stat label="Rain ↔ waste" value={`ρ ${w.rainfall.r} · p ${w.rainfall.p}`} />}
+            {w?.temperature?.significant && <Stat label="Temp ↔ waste" value={`ρ ${w.temperature.r} · p ${w.temperature.p}`} />}
           </div>
+          {noWeatherSignal && (
+            <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>No statistically significant weather correlation in this period.</p>
+          )}
 
           {cs?.top_items?.length > 0 && (
             <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
