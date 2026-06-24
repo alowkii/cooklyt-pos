@@ -55,6 +55,43 @@ describe('correlate (Spearman + permutation significance)', () => {
   });
 });
 
+describe('permIterations (resolution vs multiple-comparison floor)', () => {
+  const ALPHA = 0.05;
+  it('keeps the floor at 1000 shuffles for a tiny family', () => {
+    expect(svc.permIterations(1)).toBe(1000);
+    expect(svc.permIterations(2)).toBe(1000);
+  });
+  it('scales K up so 1/(K+1) stays below ALPHA/m for realistic test counts', () => {
+    // This is the worked check: for every plausible ingredient-family size, the
+    // smallest reportable p (1/(K+1)) must sit strictly below the strictest
+    // BH/Bonferroni threshold (ALPHA/m) — otherwise nothing can ever be significant.
+    for (let m = 1; m <= 250; m++) {
+      const K = svc.permIterations(m);
+      expect(1 / (K + 1)).toBeLessThan(ALPHA / m);
+    }
+  });
+  it('caps K to bound permutation cost', () => {
+    expect(svc.permIterations(100000)).toBe(50000);
+  });
+});
+
+describe('benjaminiHochberg (FDR)', () => {
+  it('returns all-false for an empty/all-null family', () => {
+    expect(svc.benjaminiHochberg([null, null])).toEqual([false, false]);
+  });
+  it('flags a clearly small p and preserves input order / nulls', () => {
+    expect(svc.benjaminiHochberg([0.001, null, 0.2], 0.05)).toEqual([true, false, false]);
+  });
+  it('restores power over Bonferroni (step-up rejects both)', () => {
+    // Bonferroni threshold is 0.05/2 = 0.025, so it would reject only the 0.02.
+    // BH: largest k with p_(k) ≤ (k/2)·0.05 is k=2 (0.04 ≤ 0.05) → reject both.
+    expect(svc.benjaminiHochberg([0.02, 0.04], 0.05)).toEqual([true, true]);
+  });
+  it('rejects nothing when every p is large', () => {
+    expect(svc.benjaminiHochberg([0.4, 0.9], 0.05)).toEqual([false, false]);
+  });
+});
+
 describe('buildCorrelations', () => {
   const topItems = [{ ingredient: 'X', unit: 'kg', quantity: '5', cost: '50', events: 3 }];
   const reasons = [{ reason: 'SPOILAGE', events: 3, cost: '50' }];

@@ -8,8 +8,10 @@ const PERIOD_DAYS = 28;
 
 // Statistical honesty knobs:
 const MIN_CORR_N      = 10;    // need at least this many aligned points to correlate at all
-const PERM_ITERATIONS = 1000;  // permutation-test shuffles
-const ALPHA           = 0.05;  // significance threshold (Bonferroni-divided across tests)
+const PERM_BASE_ITERS = 1000;  // floor on permutation-test shuffles
+const PERM_MAX_ITERS  = 50000; // cap on shuffles (perf guard for very large test families)
+const PERM_MARGIN     = 10;    // keep the permutation resolution 1/(K+1) this far below ALPHA/m
+const ALPHA           = 0.05;  // family-wise / false-discovery-rate level
 const MIN_WEEKDAY_OBS = 3;     // weeks of data before a "worst weekday" can be a signal
 
 // ── date helpers (date-string math, tz-aware "today") ────────────────────────
@@ -72,10 +74,40 @@ function shuffled(arr) {
   return r;
 }
 
+// How many permutation shuffles to run for a family of `m` simultaneous tests.
+// The smallest p a K-shuffle test can ever report is 1/(K+1). The strictest
+// multiple-comparison threshold (Bonferroni, or BH's rank-1 comparison) for m tests
+// is ALPHA/m. If 1/(K+1) ≥ ALPHA/m, NO test can reach significance however strong the
+// real signal — it silently looks like "no signal found". So scale K with m to keep
+// 1/(K+1) a PERM_MARGIN-fold below ALPHA/m: K+1 ≥ PERM_MARGIN·m/ALPHA.
+//   m=2  → 1000 (floor; tons of headroom)   m=50 → 10000   m≥250 → 50000 (cap)
+function permIterations(m) {
+  const need = Math.ceil((PERM_MARGIN * Math.max(1, m)) / ALPHA);
+  return Math.min(PERM_MAX_ITERS, Math.max(PERM_BASE_ITERS, need));
+}
+
+// Benjamini–Hochberg step-up. Given the family's p-values (nulls = test not run),
+// returns a boolean[] of which are significant at false-discovery-rate ALPHA. BH
+// controls the expected *fraction* of false discoveries rather than the chance of
+// *any* (Bonferroni), so it keeps real power when many ingredients are tested.
+// NOTE: BH's strictest comparison is p_(1) ≤ ALPHA/m — identical to Bonferroni — so
+// BH does NOT lift the permutation resolution floor; that's handled by permIterations.
+function benjaminiHochberg(pvals, alpha = ALPHA) {
+  const present = pvals.map((p, i) => ({ p, i })).filter((x) => x.p != null);
+  const m = present.length;
+  const sig = new Array(pvals.length).fill(false);
+  if (!m) return sig;
+  present.sort((a, b) => a.p - b.p);
+  let kMax = -1;
+  for (let k = 0; k < m; k++) if (present[k].p <= ((k + 1) / m) * alpha) kMax = k;
+  for (let k = 0; k <= kMax; k++) sig[present[k].i] = true;
+  return sig;
+}
+
 // Spearman correlation with a permutation significance test. Returns
 // { r, p, n } — r is null below MIN_CORR_N or for degenerate (zero-variance)
 // input. p is the fraction of random shufflings whose |rho| ≥ |observed|.
-function correlate(xs, ys, iterations = PERM_ITERATIONS) {
+function correlate(xs, ys, iterations = PERM_BASE_ITERS) {
   const n = xs.length;
   if (n < MIN_CORR_N) return { r: null, p: null, n };
   const rx = rank(xs), ry = rank(ys);
@@ -117,7 +149,11 @@ function buildCorrelations({ from, to, dailyWaste, weatherDays, topItems, reason
 
   // Only promote a "worst weekday" when it's a finding, not a single bad week:
   // enough observations per day AND the top day's mean clears the runner-up by
-  // more than the pooled spread of the two.
+  // more than the spread of the two. This is a deliberately conservative HEURISTIC,
+  // not a hypothesis test: each weekday's sd rests on only ~4 observations over 28
+  // days, and 0.5·(sd_top + sd_runnerUp) is an ad-hoc effect-size separation (the
+  // sum of sds, not a pooled sd) comparing only top vs runner-up. It is meant to
+  // suppress noisy promotions, not to assert statistical significance.
   const ranked = [...weekday].filter((w) => w.days > 0).sort((a, b) => b.avg_cost - a.avg_cost);
   let worst_weekday = null;
   if (ranked.length >= 2 && ranked[0].days >= MIN_WEEKDAY_OBS) {
@@ -127,8 +163,10 @@ function buildCorrelations({ from, to, dailyWaste, weatherDays, topItems, reason
     }
   }
 
-  // weather correlation: Spearman + permutation significance, Bonferroni-corrected
-  // across the tests actually run (rain, temp; more as this grows per-ingredient).
+  // weather correlation: Spearman + permutation significance, with the false-discovery
+  // rate controlled by Benjamini–Hochberg across the tests actually run (rain, temp;
+  // more as this grows per-ingredient). The permutation shuffle count is scaled to the
+  // family size so the resolution floor 1/(K+1) always sits below the BH threshold.
   let weatherStats = null;
   if (Array.isArray(weatherDays) && weatherDays.length) {
     const wByDay = Object.fromEntries(weatherDays.map((w) => [w.date, w]));
@@ -139,12 +177,23 @@ function buildCorrelations({ from, to, dailyWaste, weatherDays, topItems, reason
       if (w.rain != null) { rain.push(w.rain); costR.push(s.cost); }
       if (w.temp != null) { temp.push(w.temp); costT.push(s.cost); }
     }
-    const rainfall = correlate(rain, costR);
-    const temperature = correlate(temp, costT);
-    const tests = Math.max(1, [rainfall, temperature].filter((c) => c.r != null).length);
-    const alpha = ALPHA / tests; // Bonferroni
-    const verdict = (c) => ({ ...c, significant: c.r != null && c.p != null && c.p < alpha });
-    weatherStats = { method: 'spearman', tests, alpha: Math.round(alpha * 1000) / 1000, rainfall: verdict(rainfall), temperature: verdict(temperature) };
+    // Size the family (and thus K) by the tests that can actually run (enough points).
+    const family = (rain.length >= MIN_CORR_N ? 1 : 0) + (temp.length >= MIN_CORR_N ? 1 : 0);
+    const iterations = permIterations(family);
+    const rainfall = correlate(rain, costR, iterations);
+    const temperature = correlate(temp, costT, iterations);
+    const cells = [rainfall, temperature];
+    const tests = Math.max(1, cells.filter((c) => c.r != null).length);
+    const sig = benjaminiHochberg(cells.map((c) => (c.r != null ? c.p : null)), ALPHA);
+    weatherStats = {
+      method: 'spearman',
+      correction: 'benjamini-hochberg',
+      fdr: ALPHA,
+      tests,
+      iterations,
+      rainfall:    { ...rainfall,    significant: sig[0] },
+      temperature: { ...temperature, significant: sig[1] },
+    };
   }
 
   return {
@@ -296,4 +345,4 @@ function shape(row) {
   };
 }
 
-module.exports = { generate, getLatest, buildCorrelations, pearson, spearman, rank, correlate };
+module.exports = { generate, getLatest, buildCorrelations, pearson, spearman, rank, correlate, permIterations, benjaminiHochberg };
