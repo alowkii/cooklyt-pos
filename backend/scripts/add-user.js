@@ -21,7 +21,7 @@ const readline = require('readline');
 const { Pool } = require('pg');
 
 const SALT_ROUNDS = 12;                                  // matches auth.service.js
-const VALID_ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
+const VALID_ROLES = ['admin', 'staff', 'kitchen'];       // matches admin.service.js VALID_ROLES
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Run this from the backend/ dir so .env loads.');
