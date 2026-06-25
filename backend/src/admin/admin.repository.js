@@ -12,14 +12,14 @@ const findSuperAdminById = (id) =>
 
 const getAllSuperAdmins = () =>
   db.query(
-    'SELECT id, email, email_verified, created_at FROM super_admins ORDER BY created_at ASC',
+    'SELECT id, email, role, email_verified, created_at FROM super_admins ORDER BY created_at ASC',
   ).then((r) => r.rows);
 
-const createSuperAdmin = (email, hashedPassword) =>
+const createSuperAdmin = (email, hashedPassword, role = 'super_admin') =>
   db.query(
-    `INSERT INTO super_admins (email, password, email_verified, force_password_change)
-     VALUES ($1, $2, FALSE, TRUE) RETURNING id, email, email_verified, force_password_change, created_at`,
-    [email, hashedPassword],
+    `INSERT INTO super_admins (email, password, role, email_verified, force_password_change)
+     VALUES ($1, $2, $3, FALSE, TRUE) RETURNING id, email, role, email_verified, force_password_change, created_at`,
+    [email, hashedPassword, role],
   ).then((r) => r.rows[0]);
 
 const deleteSuperAdminById = (id) =>

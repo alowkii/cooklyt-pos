@@ -2,6 +2,9 @@ const jwt  = require('jsonwebtoken');
 const repo = require('./admin.repository');
 const { UnauthorizedError, ForbiddenError } = require('../shared/errors');
 
+// Roles that may sign in to the operator (admin) portal at all.
+const OPERATOR_ROLES = ['super_admin', 'product_manager'];
+
 async function authenticateSuperAdmin(req, res, next) {
   const cookieToken = req.cookies?.admin_token;
   const authHeader  = req.headers['authorization'];
@@ -11,8 +14,8 @@ async function authenticateSuperAdmin(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== 'super_admin') {
-      return next(new ForbiddenError('Super admin access required'));
+    if (!OPERATOR_ROLES.includes(decoded.role)) {
+      return next(new ForbiddenError('Operator access required'));
     }
 
     // Verify the account still exists — catches deleted admins whose JWT is still valid
@@ -43,4 +46,13 @@ function requirePasswordChanged(req, res, next) {
   next();
 }
 
-module.exports = { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged };
+// Operator-management actions (managing other operators) are reserved for full
+// super admins; product managers have every other capability but not this one.
+function requireSuperAdmin(req, res, next) {
+  if (req.superAdmin?.role !== 'super_admin') {
+    return next(new ForbiddenError('Only super admins can manage operators'));
+  }
+  next();
+}
+
+module.exports = { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged, requireSuperAdmin };

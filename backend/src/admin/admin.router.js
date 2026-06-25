@@ -7,7 +7,7 @@ const multer = require('multer');
 const service = require('./admin.service');
 const repo    = require('./admin.repository');
 const settingsRepo = require('../settings/settings.repository');
-const { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged } = require('./admin.middleware');
+const { authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged, requireSuperAdmin } = require('./admin.middleware');
 const { asyncHandler } = require('../shared/asyncHandler');
 
 // Multer instance for restaurant logo uploads (images only, stored on disk)
@@ -41,9 +41,11 @@ const logoUpload = multer({
   },
 });
 
-// Shorthand: auth only (read routes) vs auth + verified + password-changed (write routes)
+// Shorthand: auth only (read routes) vs auth + verified + password-changed (write routes).
+// authSuper additionally restricts to full super admins (operator management).
 const auth  = authenticateSuperAdmin;
 const authV = [authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged];
+const authSuper = [authenticateSuperAdmin, requireEmailVerified, requirePasswordChanged, requireSuperAdmin];
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const audit = require('../shared/audit');
 
@@ -245,7 +247,7 @@ router.get('/auth/google/callback', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { superAdminId: admin.id, role: 'super_admin', emailVerified: true, forcePasswordChange: admin.force_password_change },
+      { superAdminId: admin.id, role: admin.role, emailVerified: true, forcePasswordChange: admin.force_password_change },
       process.env.JWT_SECRET,
       { expiresIn: '8h' },
     );
@@ -382,23 +384,23 @@ router.delete('/restaurants/:id/logo', authV, asyncHandler(async (req, res) => {
 
 // ── Super admins ──────────────────────────────────────────────────────────────
 
-router.get('/super-admins', auth, asyncHandler(async (req, res) => {
+router.get('/super-admins', authSuper, asyncHandler(async (req, res) => {
   res.json(await service.getAllSuperAdmins());
 }));
 
-router.post('/super-admins', authV, asyncHandler(async (req, res) => {
-  const admin = await service.createSuperAdmin(req.body.email, req.body.password);
-  audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}"` });
+router.post('/super-admins', authSuper, asyncHandler(async (req, res) => {
+  const admin = await service.createSuperAdmin(req.body.email, req.body.password, req.body.role);
+  audit.log({ ...sa(req), action: 'create', resourceType: 'super_admin', resourceId: admin.id, description: `Created operator "${admin.email}" (${admin.role})` });
   res.status(201).json(admin);
 }));
 
-router.delete('/super-admins/:id', authV, asyncHandler(async (req, res) => {
+router.delete('/super-admins/:id', authSuper, asyncHandler(async (req, res) => {
   const admin = await service.deleteSuperAdminById(req.params.id, req.superAdmin.superAdminId);
   audit.log({ ...sa(req), action: 'delete', resourceType: 'super_admin', resourceId: req.params.id, description: `Deleted operator "${admin.email}"` });
   res.status(204).send();
 }));
 
-router.post('/super-admins/:id/resend-verification', authV, asyncHandler(async (req, res) => {
+router.post('/super-admins/:id/resend-verification', authSuper, asyncHandler(async (req, res) => {
   res.json(await service.resendSuperAdminVerificationById(req.params.id));
 }));
 
