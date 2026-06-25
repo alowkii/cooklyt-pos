@@ -104,8 +104,8 @@ export default function Settings() {
                 className="inline-flex items-center gap-1.5 mt-1"
                 style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}
               >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', flexShrink: 0 }} />
-                Super Admin
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: me?.role === 'product_manager' ? 'var(--warn)' : 'var(--info)', flexShrink: 0 }} />
+                {me?.role === 'product_manager' ? 'Product Manager' : 'Super Admin'}
               </span>
             </div>
           </div>
