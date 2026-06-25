@@ -7,7 +7,7 @@ const ALLOWED_KEYS = new Set([
   'loyalty_points_per_unit', 'loyalty_points_value',
   'cash_denominations', 'restaurant_open',
   'daily_revenue_target',
-  'city', 'latitude', 'longitude',
+  'city', 'latitude', 'longitude', 'location_captured_at',
 ]);
 
 function validateTz(tz) {
@@ -130,6 +130,13 @@ async function update(key, value, restaurantId) {
   if (key === 'longitude' && value !== '') {
     const n = parseFloat(value);
     if (isNaN(n) || n < -180 || n > 180) throw new ValidationError('longitude must be between -180 and 180');
+  }
+  // When the saved coordinates were last set — shown in Settings so the operator
+  // can tell whether the stored location is current. Empty clears it.
+  if (key === 'location_captured_at' && value !== '') {
+    if (typeof value !== 'string' || isNaN(Date.parse(value))) {
+      throw new ValidationError('location_captured_at must be an ISO date string');
+    }
   }
   await repo.set(restaurantId, key, value);
   return repo.getAll(restaurantId);

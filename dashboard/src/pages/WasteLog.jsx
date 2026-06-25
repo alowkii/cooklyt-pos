@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, Sparkles, RefreshCw, Lightbulb, MapPin } from 'lucide-react';
 import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview, useWasteInsights, useGenerateWasteInsight } from '../hooks/useWaste';
 import { useUpdateSetting } from '../hooks/useSettings';
@@ -502,6 +502,20 @@ const linkBtn = {
   color: '#2563eb', textDecoration: 'underline', cursor: 'pointer',
 };
 
+// Pill that flags model-written content, to distinguish it from the computed stats.
+function AiBadge() {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em',
+      color: '#4f73a8', background: 'rgba(79,115,168,.12)', border: '1px solid rgba(79,115,168,.30)',
+      borderRadius: 999, padding: '1px 7px',
+    }}>
+      <Sparkles size={10} /> AI-generated
+    </span>
+  );
+}
+
 function WasteInsights({ format }) {
   const { data: insight, isLoading } = useWasteInsights();
   const generate = useGenerateWasteInsight();
@@ -545,6 +559,40 @@ function WasteInsights({ format }) {
     }
   }, [needsLocation, geo.permission, enableLocation]);
 
+  // Shown at the top of the panel so a missing location is the first thing seen.
+  const locationPrompt = needsLocation && (
+    <div className="rounded-[8px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+      <div className="flex items-start gap-2">
+        <MapPin size={15} style={{ color: '#2563eb', flexShrink: 0, marginTop: 1 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Add your location for weather insights</p>
+          <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '2px 0 0' }}>
+            Rainfall and temperature are strong drivers of perishable waste. Enabling location lets us correlate them with your daily waste.
+          </p>
+
+          {geo.permission === 'denied' ? (
+            <p style={{ fontSize: 11.5, color: 'var(--bad)', margin: '8px 0 0', lineHeight: 1.5 }}>
+              Location is blocked for this site. Allow it from your browser (address-bar lock icon → Location → Allow), then{' '}
+              <button type="button" onClick={enableLocation} disabled={locBusy} style={linkBtn}>try again</button>
+              {' '}— or enter coordinates manually in <strong>Settings → Location</strong>.
+            </p>
+          ) : geo.permission === 'unsupported' ? (
+            <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '8px 0 0' }}>
+              This device can't share location automatically — enter coordinates in <strong>Settings → Location</strong>.
+            </p>
+          ) : (
+            <button type="button" onClick={enableLocation} disabled={locBusy} className="btn btn-sm disabled:opacity-50" style={{ gap: 5, marginTop: 8 }}>
+              <MapPin size={12} className={locBusy ? 'animate-pulse' : ''} />
+              {locBusy ? 'Enabling…' : 'Enable location'}
+            </button>
+          )}
+
+          {locMsg && <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '6px 0 0' }}>{locMsg}</p>}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -559,6 +607,8 @@ function WasteInsights({ format }) {
         </button>
       </div>
 
+      {locationPrompt}
+
       {isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
       ) : !insight ? (
@@ -567,14 +617,25 @@ function WasteInsights({ format }) {
         </div>
       ) : (
         <>
-          <div className="flex items-start gap-2 rounded-[8px] p-3" style={{ background: 'var(--paper-2)', border: '1px solid var(--line-2)' }}>
-            <Sparkles size={15} style={{ color: 'var(--ok)', flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, margin: 0 }}>{insight.analysis}</p>
+          <div>
+            <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
+              <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', margin: 0 }}>AI Summary</h3>
+              <AiBadge />
+            </div>
+            <div className="rounded-[8px] p-3" style={{ background: 'rgba(79,115,168,.06)', border: '1px solid rgba(79,115,168,.22)' }}>
+              <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, margin: 0 }}>{insight.analysis}</p>
+            </div>
+            <p style={{ fontSize: 10.5, color: 'var(--mute)', marginTop: 6, fontStyle: 'italic' }}>
+              AI-generated from your waste data — may be imperfect. Verify before acting on it.
+            </p>
           </div>
 
           {insight.recommendations?.length > 0 && (
             <div>
-              <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', marginBottom: 8 }}>Recommendations</h3>
+              <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', margin: 0 }}>Recommendations</h3>
+                <AiBadge />
+              </div>
               <div className="space-y-2">
                 {insight.recommendations.map((r, i) => (
                   <div key={i} className="flex items-start gap-2 rounded-[6px] p-2.5" style={{ border: '1px solid var(--line)' }}>
@@ -593,11 +654,14 @@ function WasteInsights({ format }) {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3">
-            <Stat label="Waste (28d)" value={format(cs?.total_cost ?? 0)} />
-            {worst && <Stat label="Worst weekday" value={`${worst.weekday} · ${format(worst.avg_cost)}/day ±${format(worst.sd)}`} />}
-            {w?.rainfall?.significant && <Stat label="Rain ↔ waste" value={`ρ ${w.rainfall.r} · p ${w.rainfall.p}`} />}
-            {w?.temperature?.significant && <Stat label="Temp ↔ waste" value={`ρ ${w.temperature.r} · p ${w.temperature.p}`} />}
+          <div>
+            <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', marginBottom: 8 }}>Computed from your data</h3>
+            <div className="flex flex-wrap gap-3">
+              <Stat label="Waste (28d)" value={format(cs?.total_cost ?? 0)} />
+              {worst && <Stat label="Worst weekday" value={`${worst.weekday} · ${format(worst.avg_cost)}/day ±${format(worst.sd)}`} />}
+              {w?.rainfall?.significant && <Stat label="Rain ↔ waste" value={`ρ ${w.rainfall.r} · p ${w.rainfall.p}`} />}
+              {w?.temperature?.significant && <Stat label="Temp ↔ waste" value={`ρ ${w.temperature.r} · p ${w.temperature.p}`} />}
+            </div>
           </div>
           {noWeatherSignal && (
             <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>No statistically significant weather correlation in this period.</p>
@@ -627,38 +691,6 @@ function WasteInsights({ format }) {
             </div>
           )}
 
-          {needsLocation && (
-            <div className="rounded-[8px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
-              <div className="flex items-start gap-2">
-                <MapPin size={15} style={{ color: '#2563eb', flexShrink: 0, marginTop: 1 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Add your location for weather insights</p>
-                  <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '2px 0 0' }}>
-                    Rainfall and temperature are strong drivers of perishable waste. Enabling location lets us correlate them with your daily waste.
-                  </p>
-
-                  {geo.permission === 'denied' ? (
-                    <p style={{ fontSize: 11.5, color: 'var(--bad)', margin: '8px 0 0', lineHeight: 1.5 }}>
-                      Location is blocked for this site. Allow it from your browser (address-bar lock icon → Location → Allow), then{' '}
-                      <button type="button" onClick={enableLocation} disabled={locBusy} style={linkBtn}>try again</button>
-                      {' '}— or enter coordinates manually in <strong>Settings → Location</strong>.
-                    </p>
-                  ) : geo.permission === 'unsupported' ? (
-                    <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '8px 0 0' }}>
-                      This device can't share location automatically — enter coordinates in <strong>Settings → Location</strong>.
-                    </p>
-                  ) : (
-                    <button type="button" onClick={enableLocation} disabled={locBusy} className="btn btn-sm disabled:opacity-50" style={{ gap: 5, marginTop: 8 }}>
-                      <MapPin size={12} className={locBusy ? 'animate-pulse' : ''} />
-                      {locBusy ? 'Enabling…' : 'Enable location'}
-                    </button>
-                  )}
-
-                  {locMsg && <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '6px 0 0' }}>{locMsg}</p>}
-                </div>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
@@ -674,7 +706,11 @@ export default function WasteLog() {
   const [from, setFrom] = useState(() => searchParams.get('from') || today());
   const [to,   setTo]   = useState(() => searchParams.get('to') || today());
   const [modal, setModal] = useState(false);
-  const [view,  setView]  = useState('log'); // page tabs: 'log' | 'insights'
+  // The view is driven by the URL so AI Insights has its own address
+  // (/waste-log/waste-insights) and is linkable/bookmarkable.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view = location.pathname.endsWith('/waste-insights') ? 'insights' : 'log';
   const [tab,   setTab]   = useState('item'); // modal tabs: 'item' | 'ingredient'
   const [ingForm,  setIngForm]  = useState(EMPTY_ING_FORM);
   const [itemForm, setItemForm] = useState(EMPTY_ITEM_FORM);
@@ -787,12 +823,12 @@ export default function WasteLog() {
         )}
       </div>
 
-      {/* Page tabs */}
+      {/* Page tabs — navigate so each view has its own URL */}
       <div className="flex gap-0" style={{ borderBottom: '1px solid var(--line)' }}>
-        {[['log', 'Log'], ['insights', 'AI Insights']].map(([k, label]) => (
+        {[['log', 'Log', '/waste-log'], ['insights', 'AI Insights', '/waste-log/waste-insights']].map(([k, label, path]) => (
           <button
             key={k}
-            onClick={() => setView(k)}
+            onClick={() => navigate(path)}
             className="flex items-center gap-1.5"
             style={{
               height: 34, padding: '0 16px', background: 'transparent', border: 0,
