@@ -173,6 +173,18 @@ async function deleteSuperAdminById(id, requesterId) {
   return admin;
 }
 
+async function updateSuperAdminRole(id, role, requesterId) {
+  // Block self-changes: a super admin demoting themselves would lose operator
+  // management — and since only super admins reach this path, the guard also
+  // guarantees at least one super admin always remains.
+  if (id === requesterId) throw new ValidationError('You cannot change your own role');
+  if (!VALID_OPERATOR_ROLES.includes(role))
+    throw new ValidationError(`role must be one of: ${VALID_OPERATOR_ROLES.join(', ')}`);
+  const admin = await repo.updateSuperAdminRole(id, role);
+  if (!admin) throw new NotFoundError('Operator');
+  return admin;
+}
+
 async function verifySuperAdminEmail(token) {
   if (!token) throw new ValidationError('Token is required');
   const admin = await repo.findSuperAdminByVerificationToken(token);
@@ -321,6 +333,7 @@ module.exports = {
   getAllSuperAdmins,
   createSuperAdmin,
   deleteSuperAdminById,
+  updateSuperAdminRole,
   verifySuperAdminEmail,
   resendSuperAdminVerification,
   resendSuperAdminVerificationById,

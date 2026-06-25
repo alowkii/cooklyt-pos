@@ -224,6 +224,12 @@ const updateSuperAdminPassword = (id, hashedPassword) =>
     [hashedPassword, id],
   ).then((r) => r.rows[0]);
 
+const updateSuperAdminRole = (id, role) =>
+  db.query(
+    'UPDATE super_admins SET role = $1 WHERE id = $2 RETURNING id, email, role',
+    [role, id],
+  ).then((r) => r.rows[0]);
+
 module.exports = {
   findSuperAdminByEmail,
   findSuperAdminById,
@@ -237,6 +243,7 @@ module.exports = {
   countSuperAdmins,
   createFirstSuperAdmin,
   updateSuperAdminPassword,
+  updateSuperAdminRole,
   updateSuperAdminDefaults,
   getAllRestaurants,
   getRestaurantById,

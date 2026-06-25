@@ -145,6 +145,17 @@ export function useDeleteSuperAdmin() {
   });
 }
 
+export function useUpdateSuperAdminRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }) => api.patch(`/super-admins/${id}/role`, { role }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['super-admins'] });
+      qc.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 export function useResendSuperAdminVerification() {
   return useMutation({
     mutationFn: (id) => api.post(`/super-admins/${id}/resend-verification`).then((r) => r.data),
