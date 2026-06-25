@@ -162,6 +162,7 @@ export default function App() {
             <Route path="/recipes"     element={<RequireAdmin><Recipes /></RequireAdmin>} />
             <Route path="/combos"      element={<RequireAdmin><Combos /></RequireAdmin>} />
             <Route path="/waste-log"   element={<RequireAdmin><WasteLog /></RequireAdmin>} />
+            <Route path="/waste-log/waste-insights" element={<RequireAdmin><WasteLog /></RequireAdmin>} />
             <Route path="/costing"     element={<RequireAdmin><CostingReports /></RequireAdmin>} />
             <Route path="/variance"    element={<RequireAdmin><FoodCostVariance /></RequireAdmin>} />
             <Route path="/stocktake"   element={<RequireAdmin><Stocktake /></RequireAdmin>} />
