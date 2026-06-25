@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, Trash2, ShieldCheck, Briefcase, Eye, EyeOff, Loader2, BadgeCheck, MailWarning, Send } from 'lucide-react';
-import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin, useResendSuperAdminVerification } from '../hooks/useAdmin';
+import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin, useUpdateSuperAdminRole, useResendSuperAdminVerification } from '../hooks/useAdmin';
 import { useAuth } from '../hooks/useAuth';
 
 function VerifiedIcon({ verified }) {
@@ -187,6 +187,7 @@ function AddAdminModal({ onClose }) {
 export default function UsersPage() {
   const { data: admins = [], isLoading } = useSuperAdmins();
   const deleteAdmin  = useDeleteSuperAdmin();
+  const updateRole   = useUpdateSuperAdminRole();
   const resendVerif  = useResendSuperAdminVerification();
   const { admin: me } = useAuth();
 
@@ -276,11 +277,25 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>
-                        {admin.role === 'product_manager'
-                          ? <><Briefcase size={13} style={{ color: 'var(--warn)' }} /> Product Manager</>
-                          : <><ShieldCheck size={13} style={{ color: 'var(--info)' }} /> Super Admin</>}
-                      </span>
+                      {isSelf ? (
+                        <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>
+                          {admin.role === 'product_manager'
+                            ? <><Briefcase size={13} style={{ color: 'var(--warn)' }} /> Product Manager</>
+                            : <><ShieldCheck size={13} style={{ color: 'var(--info)' }} /> Super Admin</>}
+                        </span>
+                      ) : (
+                        <select
+                          className="input"
+                          value={admin.role}
+                          disabled={updateRole.isPending && updateRole.variables?.id === admin.id}
+                          onChange={(e) => updateRole.mutate({ id: admin.id, role: e.target.value })}
+                          style={{ fontSize: 12, padding: '4px 8px', width: 'auto', minWidth: 150 }}
+                          title="Change operator role"
+                        >
+                          <option value="super_admin">Super Admin</option>
+                          <option value="product_manager">Product Manager</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">

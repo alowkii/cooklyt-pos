@@ -3,6 +3,7 @@ import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, Building2, ScrollText, Menu, X, Settings, KeyRound, Users, MailWarning } from 'lucide-react';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
+import { useMe } from '../hooks/useAdmin';
 import ChangePasswordModal from './ChangePasswordModal';
 
 const NAV = [
@@ -18,6 +19,12 @@ export default function Layout() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { admin } = useAuth();
+  // Role drives the super-only nav gating, so read it from the live /auth/me
+  // query (already cached by RequireAuth) rather than the non-reactive
+  // localStorage snapshot — otherwise a demoted operator keeps seeing Operators
+  // until a full reload. Fall back to localStorage only before the query settles.
+  const { data: me } = useMe();
+  const role = me?.role ?? admin?.role;
   const [forcePasswordChange, setForcePasswordChange] = useState(!!admin?.forcePasswordChange);
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
@@ -30,7 +37,8 @@ export default function Layout() {
 
   const initials = (admin?.email ?? 'OP').slice(0, 2).toUpperCase();
   // Operator management is super-admin only; hide it from product managers.
-  const nav = NAV.filter((item) => !item.superOnly || admin?.role === 'super_admin');
+  // Default to hidden unless the role is confirmed 'super_admin'.
+  const nav = NAV.filter((item) => !item.superOnly || role === 'super_admin');
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--paper-2)' }}>
@@ -140,7 +148,7 @@ export default function Layout() {
             </div>
             <div className="min-w-0">
               <p className="truncate" style={{ fontSize: 11.5, color: 'rgba(255,255,255,.8)', fontWeight: 500 }}>{admin?.email}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,.35)' }}>{admin?.role === 'product_manager' ? 'Product Manager' : 'Super Admin'}</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,.35)' }}>{role === 'product_manager' ? 'Product Manager' : 'Super Admin'}</p>
             </div>
           </div>
           <button

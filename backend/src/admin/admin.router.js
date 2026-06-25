@@ -400,6 +400,12 @@ router.delete('/super-admins/:id', authSuper, asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
+router.patch('/super-admins/:id/role', authSuper, asyncHandler(async (req, res) => {
+  const admin = await service.updateSuperAdminRole(req.params.id, req.body.role, req.superAdmin.superAdminId);
+  audit.log({ ...sa(req), action: 'update', resourceType: 'super_admin', resourceId: admin.id, description: `Changed operator "${admin.email}" role to ${admin.role}` });
+  res.json(admin);
+}));
+
 router.post('/super-admins/:id/resend-verification', authSuper, asyncHandler(async (req, res) => {
   res.json(await service.resendSuperAdminVerificationById(req.params.id));
 }));
