@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck } from 'lucide-react';
-import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview } from '../hooks/useWaste';
+import { Plus, ChevronDown, ChevronRight, Utensils, FlaskConical, ClipboardCheck, Sparkles, RefreshCw, Lightbulb, MapPin } from 'lucide-react';
+import { useWasteLogs, useLogWaste, useLogWasteByMenuItem, useWastageReviews, useResolveWastageReview, useWasteInsights, useGenerateWasteInsight } from '../hooks/useWaste';
+import { useUpdateSetting } from '../hooks/useSettings';
+import { useGeolocation } from '../hooks/useGeolocation';
 import { useIngredients } from '../hooks/useIngredients';
 import { useMenuItems } from '../hooks/useMenu';
 import { useRecipes } from '../hooks/useRecipes';
@@ -484,6 +486,185 @@ function PendingReviews({ format, isAdmin }) {
   );
 }
 
+// ── AI Insights ───────────────────────────────────────────────────────────────
+
+function Stat({ label, value }) {
+  return (
+    <div style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+      <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{label}</p>
+      <p className="mono num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>{value}</p>
+    </div>
+  );
+}
+
+const linkBtn = {
+  background: 'none', border: 'none', padding: 0, font: 'inherit',
+  color: '#2563eb', textDecoration: 'underline', cursor: 'pointer',
+};
+
+function WasteInsights({ format }) {
+  const { data: insight, isLoading } = useWasteInsights();
+  const generate = useGenerateWasteInsight();
+  const geo = useGeolocation();
+  const updateSetting = useUpdateSetting();
+
+  const cs = insight?.correlation_scores;
+  const worst = cs?.worst_weekday;            // null unless statistically distinguishable
+  const w = cs?.weather;
+  const noWeatherSignal = w && !w.rainfall?.significant && !w.temperature?.significant;
+  const needsLocation = insight && !insight.weather_available;
+
+  const [locBusy, setLocBusy] = useState(false);
+  const [locMsg, setLocMsg] = useState(null);
+  const autoTried = useRef(false);
+
+  // Capture coordinates the moment we have permission, then re-run with weather.
+  const enableLocation = useCallback(async () => {
+    setLocBusy(true);
+    setLocMsg(null);
+    try {
+      const { latitude, longitude } = await geo.request();
+      await updateSetting.mutateAsync({ key: 'latitude', value: String(latitude) });
+      await updateSetting.mutateAsync({ key: 'longitude', value: String(longitude) });
+      setLocMsg('Location saved — refreshing insights with weather…');
+      generate.mutate();
+    } catch {
+      /* geo.permission now reflects denied/unsupported; the UI reacts to it */
+    } finally {
+      setLocBusy(false);
+    }
+  }, [geo, updateSetting, generate]);
+
+  // If the browser already holds the permission but we never stored coordinates,
+  // grab them once automatically — no extra click needed.
+  useEffect(() => {
+    if (autoTried.current) return;
+    if (needsLocation && geo.permission === 'granted') {
+      autoTried.current = true;
+      enableLocation();
+    }
+  }, [needsLocation, geo.permission, enableLocation]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <p style={{ fontSize: 12.5, color: 'var(--mute)' }}>
+          {insight
+            ? `Analysis for ${String(insight.period_start).slice(0, 10)} – ${String(insight.period_end).slice(0, 10)} · ${insight.generated_by === 'manual' ? 'manual run' : 'weekly'}`
+            : 'Weekly AI analysis of your waste patterns — root causes, worst days, and (with location set) weather correlation.'}
+        </p>
+        <button onClick={() => generate.mutate()} disabled={generate.isPending} className="ml-auto btn btn-sm disabled:opacity-50" style={{ gap: 5 }}>
+          <RefreshCw size={12} className={generate.isPending ? 'animate-spin' : ''} />
+          {generate.isPending ? 'Analysing…' : insight ? 'Refresh analysis' : 'Generate analysis'}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
+      ) : !insight ? (
+        <div className="py-16 text-center rounded-[8px]" style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}>
+          No analysis yet — click <strong>Generate analysis</strong> to run it.
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2 rounded-[8px] p-3" style={{ background: 'var(--paper-2)', border: '1px solid var(--line-2)' }}>
+            <Sparkles size={15} style={{ color: 'var(--ok)', flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, margin: 0 }}>{insight.analysis}</p>
+          </div>
+
+          {insight.recommendations?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', marginBottom: 8 }}>Recommendations</h3>
+              <div className="space-y-2">
+                {insight.recommendations.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-[6px] p-2.5" style={{ border: '1px solid var(--line)' }}>
+                    <Lightbulb size={13} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <p style={{ fontSize: 12.5, color: 'var(--ink)', margin: 0 }}>
+                        {r.ingredient ? <strong>{r.ingredient}: </strong> : null}{r.action}
+                      </p>
+                      {r.quantified_impact != null && (
+                        <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 1 }}>~{format(r.quantified_impact)} at stake</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Stat label="Waste (28d)" value={format(cs?.total_cost ?? 0)} />
+            {worst && <Stat label="Worst weekday" value={`${worst.weekday} · ${format(worst.avg_cost)}/day ±${format(worst.sd)}`} />}
+            {w?.rainfall?.significant && <Stat label="Rain ↔ waste" value={`ρ ${w.rainfall.r} · p ${w.rainfall.p}`} />}
+            {w?.temperature?.significant && <Stat label="Temp ↔ waste" value={`ρ ${w.temperature.r} · p ${w.temperature.p}`} />}
+          </div>
+          {noWeatherSignal && (
+            <p style={{ fontSize: 11.5, color: 'var(--mute)' }}>No statistically significant weather correlation in this period.</p>
+          )}
+
+          {cs?.top_items?.length > 0 && (
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 8, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+                <thead>
+                  <tr style={{ background: 'var(--paper-2)', borderBottom: '1px solid var(--line)' }}>
+                    {['Top wasted item', 'Qty', 'Events', 'Cost'].map((h) => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cs.top_items.slice(0, 6).map((t, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '7px 14px', fontSize: 13, color: 'var(--ink)' }}>{t.ingredient}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 12, color: 'var(--mute)' }}>{t.quantity} {t.unit}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 12, color: 'var(--mute)' }}>{t.events}</td>
+                      <td className="mono num" style={{ padding: '7px 14px', fontSize: 13, color: 'var(--ink)' }}>{format(t.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {needsLocation && (
+            <div className="rounded-[8px] p-3" style={{ border: '1px solid var(--line-2)', background: 'var(--paper-2)' }}>
+              <div className="flex items-start gap-2">
+                <MapPin size={15} style={{ color: '#2563eb', flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>Add your location for weather insights</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '2px 0 0' }}>
+                    Rainfall and temperature are strong drivers of perishable waste. Enabling location lets us correlate them with your daily waste.
+                  </p>
+
+                  {geo.permission === 'denied' ? (
+                    <p style={{ fontSize: 11.5, color: 'var(--bad)', margin: '8px 0 0', lineHeight: 1.5 }}>
+                      Location is blocked for this site. Allow it from your browser (address-bar lock icon → Location → Allow), then{' '}
+                      <button type="button" onClick={enableLocation} disabled={locBusy} style={linkBtn}>try again</button>
+                      {' '}— or enter coordinates manually in <strong>Settings → Location</strong>.
+                    </p>
+                  ) : geo.permission === 'unsupported' ? (
+                    <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '8px 0 0' }}>
+                      This device can't share location automatically — enter coordinates in <strong>Settings → Location</strong>.
+                    </p>
+                  ) : (
+                    <button type="button" onClick={enableLocation} disabled={locBusy} className="btn btn-sm disabled:opacity-50" style={{ gap: 5, marginTop: 8 }}>
+                      <MapPin size={12} className={locBusy ? 'animate-pulse' : ''} />
+                      {locBusy ? 'Enabling…' : 'Enable location'}
+                    </button>
+                  )}
+
+                  {locMsg && <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: '6px 0 0' }}>{locMsg}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function WasteLog() {
@@ -493,7 +674,8 @@ export default function WasteLog() {
   const [from, setFrom] = useState(() => searchParams.get('from') || today());
   const [to,   setTo]   = useState(() => searchParams.get('to') || today());
   const [modal, setModal] = useState(false);
-  const [tab,   setTab]   = useState('item'); // 'item' | 'ingredient'
+  const [view,  setView]  = useState('log'); // page tabs: 'log' | 'insights'
+  const [tab,   setTab]   = useState('item'); // modal tabs: 'item' | 'ingredient'
   const [ingForm,  setIngForm]  = useState(EMPTY_ING_FORM);
   const [itemForm, setItemForm] = useState(EMPTY_ITEM_FORM);
 
@@ -589,25 +771,48 @@ export default function WasteLog() {
             {logs.length} entries · total cost <strong style={{ color: 'var(--ink)' }}>{format(totalCost)}</strong>
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
-            <span style={{ fontSize: 12, color: 'var(--mute)' }}>–</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+        {view === 'log' && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+              <span style={{ fontSize: 12, color: 'var(--mute)' }}>–</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                className="input" style={{ height: 32, width: 130, fontSize: 12 }} />
+            </div>
+            <button onClick={openModal} className="btn-primary">
+              <Plus size={13} /> Log waste
+            </button>
           </div>
-          <button onClick={openModal} className="btn-primary">
-            <Plus size={13} /> Log waste
-          </button>
-        </div>
+        )}
       </div>
 
+      {/* Page tabs */}
+      <div className="flex gap-0" style={{ borderBottom: '1px solid var(--line)' }}>
+        {[['log', 'Log'], ['insights', 'AI Insights']].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setView(k)}
+            className="flex items-center gap-1.5"
+            style={{
+              height: 34, padding: '0 16px', background: 'transparent', border: 0,
+              borderBottom: view === k ? '2px solid var(--ink)' : '2px solid transparent',
+              marginBottom: -1, fontSize: 13, fontWeight: view === k ? 600 : 400,
+              color: view === k ? 'var(--ink)' : 'var(--mute)', cursor: 'pointer',
+            }}
+          >
+            {k === 'insights' && <Sparkles size={13} />}{label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'insights' && <WasteInsights format={format} />}
+
       {/* Pending wastage reviews — visible to all staff, resolvable by admin only */}
-      <PendingReviews format={format} isAdmin={isAdmin} />
+      {view === 'log' && <PendingReviews format={format} isAdmin={isAdmin} />}
 
       {/* Table */}
-      {isLoading ? (
+      {view === 'log' && (isLoading ? (
         <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>Loading…</div>
       ) : grouped.length === 0 ? (
         <div className="py-16 text-center rounded-[8px]" style={{ fontSize: 13, color: 'var(--mute)', border: '1px dashed var(--line-2)' }}>
@@ -636,7 +841,7 @@ export default function WasteLog() {
             </table>
           </div>
         </div>
-      )}
+      ))}
 
       {/* Log Waste Modal */}
       {modal && (

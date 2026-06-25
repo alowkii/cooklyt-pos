@@ -49,9 +49,12 @@ function buildBody(messages, { tools, temperature, maxTokens, think = false, mod
   return body;
 }
 
-async function postCompletions(body, { signal } = {}) {
+// `retries`/`timeoutMs` are overridable per call so non-critical paths (e.g. the
+// waste-insights narration, which has a deterministic fallback) can fast-fail
+// instead of waiting out the full retry/backoff when the model is unreachable.
+async function postCompletions(body, { signal, retries = MAX_RETRIES, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   let lastError;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: 'POST',
@@ -60,7 +63,7 @@ async function postCompletions(body, { signal } = {}) {
           Authorization: `Bearer ${LLM_API_KEY}`,
         },
         body: JSON.stringify(body),
-        signal: signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: signal ?? AbortSignal.timeout(timeoutMs),
       });
 
       if (res.ok) return res;
@@ -75,7 +78,7 @@ async function postCompletions(body, { signal } = {}) {
       if (err instanceof AppError) throw err;
       lastError = err;
     }
-    if (attempt < MAX_RETRIES) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
+    if (attempt < retries) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
   }
   console.error('[llm] all retries failed:', lastError?.message);
   throw new AppError('AI service unavailable', 503);
@@ -88,7 +91,7 @@ async function postCompletions(body, { signal } = {}) {
  * @returns {Promise<{content: string, toolCalls: Array|null, finishReason: string, usage: object}>}
  */
 async function chat(messages, options = {}) {
-  const res  = await postCompletions(buildBody(messages, options));
+  const res  = await postCompletions(buildBody(messages, options), { retries: options.retries, timeoutMs: options.timeoutMs });
   const json = await res.json();
   const choice = json.choices?.[0];
   if (!choice) throw new AppError('AI service returned an empty response', 502);
@@ -210,4 +213,20 @@ async function healthCheck() {
   }
 }
 
-module.exports = { chat, chatStream, chatWithTools, healthCheck, LLM_MODEL, LLM_BASE_URL };
+/** Fast liveness probe — true if the endpoint answers within `timeoutMs`.
+ *  Lets non-critical callers skip the LLM quickly when it's unreachable. */
+async function reachable(timeoutMs = 1500) {
+  // Race the probe against a hard timer: on some hosts an abort doesn't interrupt
+  // a stalled connect to a dead port promptly, so guarantee a bounded resolve.
+  const probe = fetch(`${LLM_BASE_URL}/models`, {
+    headers: { Authorization: `Bearer ${LLM_API_KEY}` },
+    signal: AbortSignal.timeout(timeoutMs),
+  }).then((r) => r.ok).catch(() => false);
+  const cap = new Promise((resolve) => {
+    const t = setTimeout(() => resolve(false), timeoutMs);
+    if (t.unref) t.unref();
+  });
+  return Promise.race([probe, cap]);
+}
+
+module.exports = { chat, chatStream, chatWithTools, healthCheck, reachable, LLM_MODEL, LLM_BASE_URL };

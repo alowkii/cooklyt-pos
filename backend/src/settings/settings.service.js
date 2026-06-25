@@ -7,6 +7,7 @@ const ALLOWED_KEYS = new Set([
   'loyalty_points_per_unit', 'loyalty_points_value',
   'cash_denominations', 'restaurant_open',
   'daily_revenue_target',
+  'city', 'latitude', 'longitude',
 ]);
 
 function validateTz(tz) {
@@ -114,6 +115,21 @@ async function update(key, value, restaurantId) {
     if (parts.length === 0 || parts.some((n) => isNaN(n) || n <= 0)) {
       throw new ValidationError('cash_denominations must be a comma-separated list of positive numbers');
     }
+  }
+  // Restaurant location — used by the AI weather/waste-correlation feature.
+  // Empty string clears the value; otherwise lat/long must be valid coordinates.
+  if (key === 'city') {
+    if (typeof value !== 'string' || value.length > 120) {
+      throw new ValidationError('city must be a string of at most 120 characters');
+    }
+  }
+  if (key === 'latitude' && value !== '') {
+    const n = parseFloat(value);
+    if (isNaN(n) || n < -90 || n > 90) throw new ValidationError('latitude must be between -90 and 90');
+  }
+  if (key === 'longitude' && value !== '') {
+    const n = parseFloat(value);
+    if (isNaN(n) || n < -180 || n > 180) throw new ValidationError('longitude must be between -180 and 180');
   }
   await repo.set(restaurantId, key, value);
   return repo.getAll(restaurantId);
