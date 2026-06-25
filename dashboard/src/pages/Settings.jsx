@@ -3,6 +3,7 @@ import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, Calendar
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
+import { useGeolocation } from '../hooks/useGeolocation';
 import api from '../api/client';
 
 /* ── Searchable dropdown ────────────────────────────────────── */
@@ -156,7 +157,9 @@ export default function Settings() {
   const [city,            setCity]             = useState('');
   const [latitude,        setLatitude]         = useState('');
   const [longitude,       setLongitude]        = useState('');
+  const [locCapturedAt,   setLocCapturedAt]    = useState('');
   const [geoStatus,       setGeoStatus]        = useState('');
+  const geo = useGeolocation();
   const [staffAssignment,   setStaffAssignment]   = useState(false);
   const [reservationsEnabled, setReservationsEnabled] = useState(false);
   const [loyaltyEnabled,      setLoyaltyEnabled]      = useState(false);
@@ -206,6 +209,7 @@ export default function Settings() {
     if (settings.city      !== undefined) setCity(settings.city || '');
     if (settings.latitude  !== undefined) setLatitude(settings.latitude || '');
     if (settings.longitude !== undefined) setLongitude(settings.longitude || '');
+    if (settings.location_captured_at !== undefined) setLocCapturedAt(settings.location_captured_at || '');
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
@@ -249,6 +253,8 @@ export default function Settings() {
       await updateSetting.mutateAsync({ key: 'city',      value: city.trim() });
       await updateSetting.mutateAsync({ key: 'latitude',  value: latitude  === '' ? '' : String(latitude) });
       await updateSetting.mutateAsync({ key: 'longitude', value: longitude === '' ? '' : String(longitude) });
+      // Stamp/clear "set on" alongside the coordinates so the status stays truthful.
+      await updateSetting.mutateAsync({ key: 'location_captured_at', value: (latitude === '' || longitude === '') ? '' : (locCapturedAt || '') });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
       await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });
       await updateSetting.mutateAsync({ key: 'loyalty_enabled', value: String(loyaltyEnabled) });
@@ -285,6 +291,7 @@ export default function Settings() {
       (pos) => {
         setLatitude(pos.coords.latitude.toFixed(4));
         setLongitude(pos.coords.longitude.toFixed(4));
+        setLocCapturedAt(new Date().toISOString());
         markDirty();
         setGeoStatus(autosave ? 'Coordinates filled — saving…' : 'Coordinates filled — review and Save');
       },
@@ -517,25 +524,54 @@ export default function Settings() {
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Latitude</label>
           <input type="number" step="any" min="-90" max="90" value={latitude}
-            onChange={(e) => { setLatitude(e.target.value); markDirty(); }}
+            onChange={(e) => { setLatitude(e.target.value); setLocCapturedAt(new Date().toISOString()); markDirty(); }}
             className="input mono" style={{ width: 120 }} placeholder="12.9716" />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Longitude</label>
           <input type="number" step="any" min="-180" max="180" value={longitude}
-            onChange={(e) => { setLongitude(e.target.value); markDirty(); }}
+            onChange={(e) => { setLongitude(e.target.value); setLocCapturedAt(new Date().toISOString()); markDirty(); }}
             className="input mono" style={{ width: 120 }} placeholder="77.5946" />
         </div>
         <button type="button" onClick={useMyLocation} className="btn btn-sm" style={{ gap: 5, height: 34 }}>
           <MapPin size={12} /> Use my location
         </button>
       </div>
-      {geoStatus && (
-        <p style={{ fontSize: 11.5, marginBottom: 18, color: geoStatus.startsWith('Error') ? 'var(--bad)' : 'var(--mute)' }}>
-          {geoStatus}
-        </p>
-      )}
-      {!geoStatus && <div style={{ marginBottom: 18 }} />}
+      {/* Saved-location status. The stored coordinates power weather insights
+          server-side and are independent of the live browser permission, so a
+          revoked permission is surfaced as a non-destructive note, never an auto-clear. */}
+      {(() => {
+        const hasCoords = latitude !== '' && longitude !== '';
+        const setOn = locCapturedAt && !isNaN(Date.parse(locCapturedAt))
+          ? new Date(locCapturedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : null;
+        return (
+          <div style={{ marginBottom: 18 }}>
+            {hasCoords ? (
+              <p style={{ fontSize: 11.5, color: 'var(--ok)', margin: 0 }}>
+                ✓ Location saved: <span className="mono">{latitude}, {longitude}</span>
+                {setOn && <span style={{ color: 'var(--mute)' }}> · set {setOn}</span>}
+              </p>
+            ) : (
+              <p style={{ fontSize: 11.5, color: 'var(--mute)', margin: 0 }}>
+                No location set — weather-based waste insights are disabled.
+              </p>
+            )}
+            {geo.permission === 'denied' && (
+              <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: 4 }}>
+                {hasCoords
+                  ? 'Your browser is currently blocking location. The saved coordinates above are still used for weather — to update them, re-allow location (address-bar lock → Location) or edit the fields manually.'
+                  : 'Location is blocked in your browser. Allow it, or enter coordinates manually above.'}
+              </p>
+            )}
+            {geoStatus && (
+              <p style={{ fontSize: 11.5, marginTop: 4, color: geoStatus.startsWith('Error') ? 'var(--bad)' : 'var(--mute)' }}>
+                {geoStatus}
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Staff Assignment ────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
