@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { UserPlus, Trash2, ShieldCheck, Eye, EyeOff, Loader2, BadgeCheck, MailWarning, Send } from 'lucide-react';
+import { UserPlus, Trash2, ShieldCheck, Briefcase, Eye, EyeOff, Loader2, BadgeCheck, MailWarning, Send } from 'lucide-react';
 import { useSuperAdmins, useCreateSuperAdmin, useDeleteSuperAdmin, useResendSuperAdminVerification } from '../hooks/useAdmin';
 import { useAuth } from '../hooks/useAuth';
 
@@ -73,7 +73,7 @@ function ConfirmDeleteModal({ admin, onConfirm, onClose, isPending }) {
 
 function AddAdminModal({ onClose }) {
   const createAdmin = useCreateSuperAdmin();
-  const [form,      setForm]     = useState({ email: '', password: '' });
+  const [form,      setForm]     = useState({ email: '', password: '', role: 'product_manager' });
   const [showPass,  setShowPass] = useState(false);
   const [error,     setError]    = useState('');
 
@@ -116,6 +116,24 @@ function AddAdminModal({ onClose }) {
               autoFocus
               required
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 500, color: 'var(--mute)', marginBottom: 5 }}>
+              Role
+            </label>
+            <select
+              value={form.role}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              className="input"
+            >
+              <option value="product_manager">Product Manager</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+            <p style={{ fontSize: 11, color: 'var(--mute)', marginTop: 5, lineHeight: 1.45 }}>
+              {form.role === 'super_admin'
+                ? 'Full access, including creating and removing other operators.'
+                : 'Full access to restaurants, users, settings, and audit logs — but cannot manage operators.'}
+            </p>
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11.5, fontWeight: 500, color: 'var(--mute)', marginBottom: 5 }}>
@@ -192,6 +210,16 @@ export default function UsersPage() {
     finally { setResendingId(null); }
   }
 
+  // Defensive: this page is hidden from non-super-admins in the nav, and the API
+  // rejects them, but guard against a direct deep-link too.
+  if (me?.role && me.role !== 'super_admin') {
+    return (
+      <div className="py-16 text-center" style={{ fontSize: 13, color: 'var(--mute)' }}>
+        Only super admins can manage operators.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -249,8 +277,9 @@ export default function UsersPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>
-                        <ShieldCheck size={13} style={{ color: 'var(--info)' }} />
-                        Super Admin
+                        {admin.role === 'product_manager'
+                          ? <><Briefcase size={13} style={{ color: 'var(--warn)' }} /> Product Manager</>
+                          : <><ShieldCheck size={13} style={{ color: 'var(--info)' }} /> Super Admin</>}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">

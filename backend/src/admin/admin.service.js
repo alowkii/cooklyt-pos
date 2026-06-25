@@ -12,6 +12,7 @@ function generateToken() {
 
 const SALT_ROUNDS = 12;
 const VALID_ROLES = ['admin', 'staff', 'kitchen'];
+const VALID_OPERATOR_ROLES = ['super_admin', 'product_manager'];
 
 function assertStrongPassword(password) {
   if (typeof password !== 'string' || password.length < 8) {
@@ -37,12 +38,12 @@ async function login(email, password) {
   if (!valid) throw new UnauthorizedError('Invalid credentials');
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified, forcePasswordChange: !!admin.force_password_change },
+    { superAdminId: admin.id, role: admin.role, emailVerified: admin.email_verified, forcePasswordChange: !!admin.force_password_change },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
 
-  return { token, admin: { id: admin.id, email: admin.email, emailVerified: admin.email_verified, forcePasswordChange: admin.force_password_change } };
+  return { token, admin: { id: admin.id, email: admin.email, role: admin.role, emailVerified: admin.email_verified, forcePasswordChange: admin.force_password_change } };
 }
 
 // Only works when no super admin exists yet — first-run setup.
@@ -146,13 +147,14 @@ async function getAllSuperAdmins() {
   return repo.getAllSuperAdmins();
 }
 
-async function createSuperAdmin(email, password) {
+async function createSuperAdmin(email, password, role = 'super_admin') {
   if (!email || !password) throw new ValidationError('email and password are required');
+  if (!VALID_OPERATOR_ROLES.includes(role)) throw new ValidationError(`role must be one of: ${VALID_OPERATOR_ROLES.join(', ')}`);
   assertStrongPassword(password);
   const existing = await repo.findSuperAdminByEmail(email);
   if (existing) throw new ValidationError('An operator with this email already exists');
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  const admin   = await repo.createSuperAdmin(email, hashed);
+  const admin   = await repo.createSuperAdmin(email, hashed, role);
 
   const token     = generateToken();
   const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 h
@@ -263,6 +265,7 @@ async function me(superAdminId) {
   return {
     id: admin.id,
     email: admin.email,
+    role: admin.role,
     emailVerified: admin.email_verified,
     forcePasswordChange: admin.force_password_change,
     createdAt: admin.created_at,
@@ -295,7 +298,7 @@ async function changePassword(superAdminId, currentPassword, newPassword) {
   await repo.clearSuperAdminForcePasswordChange(superAdminId);
 
   const token = jwt.sign(
-    { superAdminId: admin.id, role: 'super_admin', emailVerified: admin.email_verified },
+    { superAdminId: admin.id, role: admin.role, emailVerified: admin.email_verified },
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
