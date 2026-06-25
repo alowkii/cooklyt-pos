@@ -29,6 +29,7 @@ function RequireAuth({ children }) {
   localStorage.setItem('admin_user', JSON.stringify({
     id: data.id,
     email: data.email,
+    role: data.role,
     emailVerified: data.emailVerified,
     forcePasswordChange: data.forcePasswordChange,
   }));
