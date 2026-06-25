@@ -508,7 +508,7 @@ function AiBadge() {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
       fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em',
-      color: '#7c3aed', background: 'rgba(124,58,237,.1)', border: '1px solid rgba(124,58,237,.25)',
+      color: '#4f73a8', background: 'rgba(79,115,168,.12)', border: '1px solid rgba(79,115,168,.30)',
       borderRadius: 999, padding: '1px 7px',
     }}>
       <Sparkles size={10} /> AI-generated
@@ -622,7 +622,7 @@ function WasteInsights({ format }) {
               <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--mute)', margin: 0 }}>AI Summary</h3>
               <AiBadge />
             </div>
-            <div className="rounded-[8px] p-3" style={{ background: 'rgba(124,58,237,.04)', border: '1px solid rgba(124,58,237,.2)' }}>
+            <div className="rounded-[8px] p-3" style={{ background: 'rgba(79,115,168,.06)', border: '1px solid rgba(79,115,168,.22)' }}>
               <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, margin: 0 }}>{insight.analysis}</p>
             </div>
             <p style={{ fontSize: 10.5, color: 'var(--mute)', marginTop: 6, fontStyle: 'italic' }}>
