@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw, Gift, Banknote, Lock, LockOpen } from 'lucide-react';
+import { Check, Globe, Clock, AlertCircle, Percent, Package, UserCheck, CalendarClock, ChevronDown, Search, Zap, RefreshCw, Gift, Banknote, Lock, LockOpen, MapPin } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
@@ -153,6 +153,10 @@ export default function Settings() {
   const [serviceCharge,   setServiceCharge]   = useState('');
   const [dailyTarget,     setDailyTarget]     = useState('');
   const [packagingFee,    setPackagingFee]     = useState('');
+  const [city,            setCity]             = useState('');
+  const [latitude,        setLatitude]         = useState('');
+  const [longitude,       setLongitude]        = useState('');
+  const [geoStatus,       setGeoStatus]        = useState('');
   const [staffAssignment,   setStaffAssignment]   = useState(false);
   const [reservationsEnabled, setReservationsEnabled] = useState(false);
   const [loyaltyEnabled,      setLoyaltyEnabled]      = useState(false);
@@ -199,6 +203,9 @@ export default function Settings() {
       setDenomInput(settings.cash_denominations);
       setDenomLocked(true);
     }
+    if (settings.city      !== undefined) setCity(settings.city || '');
+    if (settings.latitude  !== undefined) setLatitude(settings.latitude || '');
+    if (settings.longitude !== undefined) setLongitude(settings.longitude || '');
     // mark clean after load so autosave doesn't fire on mount
     setTimeout(() => setDirty(false), 0);
   }, [settings]);
@@ -239,6 +246,9 @@ export default function Settings() {
       await updateSetting.mutateAsync({ key: 'service_charge',       value: serviceCharge || '0' });
       await updateSetting.mutateAsync({ key: 'daily_revenue_target', value: dailyTarget });
       await updateSetting.mutateAsync({ key: 'packaging_fee',  value: parseFloat(packagingFee || '0').toFixed(4) });
+      await updateSetting.mutateAsync({ key: 'city',      value: city.trim() });
+      await updateSetting.mutateAsync({ key: 'latitude',  value: latitude  === '' ? '' : String(latitude) });
+      await updateSetting.mutateAsync({ key: 'longitude', value: longitude === '' ? '' : String(longitude) });
       await updateSetting.mutateAsync({ key: 'staff_assignment_enabled', value: String(staffAssignment) });
       await updateSetting.mutateAsync({ key: 'reservations_enabled', value: String(reservationsEnabled) });
       await updateSetting.mutateAsync({ key: 'loyalty_enabled', value: String(loyaltyEnabled) });
@@ -263,9 +273,25 @@ export default function Settings() {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => saveRef.current?.(), 900);
     return () => clearTimeout(debounceRef.current);
-  }, [taxRate, serviceCharge, packagingFee, staffAssignment, reservationsEnabled, loyaltyEnabled, loyaltyPointsPerUnit, loyaltyPointsValue, autosave, dirty]);
+  }, [taxRate, serviceCharge, packagingFee, city, latitude, longitude, staffAssignment, reservationsEnabled, loyaltyEnabled, loyaltyPointsPerUnit, loyaltyPointsValue, autosave, dirty]);
 
   function markDirty() { setDirty(true); }
+
+  /* Fill latitude/longitude from the browser's geolocation (one tap) */
+  function useMyLocation() {
+    if (!navigator.geolocation) { setGeoStatus('Error: geolocation not supported on this device'); return; }
+    setGeoStatus('Locating…');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(4));
+        setLongitude(pos.coords.longitude.toFixed(4));
+        markDirty();
+        setGeoStatus(autosave ? 'Coordinates filled — saving…' : 'Coordinates filled — review and Save');
+      },
+      () => setGeoStatus('Error: could not get location (permission denied?)'),
+      { enableHighAccuracy: false, timeout: 8000 },
+    );
+  }
 
   function toggleAutosave() {
     const next = !autosave;
@@ -475,6 +501,41 @@ export default function Settings() {
           <span style={{ fontSize: 12, color: 'var(--mute)' }}>Shows progress bar on Overview</span>
         </div>
       </div>
+
+      {/* ── Location ────────────────────────────────────────── */}
+      <SectionHead icon={MapPin} title="Location" />
+      <p style={{ fontSize: 11.5, color: 'var(--mute)', marginTop: -6, marginBottom: 10 }}>
+        Used for weather-based waste insights. Set your outlet's city and coordinates.
+      </p>
+      <div className="flex flex-wrap items-end gap-3 mb-2">
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>City</label>
+          <input type="text" value={city}
+            onChange={(e) => { setCity(e.target.value); markDirty(); }}
+            className="input" style={{ width: 180 }} placeholder="e.g. Bengaluru" maxLength={120} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Latitude</label>
+          <input type="number" step="any" min="-90" max="90" value={latitude}
+            onChange={(e) => { setLatitude(e.target.value); markDirty(); }}
+            className="input mono" style={{ width: 120 }} placeholder="12.9716" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--mute)', marginBottom: 4 }}>Longitude</label>
+          <input type="number" step="any" min="-180" max="180" value={longitude}
+            onChange={(e) => { setLongitude(e.target.value); markDirty(); }}
+            className="input mono" style={{ width: 120 }} placeholder="77.5946" />
+        </div>
+        <button type="button" onClick={useMyLocation} className="btn btn-sm" style={{ gap: 5, height: 34 }}>
+          <MapPin size={12} /> Use my location
+        </button>
+      </div>
+      {geoStatus && (
+        <p style={{ fontSize: 11.5, marginBottom: 18, color: geoStatus.startsWith('Error') ? 'var(--bad)' : 'var(--mute)' }}>
+          {geoStatus}
+        </p>
+      )}
+      {!geoStatus && <div style={{ marginBottom: 18 }} />}
 
       {/* ── Staff Assignment ────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>

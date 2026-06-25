@@ -769,6 +769,7 @@ async function main() {
   // Recipe / inventory tables first (FK order)
   await client.query('DELETE FROM cost_snapshots       WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM inventory_transactions WHERE restaurant_id = $1', [RESTAURANT_ID]);
+  await client.query('DELETE FROM waste_insights        WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query('DELETE FROM waste_logs           WHERE restaurant_id = $1', [RESTAURANT_ID]);
   await client.query(`
     DELETE FROM recipe_ingredients
