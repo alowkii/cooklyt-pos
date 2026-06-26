@@ -62,10 +62,13 @@ async function revalidateClients() {
       const decoded = jwt.verify(client._wsToken, process.env.JWT_SECRET);
       if (decoded.userId) {
         const { rows } = await db.query(
-          'SELECT EXTRACT(EPOCH FROM password_changed_at)::bigint AS pca FROM users WHERE id = $1',
+          'SELECT is_active, EXTRACT(EPOCH FROM password_changed_at)::bigint AS pca FROM users WHERE id = $1',
           [decoded.userId],
         );
-        if (rows[0] && rows[0].pca != null && Number(rows[0].pca) > decoded.iat) {
+        const user = rows[0];
+        // Drop the socket if the account was deleted, disabled, or its password changed.
+        if (!user || user.is_active === false ||
+            (user.pca != null && Number(user.pca) > decoded.iat)) {
           client.terminate();
         }
       }

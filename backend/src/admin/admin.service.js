@@ -4,6 +4,8 @@ const jwt    = require('jsonwebtoken');
 const repo     = require('./admin.repository');
 const emailSvc = require('../shared/email.service');
 const { ValidationError, NotFoundError, UnauthorizedError } = require('../shared/errors');
+const { RESTAURANT_ROLES } = require('../shared/roles');
+const { assertStrongPassword } = require('../shared/password');
 const settingsOptions = require('../../../shared/settings-options.json');
 
 function generateToken() {
@@ -11,17 +13,7 @@ function generateToken() {
 }
 
 const SALT_ROUNDS = 12;
-const VALID_ROLES = ['admin', 'staff', 'kitchen'];
 const VALID_OPERATOR_ROLES = ['super_admin', 'product_manager'];
-
-function assertStrongPassword(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw new ValidationError('Password must be at least 8 characters');
-  }
-  if (password.length > 128) {
-    throw new ValidationError('Password must be at most 128 characters');
-  }
-}
 const VALID_TIMEZONES = new Set(settingsOptions.timezones.map((t) => t.iana));
 const VALID_CURRENCIES = new Set(settingsOptions.currencies.map((c) => c.code));
 
@@ -131,7 +123,7 @@ async function setRestaurantAiEnabled(id, enabled) {
 
 async function createUser({ email, password, role, restaurantId }) {
   if (!email || !password) throw new ValidationError('email and password are required');
-  if (!VALID_ROLES.includes(role)) throw new ValidationError(`role must be one of: ${VALID_ROLES.join(', ')}`);
+  if (!RESTAURANT_ROLES.includes(role)) throw new ValidationError(`role must be one of: ${RESTAURANT_ROLES.join(', ')}`);
   assertStrongPassword(password);
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
   return repo.createUserForRestaurant({ email, password: hashed, role, restaurantId });

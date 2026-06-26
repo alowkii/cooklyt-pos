@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const service = require('./orders.service');
 const db      = require('../shared/db');
-const settingsRepo = require('../settings/settings.repository');
 const { authenticate, authorize } = require('../shared/middleware/auth');
 const audit = require('../shared/audit');
 const { asyncHandler } = require('../shared/asyncHandler');
@@ -33,10 +32,8 @@ router.get('/table/:tableId', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.post('/', authenticate, authorize('admin', 'staff'), asyncHandler(async (req, res) => {
-  const settings = await settingsRepo.getAll(req.user.restaurantId);
-  if (settings.restaurant_open === 'false') {
-    return res.status(403).json({ error: 'Restaurant is currently closed — new orders are paused' });
-  }
+  // The "restaurant closed" check now lives in orders.service.createOrder so it
+  // applies to every order path (staff, public QR menu, AI assistant).
   const { tableId, items, channel, customerRef, assignedStaffId } = req.body;
   const order = await service.createOrder({
     restaurantId:    req.user.restaurantId,

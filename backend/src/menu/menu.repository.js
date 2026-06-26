@@ -3,7 +3,7 @@ const db = require('../shared/db');
 const getAll = (restaurantId) =>
   db
     .query(
-      'SELECT * FROM menu_items WHERE restaurant_id = $1 ORDER BY category, name',
+      'SELECT * FROM menu_items WHERE restaurant_id = $1 AND archived_at IS NULL ORDER BY category, name',
       [restaurantId],
     )
     .then((r) => r.rows);
@@ -11,7 +11,7 @@ const getAll = (restaurantId) =>
 const getAvailable = (restaurantId) =>
   db
     .query(
-      'SELECT * FROM menu_items WHERE restaurant_id = $1 AND available = true ORDER BY category, name',
+      'SELECT * FROM menu_items WHERE restaurant_id = $1 AND available = true AND archived_at IS NULL ORDER BY category, name',
       [restaurantId],
     )
     .then((r) => r.rows);
@@ -51,10 +51,12 @@ const update = (id, { name, price, category, available, sku, customizationGroups
     )
     .then((r) => r.rows[0]);
 
+// Soft-delete: archived items disappear from menus and the orderable list but stay
+// in the table so historical order_items (and their FK) remain intact.
 const remove = (id, restaurantId) =>
   db
     .query(
-      'DELETE FROM menu_items WHERE id = $1 AND restaurant_id = $2 RETURNING *',
+      'UPDATE menu_items SET archived_at = NOW(), available = false WHERE id = $1 AND restaurant_id = $2 AND archived_at IS NULL RETURNING *',
       [id, restaurantId],
     )
     .then((r) => r.rows[0]);
@@ -68,6 +70,7 @@ const getPopular = (restaurantId, limit = 6) =>
        INNER JOIN orders o ON o.id = oi.order_id
        WHERE mi.restaurant_id = $1
          AND mi.available = true
+         AND mi.archived_at IS NULL
          AND o.created_at >= NOW() - INTERVAL '30 days'
        GROUP BY mi.id
        ORDER BY SUM(oi.quantity) DESC

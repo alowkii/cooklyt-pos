@@ -4,6 +4,8 @@ const crypto  = require('crypto');
 const repo    = require('./auth.repository');
 const emailSvc = require('../shared/email.service');
 const { UnauthorizedError, ValidationError, NotFoundError, ForbiddenError } = require('../shared/errors');
+const { RESTAURANT_ROLES } = require('../shared/roles');
+const { assertStrongPassword } = require('../shared/password');
 
 const SALT_ROUNDS = 12;
 
@@ -18,18 +20,6 @@ function createToken(userId, role, restaurantId, extra = {}) {
     process.env.JWT_SECRET,
     { expiresIn: '8h' },
   );
-}
-
-function assertStrongPassword(password) {
-  if (typeof password !== 'string' || password.length < 10) {
-    throw new ValidationError('Password must be at least 10 characters');
-  }
-  if (!/[A-Z]/.test(password)) {
-    throw new ValidationError('Password must contain at least one uppercase letter');
-  }
-  if (!/[0-9]/.test(password)) {
-    throw new ValidationError('Password must contain at least one number');
-  }
 }
 
 function generateToken() {
@@ -117,13 +107,11 @@ async function deleteUser(targetId, requestingUserId, restaurantId) {
   return repo.deleteUser(targetId, restaurantId);
 }
 
-const VALID_ROLES = ['admin', 'staff', 'cashier', 'kitchen'];
-
 async function updateUserRole(targetId, role, requestingUserId, restaurantId) {
   if (targetId === requestingUserId)
     throw new ValidationError('You cannot change your own role');
-  if (!VALID_ROLES.includes(role))
-    throw new ValidationError(`role must be one of: ${VALID_ROLES.join(', ')}`);
+  if (!RESTAURANT_ROLES.includes(role))
+    throw new ValidationError(`role must be one of: ${RESTAURANT_ROLES.join(', ')}`);
   const user = await repo.findUserById(targetId);
   if (!user || user.restaurant_id !== restaurantId) throw new NotFoundError('User');
   return repo.updateUserRole(targetId, role, restaurantId);
