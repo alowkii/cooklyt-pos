@@ -8,7 +8,7 @@ const couponsInterface = require('../coupons/coupons.interface');
 const loyaltyInterface = require('../loyalty/loyalty.interface');
 const ws = require('../shared/websocket');
 const db = require('../shared/db');
-const { NotFoundError, ValidationError } = require('../shared/errors');
+const { NotFoundError, ValidationError, ForbiddenError } = require('../shared/errors');
 
 // Persists a notification for all active admins + kitchen users and broadcasts over WebSocket.
 async function _notifyAdmins(restaurantId, event, payload) {
@@ -47,6 +47,13 @@ async function _resetTableIfEmpty(tableId, restaurantId) {
 }
 
 async function createOrder({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) {
+  // Enforce the "restaurant closed" switch here so every caller is covered —
+  // staff terminals, the customer QR menu (PUB1), and the AI assistant.
+  const settings = await settingsRepo.getAll(restaurantId);
+  if (settings.restaurant_open === 'false') {
+    throw new ForbiddenError('Restaurant is currently closed — new orders are paused');
+  }
+
   const VALID_CHANNELS = ['dining', 'takeaway', 'delivery'];
   if (!VALID_CHANNELS.includes(channel)) {
     throw new ValidationError(`Invalid channel: ${channel}`);
