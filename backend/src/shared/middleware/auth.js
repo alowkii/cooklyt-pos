@@ -14,23 +14,28 @@ async function authenticate(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decoded.restaurantId) {
+    // For a normal staff token, validate the live user account in a single query:
+    //   - the user must still exist (catches deleted accounts whose JWT is unexpired)
+    //   - the user must be active (catches disabled accounts immediately)
+    //   - the token must post-date the last password change (revocation)
+    if (decoded.userId) {
+      const { rows } = await db.query(
+        'SELECT is_active, EXTRACT(EPOCH FROM password_changed_at)::bigint AS pca FROM users WHERE id = $1',
+        [decoded.userId],
+      );
+      const user = rows[0];
+      if (!user) return next(new UnauthorizedError('Account no longer exists'));
+      if (user.is_active === false) return next(new UnauthorizedError('Account is disabled'));
+      if (decoded.iat && user.pca != null && Number(user.pca) > decoded.iat) {
+        return next(new UnauthorizedError('Token revoked — please sign in again'));
+      }
+    } else if (decoded.restaurantId) {
+      // Tokens without a userId (if any) still get the tenant-exists check.
       const { rowCount } = await db.query(
         'SELECT 1 FROM restaurants WHERE id = $1',
         [decoded.restaurantId],
       );
       if (rowCount === 0) return next(new UnauthorizedError('Restaurant no longer exists'));
-    }
-
-    // Reject tokens issued before the user's most recent password change.
-    if (decoded.userId && decoded.iat) {
-      const { rows } = await db.query(
-        'SELECT EXTRACT(EPOCH FROM password_changed_at)::bigint AS pca FROM users WHERE id = $1',
-        [decoded.userId],
-      );
-      if (rows[0] && rows[0].pca != null && Number(rows[0].pca) > decoded.iat) {
-        return next(new UnauthorizedError('Token revoked — please sign in again'));
-      }
     }
 
     req.user = decoded; // { userId, role, restaurantId }
