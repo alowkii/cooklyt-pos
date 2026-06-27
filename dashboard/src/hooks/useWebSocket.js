@@ -52,10 +52,17 @@ export function useWebSocket({ onEvent } = {}) {
               qc.invalidateQueries({ queryKey: ['reports'] });
               qc.invalidateQueries({ queryKey: ['order-history'] });
               qc.invalidateQueries({ queryKey: ['loyalty-customers'] });
+              // A freed table changes every waiting party's ETA.
+              qc.invalidateQueries({ queryKey: ['waitlist'] });
               break;
             case 'TABLE_UPDATED':
               qc.invalidateQueries({ queryKey: ['tables'] });
               qc.invalidateQueries({ queryKey: ['reservations'] });
+              qc.invalidateQueries({ queryKey: ['waitlist'] });
+              break;
+            case 'WAITLIST_UPDATED':
+            case 'WAITLIST_NOTIFY':
+              qc.invalidateQueries({ queryKey: ['waitlist'] });
               break;
             case 'RESERVATION_REMINDER':
               qc.invalidateQueries({ queryKey: ['reservations'] });

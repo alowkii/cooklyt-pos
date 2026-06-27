@@ -36,6 +36,7 @@ import {
   Sparkles,
   Scale,
   ClipboardCheck,
+  Hourglass,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../api/client';
@@ -93,7 +94,8 @@ const GROUP_PATHS = {
 const ALL_NAV = [
   { to: '/overview', label: 'Overview', Icon: LayoutDashboard, end: true, adminOnly: false },
   { to: '/menu',     label: 'Menu',     Icon: UtensilsCrossed,            adminOnly: false },
-  { to: '/tables',   label: 'Tables',   Icon: Grid3X3,                    adminOnly: false },
+  { to: '/tables',   label: 'Tables',   Icon: Grid3X3,         end: true,  adminOnly: false },
+  { to: '/tables/waitlist', label: 'Waitlist', Icon: Hourglass,           adminOnly: false, staffOnly: true },
   { to: '/orders',   label: 'Orders',   Icon: ClipboardList,              adminOnly: false },
   { to: '/shift',    label: 'Shift',    Icon: Wallet,                     adminOnly: false, staffOnly: true },
   { to: '/ai-chat',  label: 'AI Assistant', Icon: Sparkles,               adminOnly: false, staffOnly: true },

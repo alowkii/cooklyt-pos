@@ -46,6 +46,7 @@ const InventoryLedger = lazy(() => import('./pages/InventoryLedger'));
 const Stocktake       = lazy(() => import('./pages/Stocktake'));
 const FoodCostVariance = lazy(() => import('./pages/FoodCostVariance'));
 const Reservations    = lazy(() => import('./pages/Reservations'));
+const Waitlist        = lazy(() => import('./pages/Waitlist'));
 const Coupons         = lazy(() => import('./pages/Coupons'));
 const Loyalty         = lazy(() => import('./pages/Loyalty'));
 const Reviews         = lazy(() => import('./pages/Reviews'));
@@ -150,6 +151,7 @@ export default function App() {
             <Route path="/menu"     element={<Menu />} />
             <Route path="/tables"              element={<Tables />} />
             <Route path="/tables/reservations" element={<RequireAdmin><Reservations /></RequireAdmin>} />
+            <Route path="/tables/waitlist"     element={<RequireNotKitchen><Waitlist /></RequireNotKitchen>} />
             <Route path="/orders"   element={<Orders />} />
             <Route path="/reports"  element={<RequireAdmin><Reports /></RequireAdmin>} />
             <Route path="/users"    element={<RequireAdmin><Users /></RequireAdmin>} />

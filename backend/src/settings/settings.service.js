@@ -8,6 +8,11 @@ const ALLOWED_KEYS = new Set([
   'cash_denominations', 'restaurant_open',
   'daily_revenue_target',
   'city', 'latitude', 'longitude', 'location_captured_at',
+  // ETA / wait-time estimator (Phase 1). The running stat keys
+  // (eta_avg_table_time, eta_category_stats) are intentionally NOT here —
+  // they're system-managed and must not be writable through this API.
+  'eta_enabled', 'eta_buffer_minutes', 'allow_extra_chair',
+  'eta_reservation_block_enabled', 'eta_category_overrides',
 ]);
 
 function validateTz(tz) {
@@ -136,6 +141,28 @@ async function update(key, value, restaurantId) {
   if (key === 'location_captured_at' && value !== '') {
     if (typeof value !== 'string' || isNaN(Date.parse(value))) {
       throw new ValidationError('location_captured_at must be an ISO date string');
+    }
+  }
+  // ── ETA / wait-time estimator ──────────────────────────────────────────────
+  if (['eta_enabled', 'allow_extra_chair', 'eta_reservation_block_enabled'].includes(key)) {
+    if (value !== 'true' && value !== 'false') throw new ValidationError(`${key} must be true or false`);
+  }
+  if (key === 'eta_buffer_minutes') {
+    const n = parseFloat(value);
+    if (isNaN(n) || n < 0 || n > 120) throw new ValidationError('eta_buffer_minutes must be between 0 and 120');
+  }
+  if (key === 'eta_category_overrides') {
+    // JSON map of { category: minutes }. Empty object clears all overrides.
+    let parsed;
+    try { parsed = JSON.parse(value); } catch { throw new ValidationError('eta_category_overrides must be valid JSON'); }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new ValidationError('eta_category_overrides must be a JSON object');
+    }
+    for (const [cat, mins] of Object.entries(parsed)) {
+      const n = parseFloat(mins);
+      if (typeof cat !== 'string' || cat.length > 100 || isNaN(n) || n < 0 || n > 240) {
+        throw new ValidationError('Each override must map a category to 0–240 minutes');
+      }
     }
   }
   await repo.set(restaurantId, key, value);

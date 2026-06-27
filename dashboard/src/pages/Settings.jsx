@@ -4,6 +4,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useTimezone } from '../context/TimezoneContext';
 import { useSettings, useUpdateSetting } from '../hooks/useSettings';
 import { useGeolocation } from '../hooks/useGeolocation';
+import EtaSettings from '../components/EtaSettings';
 import api from '../api/client';
 
 /* ── Searchable dropdown ────────────────────────────────────── */
@@ -629,6 +630,9 @@ export default function Settings() {
           />
         </div>
       </div>
+
+      {/* ── Wait-Time Estimates (ETA) ───────────────────────── */}
+      <EtaSettings />
 
       {/* ── Cash Denominations ──────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
