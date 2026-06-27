@@ -7,6 +7,9 @@ const ws = require('../shared/websocket');
 const { currencies } = require('../../../shared/settings-options.json');
 
 const authRepo = require('../auth/auth.repository');
+const restaurantsRepo = require('../restaurants/restaurants.repository');
+const settingsRepo = require('../settings/settings.repository');
+const waitlistService = require('../waitlist/waitlist.service');
 const { rateLimit } = require('../shared/middleware/rateLimit');
 const { asyncHandler } = require('../shared/asyncHandler');
 
@@ -27,6 +30,15 @@ const tableStaffLimiter = rateLimit({
 const orderLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  message: 'Too many requests, please try again later',
+});
+
+// Joining the waitlist is keyed per restaurant-token + IP so one device can't
+// flood a venue's queue, while different guests at the door are unaffected.
+const waitlistJoinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  key: (req) => `wl:${req.body?.restaurantToken || req.ip}:${req.ip}`,
   message: 'Too many requests, please try again later',
 });
 
@@ -273,6 +285,17 @@ router.post('/request-bill', orderLimiter, asyncHandler(async (req, res) => {
   if (!table) return res.status(404).json({ error: 'Table not found' });
 
   const { number: tableNumber, restaurant_id: restaurantId, assigned_staff_id: staffId } = table;
+
+  // Persist the request so the ETA engine can shorten this table's estimate and
+  // the session log can record when the bill was asked for. Stamp only the
+  // first time (don't overwrite an earlier request) across all active orders.
+  await db.query(
+    `UPDATE orders SET requested_bill_at = NOW()
+     WHERE table_id = $1 AND status NOT IN ('paid', 'cancelled')
+       AND requested_bill_at IS NULL`,
+    [table.id],
+  );
+
   const payload = { tableId: table.id, tableNumber };
   if (staffId) {
     // Notify the assigned staff member + all admins + cashiers
@@ -344,6 +367,62 @@ router.post('/reviews', reviewLimiter, asyncHandler(async (req, res) => {
   );
 
   res.status(201).json({ success: true });
+}));
+
+// ── Walk-in waitlist (door QR) ───────────────────────────────────────────────
+// These key on the RESTAURANT public_token (the door/host-stand QR), not a table.
+
+// GET /api/public/restaurant/:restaurantToken
+// Minimal restaurant info for the waitlist onboarding screen.
+router.get('/restaurant/:restaurantToken', asyncHandler(async (req, res) => {
+  const { restaurantToken } = req.params;
+  if (!UUID_RE.test(restaurantToken)) return res.status(404).json({ error: 'Not found' });
+
+  const restaurant = await restaurantsRepo.findByPublicToken(restaurantToken);
+  if (!restaurant) return res.status(404).json({ error: 'Not found' });
+
+  const settings = await settingsRepo.getAll(restaurant.id);
+  res.json({
+    restaurant_id:   restaurant.id,
+    restaurant_name: restaurant.name,
+    eta_enabled:     settings.eta_enabled === 'true',
+    allow_extra_chair: settings.allow_extra_chair === 'true',
+  });
+}));
+
+// POST /api/public/waitlist  { restaurantToken, guestName, guestPhone, partySize, allowExtraChair, whatsappOptIn, prefs }
+// A walk-in joins the queue. Returns the entry's own token to poll status with.
+router.post('/waitlist', waitlistJoinLimiter, asyncHandler(async (req, res) => {
+  const { restaurantToken } = req.body;
+  if (!restaurantToken || !UUID_RE.test(restaurantToken)) {
+    return res.status(400).json({ error: 'restaurantToken is required' });
+  }
+  const restaurant = await restaurantsRepo.findByPublicToken(restaurantToken);
+  if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+  const entry = await waitlistService.join(restaurant.id, {
+    guestName:       req.body.guestName,
+    guestPhone:      req.body.guestPhone,
+    partySize:       req.body.partySize,
+    allowExtraChair: !!req.body.allowExtraChair,
+    whatsappOptIn:   !!req.body.whatsappOptIn,
+    prefs:           req.body.prefs && typeof req.body.prefs === 'object' ? req.body.prefs : {},
+  });
+  res.status(201).json(entry);
+}));
+
+// GET /api/public/waitlist/:token — guest polls their own live position + ETA.
+router.get('/waitlist/:token', asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  if (!UUID_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  res.json(await waitlistService.getStatusByToken(token));
+}));
+
+// POST /api/public/waitlist/:token/cancel — guest leaves the queue.
+router.post('/waitlist/:token/cancel', orderLimiter, asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  if (!UUID_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  res.json(await waitlistService.cancelByToken(token));
 }));
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const repo = require('./tables.repository');
 const ws = require('../shared/websocket');
 const db = require('../shared/db');
+const sessionsService = require('../sessions/sessions.service');
 const { NotFoundError, ValidationError } = require('../shared/errors');
 
 async function getAll(restaurantId) {
@@ -33,8 +34,22 @@ async function updateStatus(tableId, status, restaurantId, reservation = null) {
   const VALID = ['available', 'occupied', 'reserved', 'cleaning'];
   if (!VALID.includes(status))
     throw new ValidationError(`status must be one of: ${VALID.join(', ')}`);
-  await getById(tableId, restaurantId);
-  return repo.updateStatus(tableId, status, restaurantId, reservation);
+  const before = await getById(tableId, restaurantId);
+  const updated = await repo.updateStatus(tableId, status, restaurantId, reservation);
+
+  // Single chokepoint for "a table just freed": every path that frees a dining
+  // table (payment, split payment, full cancellation, manual status change, or a
+  // manual move to 'cleaning') funnels through here. We log whenever the table
+  // LEAVES 'occupied', so an occupied -> cleaning -> available flow can't slip
+  // through. Logging is idempotent (UNIQUE session_id), so the later
+  // cleaning -> available transition won't double-count.
+  // Fire-and-forget — must never affect the table update or its callers.
+  if (before?.status === 'occupied' && status !== 'occupied') {
+    sessionsService.recordSessionEnd(tableId, restaurantId)
+      .catch((err) => console.error('[sessions] recordSessionEnd failed for table', tableId, err?.message));
+  }
+
+  return updated;
 }
 
 async function updatePosition(id, x, y, restaurantId) {
