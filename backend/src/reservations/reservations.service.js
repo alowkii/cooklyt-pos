@@ -2,17 +2,10 @@ const repo        = require('./reservations.repository');
 const tablesRepo  = require('../tables/tables.repository');
 const ws          = require('../shared/websocket');
 const { NotFoundError, ValidationError } = require('../shared/errors');
-
-function validateTz(tz) {
-  if (tz == null || tz === '') return 'UTC';
-  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
-    throw new ValidationError('Invalid timezone identifier');
-  }
-  return tz;
-}
+const { validateTimezone } = require('../shared/timezone');
 
 async function getAll(restaurantId, query = {}) {
-  return repo.getAll(restaurantId, { ...query, tz: validateTz(query.tz) });
+  return repo.getAll(restaurantId, { ...query, tz: validateTimezone(query.tz, 'UTC') });
 }
 
 async function create(restaurantId, { tableId, guestName, guestPhone, partySize, reservedAt, notes }) {

@@ -51,6 +51,16 @@ const reviewLimiter = rateLimit({
   message: 'Too many requests, please try again later',
 });
 
+// Guests poll their waitlist status repeatedly. Key per entry-token (the
+// capability) so rotating IPs can't bypass it; generous ceiling (~1 poll / 7.5s)
+// since the handler is read-only, this just caps abuse of the queue computation.
+const waitlistPollLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  key: (req) => `wl-poll:${req.params.token}`,
+  message: 'Too many requests, please try again later',
+});
+
 const router = express.Router();
 // Allow any origin — customers scan from mobile phones on any network
 router.use(cors({ origin: '*' }));
@@ -412,7 +422,7 @@ router.post('/waitlist', waitlistJoinLimiter, asyncHandler(async (req, res) => {
 }));
 
 // GET /api/public/waitlist/:token — guest polls their own live position + ETA.
-router.get('/waitlist/:token', asyncHandler(async (req, res) => {
+router.get('/waitlist/:token', waitlistPollLimiter, asyncHandler(async (req, res) => {
   const { token } = req.params;
   if (!UUID_RE.test(token)) return res.status(404).json({ error: 'Not found' });
   res.json(await waitlistService.getStatusByToken(token));

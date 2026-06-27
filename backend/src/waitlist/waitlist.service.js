@@ -86,13 +86,19 @@ async function list(restaurantId) {
   return all.map((e) => shape(e, computed));
 }
 
+// READ-ONLY status for the public guest poll. Computes this party's live queue
+// position with a single SELECT and reuses the persisted estimated_wait_minutes
+// — it never recomputes the whole queue or writes. The persisted estimates are
+// kept fresh by recomputeQueue on every mutation (join/seat/cancel/no_show), so
+// an unauthenticated phone polling this endpoint can't amplify into one write
+// per waiting party per request.
 async function getStatusByToken(token) {
   const entry = await repo.getByToken(token);
   if (!entry) throw new NotFoundError('Waitlist entry');
-  // Only recompute live positions while still waiting; resolved entries are static.
-  const computed = entry.status === 'waiting' ? await recomputeQueue(entry.restaurant_id) : null;
-  const current = computed ? await repo.getByToken(token) : entry;
-  return shape(current, computed);
+  if (entry.status !== 'waiting') return shape(entry, null); // resolved entries are static
+  const queue = await repo.getActiveQueue(entry.restaurant_id);
+  const position = queue.findIndex((q) => q.id === entry.id) + 1;
+  return { ...shape(entry, null), position: position > 0 ? position : null };
 }
 
 async function seat(id, restaurantId, tableId) {

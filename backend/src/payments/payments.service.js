@@ -162,19 +162,18 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
       "UPDATE orders SET status = 'paid' WHERE id = $1 AND restaurant_id = $2",
       [orderId, restaurantId],
     );
+
+    // Settle loyalty inside the payment tx so points (redeem + earn) commit or
+    // roll back atomically with the charge; an oversell trips the balance CHECK.
+    if (order.loyalty_customer_id) {
+      await loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
+      await loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, subtotal, settings, client);
+    }
     return created;
   });
 
   // Mirror the ORDER_STATUS_CHANGED broadcast markOrderPaid used to emit.
   ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status: 'paid' }, restaurantId);
-
-  // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
-  if (order.loyalty_customer_id) {
-    Promise.all([
-      loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0),
-      loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, subtotal, settings),
-    ]).catch((err) => console.error('[loyalty] post-payment update failed for order', orderId, err?.message));
-  }
 
   // For dining tables with multiple rounds, only fire once when the LAST order is paid.
   // This prevents duplicate PAYMENT_COMPLETED notifications for multi-round sessions.
@@ -322,6 +321,14 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
       "UPDATE orders SET status = 'paid' WHERE id = $1 AND restaurant_id = $2",
       [orderId, restaurantId],
     );
+
+    // Settle loyalty inside the payment tx (atomic with the charge). Earn is on
+    // the full order subtotal, not the per-split amounts.
+    if (order.loyalty_customer_id) {
+      const fullSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
+      await loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
+      await loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, fullSubtotal, settings, client);
+    }
     return created;
   });
 
@@ -331,15 +338,6 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
   if (order.table_id) {
     await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
     await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
-  }
-
-  // Loyalty: deduct redeemed points + earn new points (fire-and-forget)
-  if (order.loyalty_customer_id) {
-    const fullSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
-    Promise.all([
-      loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0),
-      loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, fullSubtotal, settings),
-    ]).catch((err) => console.error('[loyalty] post-payment update failed for order', orderId, err?.message));
   }
 
   const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));

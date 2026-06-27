@@ -1,7 +1,9 @@
 const db = require('../shared/db');
 
-const createTransaction = ({ restaurantId, ingredientId, txnType, quantityDelta, refId, unitCost, performedBy }) =>
-  db
+// `exec` defaults to the pool but accepts a transaction client so the ledger
+// insert can be committed atomically with its matching stock update.
+const createTransaction = ({ restaurantId, ingredientId, txnType, quantityDelta, refId, unitCost, performedBy }, exec = db) =>
+  exec
     .query(
       `INSERT INTO inventory_transactions
          (restaurant_id, ingredient_id, txn_type, quantity_delta, ref_id, unit_cost, performed_by)

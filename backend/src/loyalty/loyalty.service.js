@@ -42,8 +42,9 @@ async function adjustPoints(restaurantId, customerId, points, description) {
   });
 }
 
-// Called after payment completes — fire-and-forget safe (caller wraps in .catch)
-async function earnPoints(restaurantId, customerId, orderId, earnableAmount, settings) {
+// Settled inside the payment transaction — pass the payment's `client` so points
+// commit (or roll back) atomically with the payment.
+async function earnPoints(restaurantId, customerId, orderId, earnableAmount, settings, client) {
   const rate = parseFloat(settings.loyalty_points_per_unit || '0');
   if (rate <= 0) return;
   const points = Math.floor(earnableAmount * rate);
@@ -52,17 +53,19 @@ async function earnPoints(restaurantId, customerId, orderId, earnableAmount, set
     customerId, orderId, type: 'earn',
     points,
     description: `Earned from order`,
-  });
+  }, client);
 }
 
-// Called after payment completes to deduct redeemed points
-async function deductPoints(restaurantId, customerId, orderId, pointsRedeemed) {
+// Deduct redeemed points; settled inside the payment transaction. A redeem that
+// would drive the balance negative trips the points_balance >= 0 CHECK and rolls
+// the payment back (no oversell).
+async function deductPoints(restaurantId, customerId, orderId, pointsRedeemed, client) {
   if (pointsRedeemed <= 0) return;
   await repo.addTransaction(restaurantId, {
     customerId, orderId, type: 'redeem',
     points: -pointsRedeemed,
     description: 'Redeemed on order',
-  });
+  }, client);
 }
 
 // Called when cashier tries to apply redemption — validates without committing

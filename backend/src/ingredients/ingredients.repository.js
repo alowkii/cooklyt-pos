@@ -45,8 +45,11 @@ const update = (id, { name, unit, reorderLevel, reorderQty, latestUnitCost, isAc
     )
     .then((r) => r.rows[0]);
 
-const adjustStock = (id, delta, restaurantId) =>
-  db
+// `exec` defaults to the pool but accepts a transaction client so the stock
+// update can be committed atomically with its matching ledger row (see
+// inventory.service.postStockMovement).
+const adjustStock = (id, delta, restaurantId, exec = db) =>
+  exec
     .query(
       `UPDATE ingredients SET stock_on_hand = stock_on_hand + $1
        WHERE id = $2 AND restaurant_id = $3 RETURNING *`,

@@ -9,6 +9,7 @@ const loyaltyInterface = require('../loyalty/loyalty.interface');
 const ws = require('../shared/websocket');
 const db = require('../shared/db');
 const { NotFoundError, ValidationError, ForbiddenError } = require('../shared/errors');
+const { validateTimezone } = require('../shared/timezone');
 
 // Persists a notification for all active admins + kitchen users and broadcasts over WebSocket.
 async function _notifyAdmins(restaurantId, event, payload) {
@@ -80,7 +81,19 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
     }
   }
 
-  const order = await repo.create({ restaurantId, tableId, createdBy, items, channel, customerRef, assignedStaffId });
+  // Order, its line items, and the recipe stock deduction commit together: if
+  // the deduction fails the whole order rolls back (no silent stock drift).
+  const order = await db.withTransaction(async (client) => {
+    const created = await repo.create(
+      { restaurantId, tableId, createdBy, items, channel, customerRef, assignedStaffId },
+      client,
+    );
+    await inventoryService.deductForOrderTx(
+      client, created.id, restaurantId,
+      items.map((i) => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
+    );
+    return created;
+  });
 
   if (tableId) {
     await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
@@ -88,11 +101,6 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
       await tablesInterface.setTableStaff(tableId, assignedStaffId, restaurantId);
     }
   }
-
-  inventoryService.deductForOrder(
-    order.id, restaurantId,
-    items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
-  ).catch((err) => console.error('[inventory] deductForOrder failed for order', order.id, err?.message));
 
   // customerPlaced lets a designated kitchen terminal auto-print KOTs only for
   // orders placed from the customer QR menu (no staff at a terminal to print).
@@ -123,16 +131,18 @@ async function addItems(orderId, items, restaurantId) {
     }
   }
 
-  await repo.addItems(orderId, items, restaurantId);
+  // Added items and their stock deduction commit together (atomic-fail).
+  await db.withTransaction(async (client) => {
+    await repo.addItems(orderId, items, restaurantId, client);
+    await inventoryService.deductForOrderTx(
+      client, orderId, restaurantId,
+      items.map((i) => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
+    );
+  });
   // New items on a served order go back to kitchen — reset to received
   if (order.status === 'served') {
     await repo.updateStatus(orderId, 'received', restaurantId);
   }
-
-  inventoryService.deductForOrder(
-    orderId, restaurantId,
-    items.map(i => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
-  ).catch((err) => console.error('[inventory] deductForOrder failed for order', orderId, err?.message));
 
   ws.broadcast('ORDER_UPDATED', { orderId }, restaurantId);
   return getById(orderId, restaurantId);
@@ -438,16 +448,9 @@ module.exports = {
   getHistory,
 };
 
-function validateTz(tz) {
-  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
-    throw new ValidationError('Invalid timezone identifier');
-  }
-  return tz;
-}
-
 async function getHistory(restaurantId, { from, to, status, channel, timezone: tzParam }) {
   const rawTz = tzParam || await settingsRepo.getAll(restaurantId).then((s) => s.timezone || 'UTC');
-  const timezone = validateTz(rawTz);
+  const timezone = validateTimezone(rawTz);
   const orders = await repo.getHistory(restaurantId, { from, to, status, channel, timezone });
 
   const stats = orders.reduce(

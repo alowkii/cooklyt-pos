@@ -1,5 +1,6 @@
 const repo = require('./settings.repository');
 const { ValidationError, AppError } = require('../shared/errors');
+const { validateTimezone } = require('../shared/timezone');
 
 const ALLOWED_KEYS = new Set([
   'timezone', 'currency', 'tax_rate', 'service_charge', 'packaging_fee',
@@ -14,12 +15,6 @@ const ALLOWED_KEYS = new Set([
   'eta_enabled', 'eta_buffer_minutes', 'allow_extra_chair',
   'eta_reservation_block_enabled', 'eta_category_overrides',
 ]);
-
-function validateTz(tz) {
-  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
-    throw new ValidationError('Invalid timezone identifier');
-  }
-}
 
 function validateCurrency(code) {
   if (typeof code !== 'string' || !/^[A-Z]{3}$/.test(code)) {
@@ -81,7 +76,7 @@ async function update(key, value, restaurantId) {
   if (!ALLOWED_KEYS.has(key)) {
     throw new ValidationError(`Unknown setting: ${key}`);
   }
-  if (key === 'timezone') validateTz(value);
+  if (key === 'timezone') validateTimezone(value);
   if (key === 'currency') validateCurrency(value);
   if (key === 'tax_rate') validateRate(value, 'tax_rate');
   if (key === 'service_charge') validateRate(value, 'service_charge');
