@@ -16,8 +16,8 @@ const getActiveByTable = (tableId, restaurantId) =>
                 'menu_item_id', oi.menu_item_id,
                 'quantity', oi.quantity,
                 'notes', oi.notes,
-                'name', mi.name,
-                'price', mi.price
+                'name', COALESCE(oi.item_name, mi.name),
+                'price', COALESCE(oi.unit_price, mi.price)
               )) AS items
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id
@@ -33,7 +33,9 @@ const getActiveByTable = (tableId, restaurantId) =>
 const getItemsByOrderId = (orderId, restaurantId) =>
   db
     .query(
-      `SELECT oi.*, mi.name, mi.price
+      `SELECT oi.*,
+              COALESCE(oi.item_name, mi.name)   AS name,
+              COALESCE(oi.unit_price, mi.price)  AS price
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        JOIN orders     o  ON o.id  = oi.order_id
@@ -53,7 +55,7 @@ const getKotData = (orderId, restaurantId) =>
               COALESCE(
                 json_agg(
                   json_build_object(
-                    'item_name',      mi.name,
+                    'item_name',      COALESCE(oi.item_name, mi.name),
                     'category',       mi.category,
                     'quantity',       oi.quantity,
                     'notes',          oi.notes,
@@ -109,8 +111,11 @@ const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', c
     );
 
     for (const item of items) {
+      // Snapshot the item's name + unit price at order time so the line is immune to
+      // later menu edits (O2). Pulled from menu_items in the same statement.
       await client.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
+        `INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations, item_name, unit_price)
+         SELECT $1, $2, $3, $4, $5, mi.name, mi.price FROM menu_items mi WHERE mi.id = $2`,
         [order.id, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
@@ -130,7 +135,8 @@ const addItems = (orderId, items, restaurantId) =>
     if (rowCount === 0) return;
     for (const item of items) {
       await client.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations) VALUES ($1, $2, $3, $4, $5)',
+        `INSERT INTO order_items (order_id, menu_item_id, quantity, notes, customizations, item_name, unit_price)
+         SELECT $1, $2, $3, $4, $5, mi.name, mi.price FROM menu_items mi WHERE mi.id = $2`,
         [orderId, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
@@ -187,7 +193,7 @@ const setDiscount = (id, discountType, discountValue, restaurantId) =>
 const calculateTotal = (orderId, restaurantId) =>
   db
     .query(
-      `SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
+      `SELECT COALESCE(SUM(COALESCE(oi.unit_price, mi.price) * oi.quantity), 0) AS total
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        JOIN orders     o  ON o.id  = oi.order_id
@@ -227,13 +233,13 @@ const getHistory = (restaurantId, { from, to, status, channel, timezone }) =>
        p.service_charge_rate,
        p.service_charge_amount,
        p.discount_amount AS bill_discount_amount,
-       COALESCE(SUM(mi.price * oi.quantity), 0) AS items_total,
+       COALESCE(SUM(COALESCE(oi.unit_price, mi.price) * oi.quantity), 0) AS items_total,
        COALESCE(
          json_agg(
            json_build_object(
-             'name',     mi.name,
+             'name',     COALESCE(oi.item_name, mi.name),
              'quantity', oi.quantity,
-             'price',    mi.price,
+             'price',    COALESCE(oi.unit_price, mi.price),
              'notes',    oi.notes
            ) ORDER BY mi.name
          ) FILTER (WHERE oi.id IS NOT NULL),

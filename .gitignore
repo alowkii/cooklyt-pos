@@ -7,3 +7,12 @@
 .env
 .env.*
 !.env.example
+
+# Markdown notes/reviews/planning docs — keep local for now.
+# Only README files stay tracked (project + codebase-review index).
+*.md
+!README.md
+!**/README.md
+
+# Word docs (specs/feature notes) — keep local.
+*.docx

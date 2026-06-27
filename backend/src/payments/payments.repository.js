@@ -87,9 +87,9 @@ const getReceiptData = (orderId, restaurantId) =>
        COALESCE(
          jsonb_agg(
            jsonb_build_object(
-             'name',     mi.name,
+             'name',     COALESCE(oi.item_name, mi.name),
              'quantity', oi.quantity,
-             'price',    mi.price,
+             'price',    COALESCE(oi.unit_price, mi.price),
              'notes',    oi.notes
            ) ORDER BY mi.name
          ) FILTER (WHERE oi.id IS NOT NULL),
