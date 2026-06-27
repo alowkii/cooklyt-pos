@@ -68,6 +68,25 @@ describe('public waitlist (door QR)', () => {
     expect(status.body.status).toBe('waiting');
   });
 
+  it('polling status is read-only — never writes per-party estimates', async () => {
+    const waitlistRepo = require('../src/waitlist/waitlist.repository');
+    const join = await request(app)
+      .post('/api/public/waitlist')
+      .send({ restaurantToken, guestName: 'Poller', partySize: 2 });
+    const t = join.body.token;
+
+    // The join legitimately recomputes+writes; the poll that follows must not.
+    const spy = jest.spyOn(waitlistRepo, 'setEstimate');
+    const status = await request(app).get(`/api/public/waitlist/${t}`);
+    expect(status.status).toBe(200);
+    expect(status.body.status).toBe('waiting');
+    expect(typeof status.body.position).toBe('number');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+
+    await request(app).post(`/api/public/waitlist/${t}/cancel`); // tidy up the queue
+  });
+
   it('lets a guest cancel by token (idempotently)', async () => {
     const join = await request(app)
       .post('/api/public/waitlist')

@@ -67,6 +67,31 @@ describe("POST /api/payments/:orderId", () => {
   });
 });
 
+describe("loyalty oversell guard (CHECK points_balance >= 0)", () => {
+  // Settlement now runs inside the payment transaction; the DB CHECK (migration
+  // 071) makes a redeem that would go negative fail and roll back atomically.
+  it("rejects a redemption that would drive the balance negative and leaves it unchanged", async () => {
+    const loyaltyRepo = require("../src/loyalty/loyalty.repository");
+    const { rows: [c] } = await db.query(
+      `INSERT INTO loyalty_customers (restaurant_id, phone, name, points_balance)
+       VALUES ($1, '5550001111', 'Oversell', 10) RETURNING *`,
+      [restaurantId],
+    );
+
+    await expect(
+      loyaltyRepo.addTransaction(restaurantId, {
+        customerId: c.id, orderId: null, type: "redeem", points: -50, description: "test oversell",
+      }),
+    ).rejects.toThrow();
+
+    // The failed transaction rolled back — balance is still 10.
+    const { rows: [after] } = await db.query(
+      "SELECT points_balance FROM loyalty_customers WHERE id = $1", [c.id],
+    );
+    expect(after.points_balance).toBe(10);
+  });
+});
+
 describe("concurrent payments on the same order", () => {
   // The order-row lock must serialize two simultaneous payments so the order is
   // charged exactly once — without it both requests could pass the status check

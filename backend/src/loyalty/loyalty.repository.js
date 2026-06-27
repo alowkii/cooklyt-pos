@@ -46,20 +46,25 @@ const getTransactions = (restaurantId, customerId, { limit = 30, offset = 0 } = 
     [restaurantId, customerId, limit, offset],
   ).then((r) => r.rows);
 
-// Transactionally add a transaction row and update the customer balance.
-const addTransaction = (restaurantId, { customerId, orderId, type, points, description }) =>
-  db.withTransaction(async (client) => {
-    await client.query(
-      `INSERT INTO loyalty_transactions (restaurant_id, customer_id, order_id, type, points, description)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [restaurantId, customerId, orderId || null, type, points, description || null],
-    );
-    const res = await client.query(
-      'UPDATE loyalty_customers SET points_balance = points_balance + $1 WHERE id = $2 RETURNING *',
-      [points, customerId],
-    );
-    return res.rows[0];
-  });
+// Add a ledger row and update the customer balance atomically. Accepts an
+// optional transaction `client` so settlement can join the caller's transaction
+// (e.g. the payment tx); without one it opens its own transaction.
+const addTransaction = (restaurantId, payload, client) =>
+  client ? _addTransaction(client, restaurantId, payload)
+         : db.withTransaction((c) => _addTransaction(c, restaurantId, payload));
+
+const _addTransaction = async (client, restaurantId, { customerId, orderId, type, points, description }) => {
+  await client.query(
+    `INSERT INTO loyalty_transactions (restaurant_id, customer_id, order_id, type, points, description)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [restaurantId, customerId, orderId || null, type, points, description || null],
+  );
+  const res = await client.query(
+    'UPDATE loyalty_customers SET points_balance = points_balance + $1 WHERE id = $2 RETURNING *',
+    [points, customerId],
+  );
+  return res.rows[0];
+};
 
 const remove = (restaurantId, id) =>
   db.query(

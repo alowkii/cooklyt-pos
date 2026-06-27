@@ -1,6 +1,7 @@
 const repo = require('./reports.repository');
 const stocktakeRepo = require('../stocktake/stocktake.repository');
 const { ValidationError, NotFoundError } = require('../shared/errors');
+const { validateTimezone } = require('../shared/timezone');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -20,12 +21,6 @@ function parseDate(dateStr, field = 'date') {
   return dateStr;
 }
 
-function validateTz(tz) {
-  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
-    throw new ValidationError('Invalid timezone identifier');
-  }
-  return tz;
-}
 
 function validateGroup(g) {
   if (!VALID_GROUPS.includes(g)) {
@@ -48,7 +43,7 @@ function validateRange(from, to) {
 
 async function getDailySummary(dateStr, tzStr = 'UTC', restaurantId, channelRaw) {
   const date    = parseDate(dateStr);
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const channel = validateChannel(channelRaw);
   const [summary, byCategory, topItems, hourly, cancelled] = await Promise.all([
     repo.getDailySummary(date, tz, restaurantId, channel),
@@ -74,7 +69,7 @@ async function getDailySummary(dateStr, tzStr = 'UTC', restaurantId, channelRaw)
 async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const group   = validateGroup(groupStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
@@ -93,7 +88,7 @@ async function getTrends(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restau
 async function getItemProfitability(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const limit   = Math.min(parseInt(limitRaw, 10) || 50, 200);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
@@ -127,7 +122,7 @@ async function getItemProfitability(fromStr, toStr, tzStr = 'UTC', limitRaw, res
 async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
@@ -148,7 +143,7 @@ async function getStaffPerformance(fromStr, toStr, tzStr = 'UTC', restaurantId, 
 async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', limitRaw, restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const group   = validateGroup(groupStr);
   const limit   = Math.min(parseInt(limitRaw, 10) || 8, 20);
   const channel = validateChannel(channelRaw);
@@ -169,7 +164,7 @@ async function getItemsByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day',
 async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const group   = validateGroup(groupStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
@@ -189,7 +184,7 @@ async function getStaffByPeriod(fromStr, toStr, tzStr = 'UTC', groupStr = 'day',
 async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
@@ -224,7 +219,7 @@ async function getSalesSummaryReport(fromStr, toStr, tzStr = 'UTC', restaurantId
 async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
 
@@ -242,7 +237,7 @@ async function getCollectionReport(fromStr, toStr, tzStr = 'UTC', restaurantId, 
 async function getItemGroupsReport(fromStr, toStr, tzStr = 'UTC', limitRaw, restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const limit   = Math.min(parseInt(limitRaw, 10) || 100, 200);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
@@ -261,7 +256,7 @@ async function getItemGroupsReport(fromStr, toStr, tzStr = 'UTC', limitRaw, rest
 async function getTableWiseSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId) {
   const from = parseDate(fromStr, 'from');
   const to   = parseDate(toStr,   'to');
-  const tz   = validateTz(tzStr);
+  const tz   = validateTimezone(tzStr);
   validateRange(from, to);
 
   const rows = await repo.getTableWiseSales(from, to, tz, restaurantId);
@@ -279,7 +274,7 @@ async function getTableWiseSalesReport(fromStr, toStr, tzStr = 'UTC', restaurant
 async function getNCSalesReport(fromStr, toStr, tzStr = 'UTC', restaurantId, channelRaw) {
   const from    = parseDate(fromStr, 'from');
   const to      = parseDate(toStr,   'to');
-  const tz      = validateTz(tzStr);
+  const tz      = validateTimezone(tzStr);
   const channel = validateChannel(channelRaw);
   validateRange(from, to);
 

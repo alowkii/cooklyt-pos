@@ -53,6 +53,32 @@ describe("POST /api/orders", () => {
       .send({ tableId, items: [] });
     expect(res.status).toBe(400);
   });
+
+  it("rolls back the whole order if stock deduction fails (atomic)", async () => {
+    const inventoryService = require("../src/inventory/inventory.service");
+    const spy = jest
+      .spyOn(inventoryService, "deductForOrderTx")
+      .mockRejectedValueOnce(new Error("forced deduction failure"));
+
+    const { rows: [before] } = await db.query(
+      "SELECT COUNT(*)::int AS n FROM orders WHERE restaurant_id = $1",
+      [restaurantId],
+    );
+
+    const res = await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tableId, items: [{ menuItemId, quantity: 1 }] });
+    expect(res.status).toBe(500);
+
+    const { rows: [after] } = await db.query(
+      "SELECT COUNT(*)::int AS n FROM orders WHERE restaurant_id = $1",
+      [restaurantId],
+    );
+    expect(after.n).toBe(before.n); // order + line items rolled back — no new row
+
+    spy.mockRestore();
+  });
 });
 
 describe("GET /api/orders/:id", () => {

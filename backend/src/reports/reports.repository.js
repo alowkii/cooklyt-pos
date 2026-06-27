@@ -405,7 +405,7 @@ const getNCSales = (from, to, tz = 'UTC', restaurantId, channel = null) =>
 // The window is bounded by two finalized stock counts' timestamps (t0, t1].
 
 // Theoretical ingredient usage: recipe quantity × units sold (paid orders),
-// rolled up to ingredient. Mirrors inventory.service.deductForOrder's explosion
+// rolled up to ingredient. Mirrors inventory.service's recipe-stock explosion
 // (menu_items.recipe_id → recipe_ingredients) so theoretical matches what the
 // ledger deducts.
 const getTheoreticalUsage = (restaurantId, t0, t1) =>

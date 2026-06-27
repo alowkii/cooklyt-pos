@@ -75,8 +75,13 @@ const getKotData = (orderId, restaurantId) =>
     )
     .then((r) => r.rows[0] || null);
 
-const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) =>
-  db.withTransaction(async (client) => {
+// Accepts an optional transaction `client`; when supplied the order + line items
+// are written on the caller's transaction (so order creation and stock deduction
+// commit or roll back together). Without one it opens its own transaction.
+const create = (payload, client) =>
+  client ? _create(client, payload) : db.withTransaction((c) => _create(c, payload));
+
+const _create = async (client, { restaurantId, tableId, createdBy, items, channel = 'dining', customerRef = null, assignedStaffId = null }) => {
     // Reuse the session ID if this table already has active orders; otherwise start a new session.
     let sessionId = null;
     if (tableId) {
@@ -121,10 +126,13 @@ const create = ({ restaurantId, tableId, createdBy, items, channel = 'dining', c
     }
 
     return order;
-  });
+};
 
-const addItems = (orderId, items, restaurantId) =>
-  db.withTransaction(async (client) => {
+const addItems = (orderId, items, restaurantId, client) =>
+  client ? _addItems(client, orderId, items, restaurantId)
+         : db.withTransaction((c) => _addItems(c, orderId, items, restaurantId));
+
+const _addItems = async (client, orderId, items, restaurantId) => {
     // Defence in depth: confirm the order belongs to this restaurant (and lock it)
     // before inserting, so a stray orderId can never graft items onto another
     // tenant's order even if a caller skipped the service-layer ownership check.
@@ -140,7 +148,7 @@ const addItems = (orderId, items, restaurantId) =>
         [orderId, item.menuItemId, item.quantity, item.notes || null, JSON.stringify(item.customizations || {})],
       );
     }
-  });
+};
 
 const updateStatus = (id, status, restaurantId) =>
   db

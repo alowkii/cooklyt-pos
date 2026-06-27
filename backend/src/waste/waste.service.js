@@ -5,19 +5,12 @@ const menuRepo       = require('../menu/menu.repository');
 const recipesRepo    = require('../recipes/recipes.repository');
 const invRepo        = require('../inventory/inventory.repository');
 const { NotFoundError, ValidationError } = require('../shared/errors');
+const { validateTimezone } = require('../shared/timezone');
 
 const VALID_REASONS = ['SPOILAGE', 'SPILL', 'OVERPREP', 'DAMAGED', 'OTHER'];
 
-function validateTz(tz) {
-  if (tz == null || tz === '') return 'UTC';
-  if (typeof tz !== 'string' || !/^[A-Za-z0-9/_+\-]+$/.test(tz)) {
-    throw new ValidationError('Invalid timezone identifier');
-  }
-  return tz;
-}
-
 async function getAll(restaurantId, { from, to, tz } = {}) {
-  return repo.getAll(restaurantId, { from, to, tz: validateTz(tz) });
+  return repo.getAll(restaurantId, { from, to, tz: validateTimezone(tz, 'UTC') });
 }
 
 async function logWaste({ restaurantId, ingredientId, quantity, unit, reason, notes, loggedBy }) {
