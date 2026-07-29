@@ -1,8 +1,9 @@
 const repo = require('./payments.repository');
-const ordersInterface = require('../orders/orders.interface');
-const tablesInterface = require('../tables/tables.interface');
+const ordersService = require('../orders/orders.service');
+const tablesService = require('../tables/tables.service');
+const tablesRepo = require('../tables/tables.repository'); // raw assignStaff: skip the service's validation/notify (internal table<->order sync)
 const settingsRepo = require('../settings/settings.repository');
-const loyaltyInterface = require('../loyalty/loyalty.interface');
+const loyaltyService = require('../loyalty/loyalty.service');
 const couponsRepo = require('../coupons/coupons.repository');
 const ws = require('../shared/websocket');
 const db = require('../shared/db');
@@ -46,11 +47,11 @@ function computeBill(subtotal, taxRate, serviceChargeRate, discountType = null, 
 
 // Returns bill for the full order, or for specific order_item IDs (split preview)
 async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceCharge = false) {
-  const order = await ordersInterface.getOrderById(orderId, restaurantId);
+  const order = await ordersService.getById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
 
   const [allItems, settings, couponRow] = await Promise.all([
-    ordersInterface.getOrderItems(orderId, restaurantId),
+    ordersService.getItems(orderId, restaurantId),
     settingsRepo.getAll(restaurantId),
     order.coupon_id ? couponsRepo.getById(restaurantId, order.coupon_id) : Promise.resolve(null),
   ]);
@@ -82,7 +83,7 @@ async function getBill(orderId, restaurantId, orderItemIds = null, waiveServiceC
     return { ...bill, items, couponCode };
   }
 
-  const subtotal = await ordersInterface.getOrderTotal(orderId, restaurantId);
+  const subtotal = await ordersService.calculateTotal(orderId, restaurantId);
   const bill = computeBill(
     subtotal, taxRate, serviceChargeRate,
     order.discount_type, order.discount_value, packagingFeeTotal,
@@ -110,7 +111,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     effectiveMethod = method;
   }
 
-  const order = await ordersInterface.getOrderById(orderId, restaurantId);
+  const order = await ordersService.getById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
   if (order.status === 'paid') throw new AppError('Order is already paid', 400);
 
@@ -120,7 +121,7 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   const packagingFee      = order.channel !== 'dining'
     ? parseFloat(settings.packaging_fee || '0')
     : 0;
-  const subtotal          = await ordersInterface.getOrderTotal(orderId, restaurantId);
+  const subtotal          = await ordersService.calculateTotal(orderId, restaurantId);
 
   const { taxAmount, serviceChargeAmount, discountAmount, couponDiscountAmount, loyaltyDiscountAmount, total } =
     computeBill(subtotal, taxRate, serviceChargeRate, order.discount_type, order.discount_value, packagingFee,
@@ -166,8 +167,8 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
     // Settle loyalty inside the payment tx so points (redeem + earn) commit or
     // roll back atomically with the charge; an oversell trips the balance CHECK.
     if (order.loyalty_customer_id) {
-      await loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
-      await loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, subtotal, settings, client);
+      await loyaltyService.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
+      await loyaltyService.earnPoints(restaurantId, order.loyalty_customer_id, orderId, subtotal, settings, client);
     }
     return created;
   });
@@ -178,10 +179,10 @@ async function processPayment(orderId, { method, tenders: tendersInput, amountTe
   // For dining tables with multiple rounds, only fire once when the LAST order is paid.
   // This prevents duplicate PAYMENT_COMPLETED notifications for multi-round sessions.
   if (order.table_id) {
-    const remaining = await ordersInterface.getActiveOrdersForTable(order.table_id, restaurantId);
+    const remaining = await ordersService.getActiveByTable(order.table_id, restaurantId);
     if (remaining.length === 0) {
-      await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
-      await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
+      await tablesService.updateStatus(order.table_id, 'available', restaurantId);
+      await tablesRepo.assignStaff(order.table_id, null, restaurantId);
       ws.broadcast('PAYMENT_COMPLETED', { orderId, paymentId: payment.id, total }, restaurantId);
     }
   } else {
@@ -207,12 +208,12 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
     throw new ValidationError('Split payment requires at least 2 splits');
   }
 
-  const order = await ordersInterface.getOrderById(orderId, restaurantId);
+  const order = await ordersService.getById(orderId, restaurantId);
   if (!order) throw new NotFoundError('Order');
   if (order.status === 'paid') throw new AppError('Order is already paid', 400);
 
   const [allItems, settings] = await Promise.all([
-    ordersInterface.getOrderItems(orderId, restaurantId),
+    ordersService.getItems(orderId, restaurantId),
     settingsRepo.getAll(restaurantId),
   ]);
 
@@ -326,8 +327,8 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
     // the full order subtotal, not the per-split amounts.
     if (order.loyalty_customer_id) {
       const fullSubtotal = parseFloat(allItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
-      await loyaltyInterface.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
-      await loyaltyInterface.earnPoints(restaurantId, order.loyalty_customer_id, orderId, fullSubtotal, settings, client);
+      await loyaltyService.deductPoints(restaurantId, order.loyalty_customer_id, orderId, order.loyalty_points_redeemed || 0, client);
+      await loyaltyService.earnPoints(restaurantId, order.loyalty_customer_id, orderId, fullSubtotal, settings, client);
     }
     return created;
   });
@@ -336,8 +337,8 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
   ws.broadcast('ORDER_STATUS_CHANGED', { orderId, status: 'paid' }, restaurantId);
 
   if (order.table_id) {
-    await tablesInterface.setTableStatus(order.table_id, 'available', restaurantId);
-    await tablesInterface.setTableStaff(order.table_id, null, restaurantId);
+    await tablesService.updateStatus(order.table_id, 'available', restaurantId);
+    await tablesRepo.assignStaff(order.table_id, null, restaurantId);
   }
 
   const totalCharged = parseFloat(payments.reduce((s, p) => s + p.charged, 0).toFixed(2));
@@ -347,7 +348,7 @@ async function processSplitPayment(orderId, { splits, waiveServiceCharge = false
 }
 
 async function getPaymentsForOrder(orderId, restaurantId) {
-  await ordersInterface.getOrderById(orderId, restaurantId);
+  await ordersService.getById(orderId, restaurantId);
   return repo.getByOrderId(orderId);
 }
 

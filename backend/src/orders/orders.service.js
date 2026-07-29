@@ -1,11 +1,12 @@
 const repo = require('./orders.repository');
-const tablesInterface = require('../tables/tables.interface');
-const menuInterface = require('../menu/menu.interface');
+const tablesService = require('../tables/tables.service');
+const tablesRepo = require('../tables/tables.repository'); // raw assignStaff: skip the service's validation/notify (internal table<->order sync)
+const menuService = require('../menu/menu.service');
 const settingsRepo = require('../settings/settings.repository');
 const inventoryService = require('../inventory/inventory.service');
 const wasteService = require('../waste/waste.service');
-const couponsInterface = require('../coupons/coupons.interface');
-const loyaltyInterface = require('../loyalty/loyalty.interface');
+const couponsService = require('../coupons/coupons.service');
+const loyaltyService = require('../loyalty/loyalty.service');
 const ws = require('../shared/websocket');
 const db = require('../shared/db');
 const { NotFoundError, ValidationError, ForbiddenError } = require('../shared/errors');
@@ -41,8 +42,8 @@ async function _resetTableIfEmpty(tableId, restaurantId) {
   if (!tableId) return;
   const remaining = await repo.getActiveByTable(tableId, restaurantId);
   if (remaining.length === 0) {
-    await tablesInterface.setTableStatus(tableId, 'available', restaurantId);
-    await tablesInterface.setTableStaff(tableId, null, restaurantId);
+    await tablesService.updateStatus(tableId, 'available', restaurantId);
+    await tablesRepo.assignStaff(tableId, null, restaurantId);
     ws.broadcast('TABLE_UPDATED', { tableId }, restaurantId);
   }
 }
@@ -73,7 +74,7 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
   }
 
   // Validate all menu items exist and are available for this restaurant
-  const menuItems = await menuInterface.getAvailableItems(restaurantId);
+  const menuItems = await menuService.getAvailable(restaurantId);
   const availableIds = new Set(menuItems.map((i) => i.id));
   for (const item of items) {
     if (!availableIds.has(item.menuItemId)) {
@@ -96,9 +97,9 @@ async function createOrder({ restaurantId, tableId, createdBy, items, channel = 
   });
 
   if (tableId) {
-    await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
+    await tablesService.updateStatus(tableId, 'occupied', restaurantId);
     if (assignedStaffId) {
-      await tablesInterface.setTableStaff(tableId, assignedStaffId, restaurantId);
+      await tablesRepo.assignStaff(tableId, assignedStaffId, restaurantId);
     }
   }
 
@@ -123,7 +124,7 @@ async function addItems(orderId, items, restaurantId) {
     throw new ValidationError('Cannot add items to a paid or cancelled order');
   }
 
-  const menuItems = await menuInterface.getAvailableItems(restaurantId);
+  const menuItems = await menuService.getAvailable(restaurantId);
   const availableIds = new Set(menuItems.map((i) => i.id));
   for (const item of items) {
     if (!availableIds.has(item.menuItemId)) {
@@ -385,7 +386,7 @@ async function applyCoupon(orderId, code, restaurantId) {
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
   const subtotal = await repo.calculateTotal(orderId, restaurantId);
-  const { couponId, discountAmount } = await couponsInterface.validateAndApplyCoupon(
+  const { couponId, discountAmount } = await couponsService.validateAndApplyCoupon(
     restaurantId, code, subtotal, orderId,
   );
   return repo.setCoupon(orderId, couponId, discountAmount, restaurantId);
@@ -395,7 +396,7 @@ async function removeCoupon(orderId, restaurantId) {
   const order = await getById(orderId, restaurantId);
   if (['paid', 'cancelled'].includes(order.status))
     throw new ValidationError('Cannot modify a paid or cancelled order');
-  await couponsInterface.removeCouponFromOrder(orderId);
+  await couponsService.removeCouponFromOrder(orderId);
   return repo.clearCoupon(orderId, restaurantId);
 }
 
@@ -409,13 +410,13 @@ async function applyLoyalty(orderId, phone, pointsToRedeem, restaurantId) {
     repo.calculateTotal(orderId, restaurantId),
   ]);
 
-  const customer = await loyaltyInterface.lookupCustomer(restaurantId, phone);
+  const customer = await loyaltyService.lookupCustomer(restaurantId, phone);
   if (!customer) throw new ValidationError('No loyalty account found for this phone number');
 
   const n = parseInt(pointsToRedeem || 0);
   let redemptionValue = 0;
   if (n > 0) {
-    ({ redemptionValue } = loyaltyInterface.validateRedemption(customer, n, subtotal, settings));
+    ({ redemptionValue } = loyaltyService.validateRedemption(customer, n, subtotal, settings));
   }
   return repo.setLoyalty(orderId, customer.id, n, redemptionValue, restaurantId);
 }

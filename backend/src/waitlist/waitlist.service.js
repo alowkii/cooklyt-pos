@@ -8,7 +8,7 @@
  * guest's polled status agree, and so a future WhatsApp push has a value to send.
  */
 const repo = require('./waitlist.repository');
-const tablesInterface = require('../tables/tables.interface');
+const tablesService = require('../tables/tables.service');
 const eta = require('../eta/eta.service');
 const notifier = require('./waitlist.notify');
 const ws = require('../shared/websocket');
@@ -111,11 +111,11 @@ async function seat(id, restaurantId, tableId) {
   // taken between the staff loading the queue and clicking Seat. Occupying
   // funnels through tables.service, the session-logging chokepoint for when it
   // later frees.
-  const table = await tablesInterface.getTableById(tableId, restaurantId); // throws if not found
+  const table = await tablesService.getById(tableId, restaurantId); // throws if not found
   if (table.status !== 'available') {
     throw new ValidationError(`Table ${table.number} is no longer available`);
   }
-  await tablesInterface.setTableStatus(tableId, 'occupied', restaurantId);
+  await tablesService.updateStatus(tableId, 'occupied', restaurantId);
 
   const seated = await repo.setStatus(id, restaurantId, 'seated', {
     seatedAt: true, assignedTableId: tableId, notifiedReady: true,

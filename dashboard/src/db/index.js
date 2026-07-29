@@ -7,7 +7,6 @@ export const db = new Dexie('cooklyt_pos_dashboard');
 db.version(1).stores({
   menu:              '&id, category, available, name',
   restaurant_tables: '&id, number, status',
-  orders:            '&id, table_id, status, created_at',
   kitchen:           '&order_item_id, order_id',
   reports:           '&date',
   sync_queue:        '++id, entity, operation, status, created_at',
