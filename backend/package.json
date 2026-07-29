@@ -2,6 +2,7 @@
   "name": "pos-backend",
   "version": "1.0.0",
   "description": "Restaurant POS backend",
+  "license": "AGPL-3.0-only",
   "main": "src/server.js",
   "engines": {
     "node": ">=22.0.0",

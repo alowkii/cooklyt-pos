@@ -546,4 +546,8 @@ The API runs as a systemd service (not pm2) under a non-root user. The frontends
 
 ## License
 
-No license has been assigned yet, which means default copyright applies and the code is not licensed for reuse. If you want to use this project, open an issue to ask.
+Licensed under the **GNU Affero General Public License v3.0**. The full text is in [`LICENSE`](LICENSE).
+
+In short: you may read, self-host, modify, and redistribute this software. If you run a modified version as a network service, AGPL section 13 requires you to offer that version's complete source to its users. There is no exception for hosted or SaaS deployments — that is the specific gap this license closes.
+
+Contributions are accepted under the same license.
