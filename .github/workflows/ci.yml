@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pos_user
+          POSTGRES_PASSWORD: pos_password
+          POSTGRES_DB: pos_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U pos_user -d pos_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Migrate test DB
+        working-directory: backend
+        run: npm run migrate:test
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test
