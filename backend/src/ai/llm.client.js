@@ -149,54 +149,6 @@ async function* chatStream(messages, options = {}) {
   yield { type: 'done', finishReason };
 }
 
-/**
- * Tool-calling loop: call the model, execute requested tools, feed results back,
- * repeat until the model produces a text answer (or maxRounds is hit).
- *
- * executeTool(name, args) must return a JSON-serializable result, or
- * { confirmRequired: true, ...details } to halt the loop for user confirmation
- * (the write-action flow from AI_PLAN.md — the service layer owns that exchange).
- *
- * Returns { content, pendingConfirm, messages } — messages is the full transcript
- * so the caller can persist it and resume after confirmation.
- */
-async function chatWithTools(messages, tools, executeTool, options = {}) {
-  const { maxRounds = 5, ...chatOptions } = options;
-  const transcript = [...messages];
-
-  for (let round = 0; round < maxRounds; round++) {
-    const result = await chat(transcript, { ...chatOptions, tools });
-
-    if (!result.toolCalls) {
-      return { content: result.content, pendingConfirm: null, messages: transcript };
-    }
-
-    transcript.push({ role: 'assistant', content: result.content || '', tool_calls: result.toolCalls });
-
-    for (const call of result.toolCalls) {
-      const name = call.function?.name;
-      let args;
-      try {
-        args = JSON.parse(call.function?.arguments || '{}');
-      } catch {
-        // Malformed arguments from the model — report back so it can retry
-        transcript.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: 'invalid JSON in tool arguments' }) });
-        continue;
-      }
-
-      const toolResult = await executeTool(name, args);
-
-      if (toolResult?.confirmRequired) {
-        return { content: result.content, pendingConfirm: { tool: name, args, ...toolResult }, messages: transcript };
-      }
-
-      transcript.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(toolResult ?? null) });
-    }
-  }
-
-  throw new AppError('AI did not produce an answer within the tool-call limit', 502);
-}
-
 /** Liveness check: can we reach the endpoint and is the configured model present? */
 async function healthCheck() {
   try {
@@ -216,17 +168,10 @@ async function healthCheck() {
 /** Fast liveness probe — true if the endpoint answers within `timeoutMs`.
  *  Lets non-critical callers skip the LLM quickly when it's unreachable. */
 async function reachable(timeoutMs = 1500) {
-  // Race the probe against a hard timer: on some hosts an abort doesn't interrupt
-  // a stalled connect to a dead port promptly, so guarantee a bounded resolve.
-  const probe = fetch(`${LLM_BASE_URL}/models`, {
+  return fetch(`${LLM_BASE_URL}/models`, {
     headers: { Authorization: `Bearer ${LLM_API_KEY}` },
     signal: AbortSignal.timeout(timeoutMs),
   }).then((r) => r.ok).catch(() => false);
-  const cap = new Promise((resolve) => {
-    const t = setTimeout(() => resolve(false), timeoutMs);
-    if (t.unref) t.unref();
-  });
-  return Promise.race([probe, cap]);
 }
 
-module.exports = { chat, chatStream, chatWithTools, healthCheck, reachable, LLM_MODEL, LLM_BASE_URL };
+module.exports = { chat, chatStream, healthCheck, reachable, LLM_MODEL, LLM_BASE_URL };

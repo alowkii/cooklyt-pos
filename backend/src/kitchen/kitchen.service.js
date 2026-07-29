@@ -1,5 +1,5 @@
 const repo = require('./kitchen.repository');
-const ordersInterface = require('../orders/orders.interface');
+const ordersService = require('../orders/orders.service');
 const ws = require('../shared/websocket');
 
 async function getKitchenQueue(restaurantId) {
@@ -7,19 +7,19 @@ async function getKitchenQueue(restaurantId) {
 }
 
 async function markOrderPreparing(orderId, restaurantId) {
-  const updated = await ordersInterface.updateOrderStatus(orderId, 'preparing', restaurantId);
+  const updated = await ordersService.updateStatus(orderId, 'preparing', restaurantId);
   ws.broadcast('ORDER_PREPARING', { orderId }, restaurantId);
   return updated;
 }
 
 async function markOrderReady(orderId, restaurantId) {
-  const updated = await ordersInterface.updateOrderStatus(orderId, 'ready', restaurantId);
+  const updated = await ordersService.updateStatus(orderId, 'ready', restaurantId);
   ws.broadcast('ORDER_READY', { orderId }, restaurantId);
   return updated;
 }
 
 async function markOrderServed(orderId, restaurantId) {
-  const updated = await ordersInterface.updateOrderStatus(orderId, 'served', restaurantId);
+  const updated = await ordersService.updateStatus(orderId, 'served', restaurantId);
   ws.broadcast('ORDER_SERVED', { orderId }, restaurantId);
   return updated;
 }
