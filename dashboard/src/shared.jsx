@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 
-export const DEMO_EMAIL = "krishensazawal@cooklyt.in";
+export const DEMO_EMAIL = "hello@cooklyt.in";
 export const MAILTO_HREF = `mailto:${DEMO_EMAIL}?subject=${encodeURIComponent("CookLyt POS – Demo Request")}&body=${encodeURIComponent("Hi,\n\nI'm interested in a live demo of CookLyt POS for my restaurant.\n\nName:\nRestaurant name:\nNumber of locations:\nBest time to reach me:\n\nThanks,")}`;
 export const WHATSAPP_HREF = `https://wa.me/919873665365?text=${encodeURIComponent("Hi, I'd like a CookLyt demo for my restaurant.")}`;
 
@@ -144,7 +144,7 @@ export function PageFooter() {
         {/* Divider */}
         <div style={{ borderTop: "1px solid var(--line)", paddingTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <span style={{ fontSize: 11.5, color: "var(--mute-2)", fontFamily: '"Geist Mono", monospace' }}>
-            © {new Date().getFullYear()} Krilok Pvt. Ltd. · Bengaluru, India
+            © {new Date().getFullYear()} CookLyt · Bengaluru, India
           </span>
 
         </div>

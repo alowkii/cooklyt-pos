@@ -126,10 +126,6 @@ export default function LandingLayout({ children }) {
           <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)", flexShrink: 0 }}>
             {LOGO_SVG(20, 20)}
             {WORDMARK_SVG(100, 18)}
-            <span className="nav-byline" style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-              <span style={{ display: "inline-block", width: 1, height: 13, background: "var(--line-2)" }} />
-              <span style={{ color: "var(--mute)", fontWeight: 400, fontSize: 12 }}>by Krilok</span>
-            </span>
           </a>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
             {PRIMARY_LINKS.map(({ href, label }) => (
@@ -238,9 +234,6 @@ export default function LandingLayout({ children }) {
              it shrink to its content width — it still overhangs into the
              wrapper's 32px buffer without spilling past the viewport. */
           .preview-badge  { min-width: 0 !important; padding: 9px 12px !important; }
-        }
-        @media (max-width: 400px) {
-          .nav-byline { display: none !important; }
         }
         @media (max-width: 480px) {
           .lp-container { padding-left: 18px !important; padding-right: 18px !important; }

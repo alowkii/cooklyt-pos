@@ -352,7 +352,7 @@ All messages are JSON: `{ event, data, timestamp }`.
 
 ```bash
 git clone <repo-url>
-cd krilok-pos/backend
+cd cooklyt-pos/backend
 npm install
 ```
 

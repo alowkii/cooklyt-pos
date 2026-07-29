@@ -59,8 +59,6 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
                                    letter-spacing:0"></span>T
               </div>
 
-              <div style="font-size:11px;color:#888882;margin-top:4px;letter-spacing:0.05em">by Krilok</div>
-
             </td>
           </tr>
         </table>
@@ -128,10 +126,9 @@ function baseTemplate({ heading, body, ctaText, ctaUrl, expiry, footerNote }) {
                   <td>
                     <span style="font-size:12px;color:#55554f;font-family:Georgia,'Times New Roman',serif;
                                  letter-spacing:3px">COOKLYT</span>
-                    <span style="font-size:12px;color:#aaa9a4">&nbsp;&middot; by Krilok</span>
                   </td>
                   <td align="right">
-                    <span style="font-size:11.5px;color:#c5c2bc">&copy; ${year} Krilok</span>
+                    <span style="font-size:11.5px;color:#c5c2bc">&copy; ${year} CookLyt</span>
                   </td>
                 </tr>
               </table>

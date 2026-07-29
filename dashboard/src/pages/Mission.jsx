@@ -153,15 +153,15 @@ export default function Mission() {
         </div>
       </section>
 
-      {/* ── About Krilok ── */}
+      {/* ── About us ── */}
       <section style={{ borderTop: "1px solid var(--line)", background: "var(--paper-2)", padding: "64px 0" }}>
         <div className="lp-container" style={{ maxWidth: 760, margin: "0 auto" }}>
-          <span style={SEC}>About Krilok</span>
+          <span style={SEC}>About us</span>
           <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", letterSpacing: "-.022em", lineHeight: 1.15, fontWeight: 600, margin: "10px 0 16px" }}>
             Built by people who've worked in kitchens and in software.
           </h2>
           <p style={{ color: "var(--mute)", fontSize: 15, lineHeight: 1.7, maxWidth: 580 }}>
-            Krilok is a Bengaluru-based product company. CookLyt is our first product — built specifically
+            We're a Bengaluru-based product team. CookLyt is our first product — built specifically
             for the Indian food-service market, with waste intelligence at its core from day one.
           </p>
         </div>

@@ -106,7 +106,6 @@ export default function Landing() {
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minHeight: 26, padding: "4px 12px", border: "1px solid var(--line-2)", borderRadius: 999, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "wrap" }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ink)", display: "inline-block" }} />
                 <span className="mono" style={{ letterSpacing: ".06em" }}>CookLyt · 01</span>
-                <span>A product by Krilok</span>
               </span>
               <h1 style={{ fontSize: "clamp(40px, 7.5vw, 88px)", lineHeight: 0.98, letterSpacing: "-.035em", fontWeight: 600, margin: "16px 0 24px" }}>
                 The POS your<br />restaurant{" "}
